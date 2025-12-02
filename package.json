@@ -86,6 +86,78 @@
         "title": "Validate Workspace Against Datamap",
         "category": "Soar",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "soar.addAttribute",
+        "title": "Add Attribute",
+        "category": "Soar",
+        "icon": "$(add)"
+      },
+      {
+        "command": "soar.editAttribute",
+        "title": "Edit Attribute",
+        "category": "Soar",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "soar.deleteAttribute",
+        "title": "Delete Attribute",
+        "category": "Soar",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "soar.refreshLayout",
+        "title": "Refresh Project Structure",
+        "category": "Soar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "soar.addOperator",
+        "title": "Add Operator",
+        "category": "Soar",
+        "icon": "$(symbol-method)"
+      },
+      {
+        "command": "soar.addSubstate",
+        "title": "Add Substate",
+        "category": "Soar",
+        "icon": "$(symbol-operator)"
+      },
+      {
+        "command": "soar.addFile",
+        "title": "Add File",
+        "category": "Soar",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "soar.addFolder",
+        "title": "Add Folder",
+        "category": "Soar",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "soar.renameNode",
+        "title": "Rename",
+        "category": "Soar",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "soar.deleteNode",
+        "title": "Delete",
+        "category": "Soar",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "soar.findOrphanedFiles",
+        "title": "Find Orphaned Files",
+        "category": "Soar",
+        "icon": "$(search)"
+      },
+      {
+        "command": "soar.syncProjectFiles",
+        "title": "Sync Project Files",
+        "category": "Soar",
+        "icon": "$(sync)"
       }
     ],
     "viewsContainers": {
@@ -100,6 +172,12 @@
     "views": {
       "soar-explorer": [
         {
+          "id": "soarLayout",
+          "name": "Project Structure",
+          "icon": "$(folder-library)",
+          "contextualTitle": "Soar Project Structure"
+        },
+        {
           "id": "soarDatamap",
           "name": "Datamap",
           "icon": "$(type-hierarchy)",
@@ -113,6 +191,68 @@
           "command": "soar.refreshDatamap",
           "when": "view == soarDatamap",
           "group": "navigation"
+        },
+        {
+          "command": "soar.refreshLayout",
+          "when": "view == soarLayout",
+          "group": "navigation@1"
+        },
+        {
+          "command": "soar.findOrphanedFiles",
+          "when": "view == soarLayout",
+          "group": "navigation@2"
+        },
+        {
+          "command": "soar.syncProjectFiles",
+          "when": "view == soarLayout",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "soar.addAttribute",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-(root|attribute-soar_id)$/",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "soar.editAttribute",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-/",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "soar.deleteAttribute",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-/",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "soar.addOperator",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "group": "1_add@1"
+        },
+        {
+          "command": "soar.addSubstate",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "group": "1_add@2"
+        },
+        {
+          "command": "soar.addFile",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "group": "1_add@3"
+        },
+        {
+          "command": "soar.addFolder",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "group": "1_add@4"
+        },
+        {
+          "command": "soar.renameNode",
+          "when": "view == soarLayout && viewItem =~ /^layout-/ && viewItem != layout-operator-root",
+          "group": "2_modify@1"
+        },
+        {
+          "command": "soar.deleteNode",
+          "when": "view == soarLayout && viewItem =~ /^layout-/ && viewItem != layout-operator-root",
+          "group": "2_modify@2"
         }
       ]
     },

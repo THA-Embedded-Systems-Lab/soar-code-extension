@@ -23,7 +23,14 @@ export class DatamapTreeItem extends vscode.TreeItem {
         if (vertex) {
             this.tooltip = this.buildTooltip();
             this.description = this.buildDescription();
-            this.contextValue = `datamap-${vertex.type.toLowerCase()}`;
+            // Context value determines which menu items are shown
+            if (edgeName) {
+                // This is an attribute (not the root)
+                this.contextValue = `datamap-attribute-${vertex.type.toLowerCase()}`;
+            } else {
+                // This is the root node
+                this.contextValue = `datamap-root`;
+            }
             this.iconPath = this.getIconForVertexType(vertex.type);
         }
     }

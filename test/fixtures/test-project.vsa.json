@@ -31,6 +31,11 @@
             "name": "superstate",
             "toId": "root-state",
             "comment": "Parent state"
+          },
+          {
+            "name": "state",
+            "toId": "1",
+            "comment": "new state"
           }
         ]
       },
@@ -137,6 +142,11 @@
           "generate-output",
           "cleanup"
         ]
+      },
+      {
+        "id": "1",
+        "type": "SOAR_ID",
+        "outEdges": []
       }
     ]
   },
@@ -149,33 +159,32 @@
       {
         "type": "FILE",
         "id": "file-1",
-        "name": "README.txt",
-        "file": "README.txt"
+        "name": "example",
+        "file": "example.soar"
       },
       {
-        "type": "HIGH_LEVEL_OPERATOR",
-        "id": "op-initialize",
-        "name": "initialize",
-        "file": "initialize.soar",
-        "dmId": "root-state",
-        "folder": "initialize",
-        "children": [
-          {
-            "type": "FILE_OPERATOR",
-            "id": "file-op-1",
-            "name": "elaborate",
-            "file": "elaborate.soar"
-          }
-        ]
+        "type": "FILE",
+        "id": "file-2",
+        "name": "test-completions",
+        "file": "test-completions.soar"
       },
       {
-        "type": "HIGH_LEVEL_OPERATOR",
-        "id": "op-process",
-        "name": "process-input",
-        "file": "process-input.soar",
-        "dmId": "root-state",
-        "folder": "process-input",
-        "children": []
+        "type": "FILE",
+        "id": "file-3",
+        "name": "test-validation",
+        "file": "test-validation.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "1",
+        "name": "orphaned-file",
+        "file": "orphaned-file.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "2",
+        "name": "test_operator",
+        "file": "test_operator.soar"
       }
     ]
   }

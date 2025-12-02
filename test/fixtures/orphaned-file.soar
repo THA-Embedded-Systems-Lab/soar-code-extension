@@ -1,0 +1,9 @@
+# Orphaned Test File
+# This file is not referenced in test-project.vsa.json
+
+sp {test*orphaned*file
+   "This production is in an orphaned file"
+   (state <s> ^type state)
+-->
+   (write (crlf) |This file should be detected as orphaned|)
+}
