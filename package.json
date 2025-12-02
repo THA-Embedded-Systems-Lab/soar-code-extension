@@ -158,6 +158,18 @@
         "title": "Sync Project Files",
         "category": "Soar",
         "icon": "$(sync)"
+      },
+      {
+        "command": "soar.viewDatamap",
+        "title": "View Datamap",
+        "category": "Soar",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "soar.viewRootDatamap",
+        "title": "View Root Datamap",
+        "category": "Soar",
+        "icon": "$(home)"
       }
     ],
     "viewsContainers": {
@@ -190,7 +202,12 @@
         {
           "command": "soar.refreshDatamap",
           "when": "view == soarDatamap",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "soar.viewRootDatamap",
+          "when": "view == soarDatamap",
+          "group": "navigation@2"
         },
         {
           "command": "soar.refreshLayout",
@@ -253,6 +270,11 @@
           "command": "soar.deleteNode",
           "when": "view == soarLayout && viewItem =~ /^layout-/ && viewItem != layout-operator-root",
           "group": "2_modify@2"
+        },
+        {
+          "command": "soar.viewDatamap",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|high-level-operator|high-level-file-operator|high-level-impasse-operator)$/",
+          "group": "3_datamap@1"
         }
       ]
     },

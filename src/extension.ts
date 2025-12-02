@@ -249,6 +249,44 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register view datamap command for layout nodes
+    context.subscriptions.push(
+        vscode.commands.registerCommand('soar.viewDatamap', async (treeItem) => {
+            const projectContext = layoutProvider.getProjectContext();
+            if (!projectContext || !treeItem?.node) {
+                vscode.window.showWarningMessage('No node selected');
+                return;
+            }
+
+            // Check if node has a datamap ID
+            if (!('dmId' in treeItem.node) || !treeItem.node.dmId) {
+                vscode.window.showInformationMessage('This node does not have an associated datamap');
+                return;
+            }
+
+            // Switch datamap view to this node's datamap
+            datamapProvider.setDatamapRoot(treeItem.node.dmId);
+
+            // Show success message
+            vscode.window.showInformationMessage(`Viewing datamap for: ${treeItem.node.name}`);
+        })
+    );
+
+    // Register view root datamap command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('soar.viewRootDatamap', async () => {
+            const projectContext = datamapProvider.getProjectContext();
+            if (!projectContext) {
+                vscode.window.showWarningMessage('No project loaded');
+                return;
+            }
+
+            // Switch back to root datamap
+            datamapProvider.setDatamapRoot(null);
+            vscode.window.showInformationMessage('Viewing root datamap');
+        })
+    );
+
     // Auto-load layout if project file exists
     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         layoutProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
