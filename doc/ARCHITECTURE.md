@@ -2,7 +2,10 @@
 
 ## Overview
 
-The Soar VS Code extension provides comprehensive IDE support for the Soar cognitive architecture language, including syntax highlighting, language server features, datamap management, and project structure visualization compatible with VisualSoar.
+The Soar VS Code extension provides comprehensive IDE support for the Soar
+cognitive architecture language, including syntax highlighting, language server
+features, datamap management, and project structure visualization compatible
+with VisualSoar.
 
 ## System Components
 
@@ -21,28 +24,33 @@ The main extension entry point that coordinates all components:
 Provides LSP-based language features:
 
 #### `soarLanguageServer.ts`
+
 - Main LSP server implementation
 - Handles client-server communication
 - Coordinates language features
 
 #### `soarParser.ts`
+
 - Parses Soar productions into structured format
 - Extracts variables, attributes, function calls
 - Calculates accurate position information for diagnostics
 - **Key Fix**: Uses `getPositionInBody()` to properly track line numbers across multi-line productions
 
 #### `soarTypes.ts`
+
 - Type definitions for parsed Soar documents
 - Production, attribute, variable types
 - Range and position types
 
 #### `visualSoarProject.ts`
+
 - VisualSoar project schema type definitions
 - Datamap vertex types (SOAR_ID, ENUMERATION, INTEGER, FLOAT, STRING)
 - Layout node types (operators, files, folders, substates)
 - Project context management
 
 #### `projectLoader.ts`
+
 - Finds and loads VisualSoar project files (.vsa.json, .vsproj, .soarproj)
 - Builds indices for fast datamap/layout lookups
 - Saves project changes
@@ -52,6 +60,7 @@ Provides LSP-based language features:
 Manages VisualSoar datamap integration:
 
 #### `datamapTreeProvider.ts`
+
 - Displays datamap as hierarchical tree view
 - **Cycle Detection**: Prevents infinite expansion of self-referencing attributes (e.g., ^superstate)
 - **Multiple Datamap Views**: Switch between root datamap and substate datamaps
@@ -59,12 +68,14 @@ Manages VisualSoar datamap integration:
 - **Operator Hints**: Displays operator name choices without expanding
 
 #### `datamapOperations.ts`
+
 - CRUD operations for datamap attributes
 - Add, edit, delete attributes
 - Type changes with validation
 - Automatic project file saving
 
 #### `datamapValidator.ts`
+
 - Validates Soar code against datamap structure
 - Reports errors at actual attribute locations (not production header)
 - Escalates validation issues to errors (breaks Soar import)
@@ -75,23 +86,27 @@ Manages VisualSoar datamap integration:
 Manages project structure visualization:
 
 #### `layoutTreeProvider.ts`
+
 - Displays VisualSoar project structure
 - **Path Resolution**: Correctly builds file paths using parent folder accumulation
 - **Click-to-Open**: Opens files in editor when clicked
 - Supports operators, substates, folders, files
 
 #### `layoutOperations.ts`
+
 - Add/remove operators, substates, files, folders
 - Rename and delete nodes
 - Creates corresponding datamap vertices for substates
 - Synchronizes file system with project structure
 
 #### `projectSync.ts`
+
 - Finds orphaned .soar files not in project
 - Bulk import/sync operations
 - Maintains project file consistency
 
 #### `soarTemplates.ts`
+
 - Templates for creating new Soar files
 - Operator scaffolding
 - Substate initialization
@@ -157,27 +172,33 @@ Manages project structure visualization:
 ## Key Design Patterns
 
 ### 1. Tree View Pattern
+
 - **Provider**: Implements `TreeDataProvider<T>`
 - **Items**: Custom `TreeItem` subclasses with context
 - **Refresh**: Event emitter for tree updates
 - **Context Values**: Enable/disable commands based on item type
 
 ### 2. Project Context Pattern
+
 ```typescript
 interface ProjectContext {
-    projectFile: string;           // Path to .vsa.json
-    project: VisualSoarProject;    // Parsed project
-    datamapIndex: Map<string, DMVertex>;  // Fast vertex lookup
-    layoutIndex: Map<string, LayoutNode>; // Fast node lookup
+  projectFile: string; // Path to .vsa.json
+  project: VisualSoarProject; // Parsed project
+  datamapIndex: Map<string, DMVertex>; // Fast vertex lookup
+  layoutIndex: Map<string, LayoutNode>; // Fast node lookup
 }
 ```
+
 Shared across all components for consistent state.
 
 ### 3. Position Tracking Pattern
+
 Parser calculates positions by:
+
 - Tracking base position (where body starts)
 - Counting newlines and characters within body
 - Building absolute positions for diagnostics
+
 ```typescript
 private getPositionInBody(body: string, offset: number, basePosition: Position): Position {
     let line = basePosition.line;
@@ -195,46 +216,56 @@ private getPositionInBody(body: string, offset: number, basePosition: Position):
 ```
 
 ### 4. Cycle Detection Pattern
+
 Tracks ancestor IDs to prevent infinite loops:
+
 ```typescript
-ancestorIds: Set<string>  // All vertex IDs from root to current node
+ancestorIds: Set<string>; // All vertex IDs from root to current node
 if (ancestorIds.has(edge.toId)) {
-    // Mark as cycle, don't allow expansion
+  // Mark as cycle, don't allow expansion
 }
 ```
 
 ## Critical Implementation Details
 
 ### Parser Position Calculation
+
 **Problem**: Originally all attributes reported errors at production header line.
 
-**Solution**: 
+**Solution**:
+
 1. Calculate `bodyBasePosition` where production body starts (after `sp {`)
 2. Use `getPositionInBody()` to track line breaks within body
 3. Store full range in `SoarAttribute.range`
 4. Use range in diagnostics for accurate highlighting
 
 ### File Path Resolution
+
 **Problem**: Files in nested folders couldn't be opened (path not found).
 
 **Solution**:
+
 1. Pass `parentPath` parameter through tree construction
 2. Accumulate folder paths: `parent + node.folder` for children
 3. Combine: `workspaceFolder + parentPath + node.file`
 4. Handle both root files and deeply nested files correctly
 
 ### Datamap Cycle Prevention
+
 **Problem**: `^superstate` attribute pointing to parent caused infinite expansion.
 
 **Solution**:
+
 1. Add `ancestorIds: Set<string>` to each tree item
 2. Check `ancestorIds.has(targetVertexId)` before allowing expansion
 3. Label cycles as "(cycle)" and make non-expandable
 
 ### Multiple Datamap Views
+
 **Feature**: View different datamaps for substates.
 
 **Implementation**:
+
 1. Add `currentRootId` to track which vertex to display
 2. Provide `setDatamapRoot(vertexId)` method
 3. Find layout node name for labeled display
@@ -267,11 +298,14 @@ src/
 ## Configuration
 
 ### Extension Settings
+
 - `soar.maxNumberOfProblems`: Max diagnostics per file (default: 100)
 - `soar.trace.server`: LSP communication logging (off/messages/verbose)
 
 ### Context Values
+
 Used for conditional menu items:
+
 - `datamap-root`: Root datamap node
 - `datamap-attribute-{type}`: Datamap attribute by type
 - `layout-{type}`: Layout node by type (operator-root, high-level-operator, etc.)
@@ -279,26 +313,31 @@ Used for conditional menu items:
 ## VisualSoar Compatibility
 
 ### Schema Version: 6
+
 Follows VisualSoar 9.6.4 project schema exactly.
 
 ### File Support
+
 - `.vsa.json`: Primary format (JSON with explicit schema)
 - `.vsproj`: VisualSoar native format
 - `.soarproj`: Legacy format
 
 ### Bidirectional Compatibility
+
 - Projects created in extension open in VisualSoar
 - Projects created in VisualSoar open in extension
 - All schema fields preserved
 
 ### Datamap Vertex Types
+
 - `SOAR_ID`: Identifier with attributes
 - `ENUMERATION`: Fixed set of choices
 - `INTEGER`: Integer range
-- `FLOAT`: Float range  
+- `FLOAT`: Float range
 - `STRING`: String value
 
 ### Layout Node Types
+
 - `OPERATOR_ROOT`: Project root
 - `FOLDER`: Directory
 - `FILE`: Non-Soar file
@@ -312,6 +351,7 @@ Follows VisualSoar 9.6.4 project schema exactly.
 ## Future Development
 
 ### Potential Enhancements
+
 1. **Advanced Completions**: Context-aware based on variable bindings
 2. **Refactoring**: Rename attribute across project
 3. **Datamap Graph View**: Visual graph editor for datamap
@@ -322,6 +362,7 @@ Follows VisualSoar 9.6.4 project schema exactly.
 8. **Semantic Search**: Find all uses of an attribute
 
 ### Extension Points
+
 - Custom commands: Add via `registerCommand()`
 - Tree view providers: Extend `TreeDataProvider`
 - LSP features: Add to `soarLanguageServer.ts`
@@ -330,12 +371,14 @@ Follows VisualSoar 9.6.4 project schema exactly.
 ## Testing
 
 ### Test Fixtures
+
 - `test/fixtures/example.soar`: Basic Soar file
 - `test/fixtures/test-validation.soar`: Validation test cases
 - `test/fixtures/test-project.vsa.json`: Sample project
 - `test/BW-Hierarchical/`: Complete hierarchical project
 
 ### Test Structure
+
 ```
 test/
 ├── suite/
@@ -347,13 +390,16 @@ test/
 ## Debugging
 
 ### Launch Configuration
+
 Press `F5` to launch Extension Development Host:
+
 - Extension loads in isolated VS Code instance
 - Set breakpoints in TypeScript
 - Console logs appear in Debug Console
 - Test with real .soar files
 
 ### Common Issues
+
 1. **"File not found"**: Check path resolution in `layoutTreeProvider.ts`
 2. **"Wrong line highlighted"**: Check position calculation in `soarParser.ts`
 3. **"Datamap not loading"**: Verify project file format and schema version
@@ -362,12 +408,14 @@ Press `F5` to launch Extension Development Host:
 ## Performance Considerations
 
 ### Optimization Strategies
+
 1. **Indices**: Use `Map<string, T>` for O(1) lookups
 2. **Lazy Loading**: Tree items created on-demand
 3. **Caching**: Parse results cached per document version
 4. **Debouncing**: Validation debounced on rapid edits
 
 ### Memory Management
+
 - Clear diagnostic collection on file close
 - Release references to closed documents
 - Rebuild indices only when project file changes

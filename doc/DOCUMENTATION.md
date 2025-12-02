@@ -5,6 +5,7 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
 ## 📚 Documentation Files
 
 ### For End Users
+
 - **[README.md](../README.md)** - Main user guide
   - Features overview
   - Installation instructions
@@ -13,7 +14,9 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
   - Configuration options
 
 ### For Developers
+
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design and implementation
+
   - Component overview
   - Data flow diagrams
   - Design patterns
@@ -21,6 +24,7 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
   - Performance considerations
 
 - **[FEATURES.md](FEATURES.md)** - Feature implementation guide
+
   - Complete feature list
   - Implementation details
   - Extension points
@@ -35,13 +39,16 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
   - Commands cheat sheet
 
 ### For VisualSoar Integration
+
 - **[VISUALSOAR-INTEGRATION.md](VISUALSOAR-INTEGRATION.md)** - VisualSoar compatibility
+
   - Project schema (version 6)
   - Type definitions
   - Bidirectional compatibility
   - File format details
 
 - **[DATAMAP-CRUD.md](DATAMAP-CRUD.md)** - Datamap operations
+
   - Add/edit/delete attributes
   - Usage examples
   - Best practices
@@ -53,6 +60,7 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
   - Context menus
 
 ### For Reference
+
 - **[REFERENCES.md](REFERENCES.md)** - External resources
   - API documentation links
   - Code examples
@@ -61,7 +69,7 @@ This directory contains comprehensive documentation for the Soar VS Code Extensi
 
 ## 🎯 Quick Navigation
 
-### I want to...
+### I want to
 
 **Use the extension**
 → Start with [README.md](README.md)
@@ -117,15 +125,15 @@ Extension Architecture
 
 ## 🔑 Key Features
 
-✅ Syntax highlighting with TextMate grammar  
-✅ Real-time validation against datamap  
-✅ Visual datamap editor with CRUD operations  
-✅ Project structure tree with navigation  
-✅ VisualSoar 9.6.4 compatibility  
-✅ Orphaned file detection and import  
-✅ Multiple datamap views (root and substates)  
-✅ Accurate error positioning  
-✅ Cycle detection in datamap  
+✅ Syntax highlighting with TextMate grammar
+✅ Real-time validation against datamap
+✅ Visual datamap editor with CRUD operations
+✅ Project structure tree with navigation
+✅ VisualSoar 9.6.4 compatibility
+✅ Orphaned file detection and import
+✅ Multiple datamap views (root and substates)
+✅ Accurate error positioning
+✅ Cycle detection in datamap
 
 ## 🎓 Learning Path
 
@@ -146,12 +154,12 @@ Extension Architecture
 
 ## 🐛 Common Issues & Solutions
 
-| Issue | Document | Section |
-|-------|----------|---------|
-| Files won't open | ARCHITECTURE.md | File Path Resolution |
+| Issue                | Document        | Section                     |
+| -------------------- | --------------- | --------------------------- |
+| Files won't open     | ARCHITECTURE.md | File Path Resolution        |
 | Wrong error location | ARCHITECTURE.md | Parser Position Calculation |
-| Datamap not loading | QUICKREF.md | Troubleshooting |
-| Infinite expansion | ARCHITECTURE.md | Datamap Cycle Prevention |
+| Datamap not loading  | QUICKREF.md     | Troubleshooting             |
+| Infinite expansion   | ARCHITECTURE.md | Datamap Cycle Prevention    |
 
 ## 🔧 Development Workflow
 
@@ -191,10 +199,10 @@ Keep all documentation in sync when adding features or making changes.
 
 ## 📅 Last Updated
 
-**Date**: December 2, 2025  
-**Version**: 0.1.0  
+**Date**: December 2, 2025
+**Version**: 0.1.0
 **Schema Compatibility**: VisualSoar 6 (9.6.4)
 
 ---
 
-*All documentation is written to be accessible to both human developers and AI coding agents.*
+_All documentation is written to be accessible to both human developers and AI coding agents._

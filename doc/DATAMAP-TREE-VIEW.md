@@ -1,14 +1,19 @@
 # Soar Datamap Tree View
 
 ## Overview
-The Soar extension now includes a dedicated side panel in VS Code to visualize the datamap structure from your Soar project file (`.vsa.json`).
+
+The Soar extension now includes a dedicated side panel in VS Code to visualize
+the datamap structure from your Soar project file (`.vsa.json`).
 
 ## Location
-The Soar panel appears in the Activity Bar (left sidebar) with a circuit board icon (⚡). Click it to open the Soar Explorer.
+
+The Soar panel appears in the Activity Bar (left sidebar) with a circuit board
+icon (⚡). Click it to open the Soar Explorer.
 
 ## Features
 
 ### Datamap Tree View
+
 - **Hierarchical Display**: Shows the complete datamap structure as a tree
 - **Attribute Navigation**: Expand/collapse nodes to explore attribute relationships
 - **Type Icons**: Different icons for different vertex types:
@@ -25,12 +30,15 @@ The Soar panel appears in the Activity Bar (left sidebar) with a circuit board i
   - Enumeration choices
 
 ### Auto-Loading
+
 The datamap automatically loads when you open a workspace containing a Soar project file:
+
 - `.vsa.json` (default format)
 - `.vsproj` (VisualSoar compatibility)
 - `.soarproj` (legacy format)
 
 ### Manual Refresh
+
 Click the refresh icon (🔄) in the Datamap view title bar to reload the project file.
 
 ## Usage
@@ -42,9 +50,12 @@ Click the refresh icon (🔄) in the Datamap view title bar to reload the projec
 
 ## Project File Format
 
-The extension uses `.vsa.json` (Visual Soar Agent) as the default project file format. This format follows the VisualSoar Schema v6 specification and is fully compatible with VisualSoar 9.6.4 `.vsproj` files.
+The extension uses `.vsa.json` (Visual Soar Agent) as the default project file
+format. This format follows the VisualSoar Schema v6 specification and is fully
+compatible with VisualSoar 9.6.4 `.vsproj` files.
 
 **Supported formats (in priority order):**
+
 1. `.vsa.json` - Default format for this extension
 2. `.vsproj` - VisualSoar native format (backward compatibility)
 3. `.soarproj` - Legacy format (backward compatibility)
@@ -52,6 +63,7 @@ The extension uses `.vsa.json` (Visual Soar Agent) as the default project file f
 ## Example
 
 Given this datamap structure in your project file:
+
 ```
 root-state
   ^io
@@ -66,6 +78,7 @@ root-state
 ```
 
 The tree view will display:
+
 ```
 📦 root-state (5 attributes)
   ├─ ^io (2 attributes)
@@ -87,6 +100,7 @@ The tree view will display:
 ## Next Steps
 
 Future enhancements will include:
+
 - Editing capabilities (add/remove vertices and edges)
 - Visual datamap graph view
 - Sync with Soar code changes

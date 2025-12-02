@@ -1,10 +1,14 @@
 # Datamap CRUD Operations
 
-The Soar extension now provides full CRUD (Create, Read, Update, Delete) operations for the datamap through the UI, eliminating the need to manually edit JSON files.
+The Soar extension now provides full CRUD (Create, Read, Update, Delete)
+operations for the datamap through the UI, eliminating the need to manually edit
+JSON files.
 
 ## Overview
 
-All datamap operations are accessible via the **Soar Datamap** tree view in the sidebar. The tree view displays the hierarchical structure of your datamap, and you can manipulate it using context menu commands.
+All datamap operations are accessible via the **Soar Datamap** tree view in the
+sidebar. The tree view displays the hierarchical structure of your datamap, and
+you can manipulate it using context menu commands.
 
 ## Operations
 
@@ -13,6 +17,7 @@ All datamap operations are accessible via the **Soar Datamap** tree view in the 
 Add a new attribute to any SOAR_ID vertex in the datamap.
 
 **How to use:**
+
 1. Right-click on a SOAR_ID node (root or any attribute with children)
 2. Select **"Add Attribute"**
 3. Enter the attribute name (e.g., `position`, `status`, `value`)
@@ -32,6 +37,7 @@ Add a new attribute to any SOAR_ID vertex in the datamap.
 The tree view automatically displays the datamap structure.
 
 **Features:**
+
 - Hierarchical view of all attributes
 - Type icons for each vertex type
 - Descriptions showing:
@@ -45,6 +51,7 @@ The tree view automatically displays the datamap structure.
 Modify an existing attribute's properties.
 
 **How to use:**
+
 1. Right-click on any attribute (not the root)
 2. Select **"Edit Attribute"**
 3. Choose what to edit:
@@ -53,14 +60,17 @@ Modify an existing attribute's properties.
    - **Change Type** - Change the attribute type (⚠️ may delete sub-attributes)
 
 **Rename:**
+
 - Enter the new attribute name
 - Validation ensures no duplicates and proper format
 
 **Edit Comment:**
+
 - Add or modify the descriptive comment
 - Empty comments are removed
 
 **Change Type:**
+
 - Select the new type
 - ⚠️ Warning: Changing from SOAR_ID will delete all sub-attributes
 - For ENUMERATION, specify the choices
@@ -72,11 +82,13 @@ Modify an existing attribute's properties.
 Remove an attribute and all its descendants from the datamap.
 
 **How to use:**
+
 1. Right-click on any attribute (not the root)
 2. Select **"Delete Attribute"**
 3. Confirm the deletion
 
 **⚠️ Warning:** This operation:
+
 - Deletes the attribute
 - Recursively deletes all sub-attributes
 - Cannot be undone (except via version control)
@@ -87,11 +99,11 @@ Remove an attribute and all its descendants from the datamap.
 
 The context menu shows different options depending on the selected item:
 
-| Context | Available Commands |
-|---------|-------------------|
-| Root node | Add Attribute |
+| Context           | Available Commands                              |
+| ----------------- | ----------------------------------------------- |
+| Root node         | Add Attribute                                   |
 | SOAR_ID attribute | Add Attribute, Edit Attribute, Delete Attribute |
-| Other attributes | Edit Attribute, Delete Attribute |
+| Other attributes  | Edit Attribute, Delete Attribute                |
 
 ## Validation
 
@@ -103,6 +115,7 @@ The context menu shows different options depending on the selected item:
 ## File Updates
 
 All operations automatically:
+
 1. Update the datamap structure in memory
 2. Save the changes to the project file (.vsa.json)
 3. Refresh the tree view
@@ -118,20 +131,23 @@ All operations automatically:
 
 ## Example Workflow
 
-### Creating a command structure:
+### Creating a command structure
 
 1. Right-click on `^output-link` → Add Attribute
+
    - Name: `command`
    - Type: SOAR_ID
    - Comment: "Commands sent to environment"
 
 2. Right-click on `^command` → Add Attribute
+
    - Name: `type`
    - Type: ENUMERATION
    - Choices: `move, attack, defend`
    - Comment: "Type of command"
 
 3. Right-click on `^command` → Add Attribute
+
    - Name: `status`
    - Type: ENUMERATION
    - Choices: `pending, executing, complete, failed`
@@ -157,18 +173,22 @@ No default keyboard shortcuts are assigned, but you can add them in VS Code sett
 ## Troubleshooting
 
 **"No datamap loaded"**
+
 - Ensure a .vsa.json project file exists in your workspace
 - Use "Load Datamap" command from the tree view title
 
 **Context menu not showing**
+
 - Ensure you're right-clicking on a valid node
 - Root node only supports "Add Attribute"
 
 **Changes not saving**
+
 - Check file permissions on the project file
 - Ensure the project file isn't read-only
 
 **Tree view not updating**
+
 - Click the refresh button in the tree view title
 - Or use "Refresh Datamap" command
 
@@ -182,6 +202,7 @@ No default keyboard shortcuts are assigned, but you can add them in VS Code sett
 ## Future Enhancements
 
 Potential future features:
+
 - Drag-and-drop to reorganize attributes
 - Bulk import/export operations
 - Undo/redo support

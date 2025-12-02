@@ -1,20 +1,25 @@
 # Soar VS Code Extension
 
-A comprehensive VS Code extension for the Soar cognitive architecture, providing syntax highlighting, intelligent code validation, datamap management, and seamless VisualSoar project integration.
+A comprehensive VS Code extension for the Soar cognitive architecture, providing
+syntax highlighting, intelligent code validation, datamap management, and
+seamless VisualSoar project integration.
 
 ## Features
 
 ### 🎨 Syntax Highlighting
+
 - Complete TextMate grammar for Soar productions
 - Color-coded keywords, variables, attributes, and operators
 - Support for comments, strings, and numeric literals
 
 ### 🔍 Language Server Protocol (LSP)
+
 - **Real-time Validation**: Checks code against project datamap
 - **Diagnostics**: Highlights errors at exact attribute locations
 - **Code Intelligence**: Foundation for completions and navigation
 
 ### 📊 Datamap Management
+
 - **Tree View**: Visual representation of working memory structure
 - **CRUD Operations**: Add, edit, delete attributes via UI
 - **Type Support**: SOAR_ID, ENUMERATION, INTEGER, FLOAT, STRING
@@ -22,6 +27,7 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 - **Multiple Views**: Switch between root and substate datamaps
 
 ### 🗂️ Project Structure
+
 - **Layout Tree**: Hierarchical view of operators and files
 - **VisualSoar Compatible**: Full bidirectional compatibility
 - **Quick Navigation**: Click to open files
@@ -29,6 +35,7 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 - **Orphan Detection**: Find and import untracked .soar files
 
 ### ✅ Code Validation
+
 - Validates attributes against datamap structure
 - Reports errors at actual attribute locations
 - Escalated to errors (breaks Soar import if invalid)
@@ -37,12 +44,14 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 ## Getting Started
 
 ### Prerequisites
+
 - VS Code 1.80.0 or higher
 - Node.js 18+ (for development)
 
 ### Installation
 
 #### From VSIX (Recommended)
+
 1. Download the `.vsix` file from releases
 2. Open VS Code
 3. Go to Extensions view (`Ctrl+Shift+X`)
@@ -50,6 +59,7 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 5. Select the downloaded file
 
 #### From Source
+
 ```bash
 git clone <repository-url>
 cd soar-vs-code
@@ -61,15 +71,18 @@ npm run compile
 ### Quick Start
 
 1. **Open a Soar Project**
+
    - Open a folder containing a `.vsa.json`, `.vsproj`, or `.soarproj` file
    - The extension auto-loads the project structure
 
 2. **View Datamap**
+
    - Open the Soar sidebar (circuit board icon in Activity Bar)
    - Explore the "Datamap" tree view
    - Right-click to add/edit/delete attributes
 
 3. **Navigate Project Structure**
+
    - View the "Project Structure" tree
    - Click files to open them
    - Right-click to add operators or substates
@@ -84,13 +97,16 @@ npm run compile
 ### Working with Datamaps
 
 #### View Datamap
+
 The datamap tree shows your agent's working memory structure:
+
 - Root node shows the top-level state
 - Attributes appear without the `^` prefix
 - ENUMERATION types show possible values
 - Operator attributes show operator names
 
 #### Add Attribute
+
 1. Right-click a SOAR_ID node in the datamap tree
 2. Select "Add Attribute"
 3. Enter attribute name (e.g., `position`, `status`)
@@ -99,6 +115,7 @@ The datamap tree shows your agent's working memory structure:
 6. Optionally add a comment
 
 #### Edit Attribute
+
 1. Right-click an attribute
 2. Select "Edit Attribute"
 3. Choose what to edit:
@@ -107,11 +124,13 @@ The datamap tree shows your agent's working memory structure:
    - **Change Type**: Convert to different type (⚠️ may delete children)
 
 #### Delete Attribute
+
 1. Right-click an attribute
 2. Select "Delete Attribute"
 3. Confirm (⚠️ deletes all child attributes)
 
 #### View Substate Datamap
+
 1. Right-click a HIGH_LEVEL_OPERATOR in the project structure
 2. Select "View Datamap"
 3. The datamap view switches to that substate
@@ -120,18 +139,21 @@ The datamap tree shows your agent's working memory structure:
 ### Working with Project Structure
 
 #### Add Operator
+
 1. Right-click a folder or operator in the project structure
 2. Select "Add Operator"
 3. Enter operator name
 4. A new .soar file is created
 
 #### Add Substate
+
 1. Right-click a folder or operator
 2. Select "Add Substate"
 3. Enter substate name
 4. Creates folder, file, and datamap vertex
 
 #### Find Orphaned Files
+
 1. Click the search icon in the Project Structure toolbar
 2. Review list of .soar files not in the project
 3. Select files to import
@@ -152,6 +174,7 @@ sp {example
 ```
 
 Errors appear:
+
 - In the editor (red squigglies)
 - In the Problems panel (`Ctrl+Shift+M`)
 - At the exact attribute location
@@ -160,15 +183,15 @@ Errors appear:
 
 Access via Command Palette (`Ctrl+Shift+P`):
 
-| Command | Description |
-|---------|-------------|
-| `Soar: Refresh Datamap` | Reload datamap from project file |
-| `Soar: Refresh Project Structure` | Reload project structure |
-| `Soar: View Root Datamap` | Return to root datamap view |
-| `Soar: Validate Against Datamap` | Manually validate current file |
-| `Soar: Validate Workspace Against Datamap` | Validate all .soar files |
-| `Soar: Find Orphaned Files` | Find untracked .soar files |
-| `Soar: Sync Project Files` | Import orphaned files |
+| Command                                    | Description                      |
+| ------------------------------------------ | -------------------------------- |
+| `Soar: Refresh Datamap`                    | Reload datamap from project file |
+| `Soar: Refresh Project Structure`          | Reload project structure         |
+| `Soar: View Root Datamap`                  | Return to root datamap view      |
+| `Soar: Validate Against Datamap`           | Manually validate current file   |
+| `Soar: Validate Workspace Against Datamap` | Validate all .soar files         |
+| `Soar: Find Orphaned Files`                | Find untracked .soar files       |
+| `Soar: Sync Project Files`                 | Import orphaned files            |
 
 ## Project File Format
 
@@ -208,6 +231,7 @@ The extension uses VisualSoar's project format (.vsa.json):
 ## Development
 
 ### Setup
+
 ```bash
 npm install          # Install dependencies
 npm run compile      # Compile TypeScript
@@ -217,12 +241,14 @@ npm test            # Run tests
 ```
 
 ### Debug Extension
+
 1. Open project in VS Code
 2. Press `F5` to launch Extension Development Host
 3. Set breakpoints in TypeScript files
 4. Test in the debug window
 
 ### Project Structure
+
 ```
 src/
 ├── extension.ts              # Main entry point
@@ -250,7 +276,7 @@ See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for detailed system design.
 ```json
 {
   "soar.maxNumberOfProblems": 100,
-  "soar.trace.server": "off"  // or "messages", "verbose"
+  "soar.trace.server": "off" // or "messages", "verbose"
 }
 ```
 
@@ -273,6 +299,7 @@ See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for detailed system design.
 Contributions welcome! See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for system design details.
 
 ### Development Guidelines
+
 1. Maintain VisualSoar schema compatibility
 2. Test with both simple and hierarchical projects
 3. Follow existing code patterns
@@ -292,6 +319,7 @@ Contributions welcome! See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for system
 ## Documentation
 
 For detailed documentation, see the [doc/](doc/) directory:
+
 - [ARCHITECTURE.md](doc/ARCHITECTURE.md) - System design and implementation
 - [FEATURES.md](doc/FEATURES.md) - Feature implementation guide
 - [QUICKREF.md](doc/QUICKREF.md) - Quick reference card
@@ -302,6 +330,7 @@ For detailed documentation, see the [doc/](doc/) directory:
 ## Changelog
 
 ### 0.1.0 - Initial Release
+
 - Syntax highlighting for Soar files
 - LSP with validation against datamap
 - Datamap tree view with CRUD operations

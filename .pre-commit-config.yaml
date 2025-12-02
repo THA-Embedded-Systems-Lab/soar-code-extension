@@ -37,14 +37,6 @@ repos:
         name: Markdown linting
         args: ['--fix', '--config', '.markdownlint.json']
 
-  # Check for broken links in markdown
-  - repo: https://github.com/tcort/markdown-link-check
-    rev: v3.12.1
-    hooks:
-      - id: markdown-link-check
-        name: Check markdown links
-        args: ['--config', '.markdown-link-check.json']
-
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

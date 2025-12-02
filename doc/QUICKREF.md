@@ -13,18 +13,21 @@ Essential documentation for the Soar VS Code Extension.
 ## Quick Links
 
 ### For Users
+
 - [Getting Started](../README.md#getting-started)
 - [Working with Datamaps](../README.md#working-with-datamaps)
 - [Working with Project Structure](../README.md#working-with-project-structure)
 - [Commands Reference](../README.md#commands)
 
 ### For Developers
+
 - [System Architecture](ARCHITECTURE.md#system-components)
 - [Data Flow Diagrams](ARCHITECTURE.md#data-flow)
 - [Extension Points](FEATURES.md#extension-points)
 - [Testing Guide](FEATURES.md#testing)
 
 ### For AI Agents
+
 - [Key Design Patterns](ARCHITECTURE.md#key-design-patterns)
 - [Critical Implementation Details](ARCHITECTURE.md#critical-implementation-details)
 - [Common Modifications](FEATURES.md#common-modifications)
@@ -58,40 +61,42 @@ Essential documentation for the Soar VS Code Extension.
 
 ### User Tasks
 
-| Task | Action |
-|------|--------|
-| Open project | Open folder with .vsa.json file |
-| View datamap | Click Soar icon in Activity Bar |
-| Add attribute | Right-click SOAR_ID → Add Attribute |
-| View substate datamap | Right-click operator → View Datamap |
-| Find orphaned files | Click search icon in Project Structure |
-| Validate file | Save file (auto) or run command |
+| Task                  | Action                                 |
+| --------------------- | -------------------------------------- |
+| Open project          | Open folder with .vsa.json file        |
+| View datamap          | Click Soar icon in Activity Bar        |
+| Add attribute         | Right-click SOAR_ID → Add Attribute    |
+| View substate datamap | Right-click operator → View Datamap    |
+| Find orphaned files   | Click search icon in Project Structure |
+| Validate file         | Save file (auto) or run command        |
 
 ### Development Tasks
 
-| Task | Command |
-|------|---------|
-| Compile | `npm run compile` |
-| Watch mode | `npm run watch` |
-| Run tests | `npm test` |
-| Debug extension | Press `F5` |
-| Lint code | `npm run lint` |
-| Package | `npm run package` |
+| Task            | Command           |
+| --------------- | ----------------- |
+| Compile         | `npm run compile` |
+| Watch mode      | `npm run watch`   |
+| Run tests       | `npm test`        |
+| Debug extension | Press `F5`        |
+| Lint code       | `npm run lint`    |
+| Package         | `npm run package` |
 
 ### Code Locations
 
-| Feature | File |
-|---------|------|
-| Parser position tracking | `src/server/soarParser.ts` → `getPositionInBody()` |
-| Datamap cycle detection | `src/datamap/datamapTreeProvider.ts` → `getChildren()` |
-| File path resolution | `src/layout/layoutTreeProvider.ts` → constructor |
-| Validation logic | `src/datamap/datamapValidator.ts` → `validateAttribute()` |
-| CRUD operations | `src/datamap/datamapOperations.ts` & `src/layout/layoutOperations.ts` |
+| Feature                  | File                                                                  |
+| ------------------------ | --------------------------------------------------------------------- |
+| Parser position tracking | `src/server/soarParser.ts` → `getPositionInBody()`                    |
+| Datamap cycle detection  | `src/datamap/datamapTreeProvider.ts` → `getChildren()`                |
+| File path resolution     | `src/layout/layoutTreeProvider.ts` → constructor                      |
+| Validation logic         | `src/datamap/datamapValidator.ts` → `validateAttribute()`             |
+| CRUD operations          | `src/datamap/datamapOperations.ts` & `src/layout/layoutOperations.ts` |
 
 ## Key Concepts
 
 ### Project Context
+
 Shared state object containing project file path, parsed project, and lookup indices:
+
 ```typescript
 {
     projectFile: string,
@@ -102,6 +107,7 @@ Shared state object containing project file path, parsed project, and lookup ind
 ```
 
 ### Datamap Vertex Types
+
 - **SOAR_ID**: Identifier with attributes (children)
 - **ENUMERATION**: Fixed set of string choices
 - **INTEGER**: Integer range with min/max
@@ -109,6 +115,7 @@ Shared state object containing project file path, parsed project, and lookup ind
 - **STRING**: String value
 
 ### Layout Node Types
+
 - **OPERATOR_ROOT**: Project root
 - **HIGH_LEVEL_OPERATOR**: Substate with `dmId`
 - **OPERATOR**: Basic operator
@@ -116,6 +123,7 @@ Shared state object containing project file path, parsed project, and lookup ind
 - **FOLDER**: Directory container
 
 ### Validation Strategy
+
 1. Parse document to extract attributes
 2. Check if each attribute exists in datamap
 3. Report errors with exact attribute position
@@ -124,6 +132,7 @@ Shared state object containing project file path, parsed project, and lookup ind
 ## Configuration
 
 ### Extension Settings
+
 ```json
 {
   "soar.maxNumberOfProblems": 100,
@@ -132,18 +141,19 @@ Shared state object containing project file path, parsed project, and lookup ind
 ```
 
 ### Context Values (for menus)
+
 - `datamap-root`: Root node
 - `datamap-attribute-{type}`: Attribute by type
 - `layout-{type}`: Layout node by type
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Files won't open | Check `layoutTreeProvider.ts` path resolution |
-| Wrong line highlighted | Check `soarParser.ts` position calculation |
-| Datamap not loading | Verify project file format and schema version |
-| Infinite expansion | Check cycle detection in `datamapTreeProvider.ts` |
+| Issue                  | Solution                                             |
+| ---------------------- | ---------------------------------------------------- |
+| Files won't open       | Check `layoutTreeProvider.ts` path resolution        |
+| Wrong line highlighted | Check `soarParser.ts` position calculation           |
+| Datamap not loading    | Verify project file format and schema version        |
+| Infinite expansion     | Check cycle detection in `datamapTreeProvider.ts`    |
 | Validation not working | Ensure project file loaded, check console for errors |
 
 ## Version Compatibility
@@ -173,18 +183,21 @@ Ctrl+`                 # Terminal
 ## Quick Tips
 
 ### For Users
+
 - Project auto-loads on folder open
 - Files auto-validate on save
 - Right-click for context menus
 - Use home icon to return to root datamap
 
 ### For Developers
+
 - Set breakpoints before pressing F5
 - Use `console.log()` for debugging (appears in Debug Console)
 - Check Problems panel for TypeScript errors
 - Test with BW-Hierarchical fixture for complex scenarios
 
 ### For AI Agents
+
 - Read ARCHITECTURE.md first for system overview
 - Check FEATURES.md for implementation patterns
 - Follow existing code style and patterns

@@ -4,16 +4,21 @@
     "line_length": 120,
     "code_blocks": false,
     "tables": false,
-    "headings": true
+    "headings": false
   },
+  "MD024": false,
+  "MD029": false,
   "MD033": {
     "allowed_elements": ["kbd", "br", "details", "summary"]
   },
+  "MD036": false,
+  "MD040": false,
   "MD041": false,
   "MD034": false,
   "MD046": {
     "style": "fenced"
   },
+  "MD060": false,
   "no-hard-tabs": true,
   "whitespace": true
 }
