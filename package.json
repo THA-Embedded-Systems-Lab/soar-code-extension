@@ -306,8 +306,14 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
+    "lint:fix": "eslint src --ext ts --fix",
+    "lint:md": "markdownlint '*.md' 'doc/*.md' --fix",
+    "check:links": "markdown-link-check README.md && find doc -name '*.md' -exec markdown-link-check {} \\;",
+    "format": "prettier --write 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
+    "format:check": "prettier --check 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package"
+    "package": "vsce package",
+    "precommit": "npm run lint && npm run format:check && npm run lint:md"
   },
   "devDependencies": {
     "@types/glob": "^8.0.0",
@@ -320,7 +326,10 @@
     "@vscode/vsce": "^2.19.0",
     "eslint": "^8.40.0",
     "glob": "^10.0.0",
+    "markdown-link-check": "^3.12.1",
+    "markdownlint-cli": "^0.39.0",
     "mocha": "^10.0.0",
+    "prettier": "^3.1.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {

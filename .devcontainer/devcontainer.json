@@ -1,18 +1,30 @@
 {
-    "name": "Soar VS Code Extension",
-    "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "dbaeumer.vscode-eslint",
-                "ms-vscode.vscode-typescript-next"
-            ],
-            "settings": {
-                "terminal.integrated.defaultProfile.linux": "bash"
-            }
+  "name": "Soar VS Code Extension",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[markdown]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
         }
-    },
-    "forwardPorts": [],
-    "postCreateCommand": "npm install",
-    "remoteUser": "node"
+      }
+    }
+  },
+  "forwardPorts": [],
+  "postCreateCommand": "npm install && pip install --user pre-commit && pre-commit install",
+  "remoteUser": "node"
 }

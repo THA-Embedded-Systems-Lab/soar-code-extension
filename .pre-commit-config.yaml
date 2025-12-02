@@ -1,0 +1,96 @@
+# Pre-commit hooks for Soar VS Code Extension
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # TypeScript/JavaScript linting
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        name: ESLint TypeScript files
+        files: \.(ts|js)$
+        types: [file]
+        args: ['--fix']
+        additional_dependencies:
+          - eslint@8.56.0
+          - '@typescript-eslint/eslint-plugin@6.21.0'
+          - '@typescript-eslint/parser@6.21.0'
+
+  # TypeScript compilation check
+  - repo: local
+    hooks:
+      - id: typescript-compile
+        name: TypeScript compilation check
+        entry: npm run compile
+        language: system
+        pass_filenames: false
+        files: \.ts$
+        always_run: false
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        name: Markdown linting
+        args: ['--fix', '--config', '.markdownlint.json']
+
+  # Check for broken links in markdown
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.12.1
+    hooks:
+      - id: markdown-link-check
+        name: Check markdown links
+        args: ['--config', '.markdown-link-check.json']
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        exclude: '\.min\.(js|css)$'
+      - id: end-of-file-fixer
+        name: Fix end of files
+        exclude: '\.min\.(js|css)$'
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+        exclude: 'tsconfig.*\.json$|\.vscode/.*\.json$'
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        args: ['--fix=lf']
+
+  # Package.json validation
+  - repo: local
+    hooks:
+      - id: package-json-lint
+        name: Validate package.json
+        entry: npm run lint
+        language: system
+        pass_filenames: false
+        files: package\.json$
+
+  # Prettier formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        name: Format with Prettier
+        types_or: [javascript, ts, json, markdown, yaml]
+        exclude: '\.min\.(js|css)$|package-lock\.json'
+        args: ['--write', '--ignore-unknown']
+
+# Configuration
+default_language_version:
+  node: '18.18.0'
+
+fail_fast: false
