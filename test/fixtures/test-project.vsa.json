@@ -147,6 +147,16 @@
         "id": "1",
         "type": "SOAR_ID",
         "outEdges": []
+      },
+      {
+        "id": "2",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "3",
+        "type": "SOAR_ID",
+        "outEdges": []
       }
     ]
   },
@@ -185,6 +195,54 @@
         "id": "2",
         "name": "test_operator",
         "file": "test_operator.soar"
+      },
+      {
+        "type": "HIGH_LEVEL_OPERATOR",
+        "id": "3",
+        "name": "sub-test-state",
+        "file": "sub-test-state/propose.soar",
+        "dmId": "2",
+        "folder": "sub-test-state",
+        "children": [
+          {
+            "type": "FOLDER",
+            "id": "3",
+            "name": "elaborations",
+            "folder": "sub-test-state/elaborations",
+            "children": [
+              {
+                "type": "FILE",
+                "id": "3",
+                "name": "_all",
+                "file": "sub-test-state/elaborations/_all.soar"
+              }
+            ]
+          },
+          {
+            "type": "HIGH_LEVEL_OPERATOR",
+            "id": "4",
+            "name": "sub-sub-test-state",
+            "file": "sub-test-state/sub-sub-test-state/propose.soar",
+            "dmId": "3",
+            "folder": "sub-test-state/sub-sub-test-state",
+            "children": [
+              {
+                "type": "FOLDER",
+                "id": "4",
+                "name": "elaborations",
+                "folder": "sub-test-state/sub-sub-test-state/elaborations",
+                "children": [
+                  {
+                    "type": "FILE",
+                    "id": "4",
+                    "name": "_all",
+                    "file": "sub-test-state/sub-sub-test-state/elaborations/_all.soar"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     ]
   }

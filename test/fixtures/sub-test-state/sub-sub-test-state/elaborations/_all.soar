@@ -1,0 +1,33 @@
+###
+### Initialization for substate: sub-sub-test-state
+###
+
+###
+### Elaborations for substate: sub-sub-test-state
+###
+
+sp {elaborate*sub-sub-test-state*state
+   "Copy superstate information to sub-sub-test-state substate"
+   (state <s> ^superstate <ss>)
+   (<ss> ^operator <op>)
+   (<op> ^name sub-sub-test-state)
+-->
+   (<s> ^name sub-sub-test-state)
+}
+
+sp {elaborate*sub-sub-test-state*top-state
+   "Link to top-state"
+   (state <s> ^superstate.top-state <ts>)
+-->
+   (<s> ^top-state <ts>)
+}
+
+sp {elaborate*sub-sub-test-state*io
+   "Link to io"
+   (state <s> ^top-state.io <io>)
+-->
+   (<s> ^io <io>)
+}
+
+
+# Add additional initialization rules here

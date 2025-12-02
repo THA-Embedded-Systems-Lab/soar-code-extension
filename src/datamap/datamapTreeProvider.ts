@@ -16,7 +16,8 @@ export class DatamapTreeItem extends vscode.TreeItem {
         public readonly vertexId: string,
         public readonly vertex: DMVertex | null,
         public readonly edgeName?: string,
-        public readonly comment?: string
+        public readonly comment?: string,
+        public readonly ancestorIds: Set<string> = new Set()
     ) {
         super(label, collapsibleState);
 
@@ -181,12 +182,18 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
                 return Promise.resolve([]);
             }
 
+            const ancestorIds = new Set<string>();
+            ancestorIds.add(rootId);
+
             return Promise.resolve([
                 new DatamapTreeItem(
                     rootId,
                     vscode.TreeItemCollapsibleState.Expanded,
                     rootId,
-                    rootVertex
+                    rootVertex,
+                    undefined,
+                    undefined,
+                    ancestorIds
                 )
             ]);
         }
@@ -205,22 +212,33 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
                     continue;
                 }
 
+                // Check for cycles - if the target is already an ancestor, don't expand it
+                const isCycle = element.ancestorIds.has(edge.toId);
+
                 const hasChildren = targetVertex.type === 'SOAR_ID' &&
                     targetVertex.outEdges &&
-                    targetVertex.outEdges.length > 0;
+                    targetVertex.outEdges.length > 0 &&
+                    !isCycle; // Don't allow expansion if it's a cycle
 
                 const collapsibleState = hasChildren
                     ? vscode.TreeItemCollapsibleState.Collapsed
                     : vscode.TreeItemCollapsibleState.None;
 
+                // Create new ancestor set for the child
+                const childAncestors = new Set(element.ancestorIds);
+                childAncestors.add(edge.toId);
+
+                const label = isCycle ? `^${edge.name} (cycle)` : `^${edge.name}`;
+
                 children.push(
                     new DatamapTreeItem(
-                        `^${edge.name}`,
+                        label,
                         collapsibleState,
                         edge.toId,
                         targetVertex,
                         edge.name,
-                        edge.comment
+                        edge.comment,
+                        childAncestors
                     )
                 );
             }

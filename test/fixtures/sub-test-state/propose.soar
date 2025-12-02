@@ -1,0 +1,12 @@
+###
+### Propose substate operator: sub-test-state
+###
+
+sp {propose*sub-test-state
+   "Propose sub-test-state substate operator"
+   (state <s> ^superstate nil)  # Top state
+   # Add conditions here
+-->
+   (<s> ^operator <op> +)
+   (<op> ^name sub-test-state)
+}
