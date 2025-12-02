@@ -1,0 +1,88 @@
+{
+  "name": "soar",
+  "displayName": "Soar",
+  "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
+  "version": "0.1.0",
+  "publisher": "soar-group",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SoarGroup/soar-vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "soar",
+    "cognitive architecture",
+    "language-server",
+    "datamap"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "soar",
+        "aliases": [
+          "Soar",
+          "soar"
+        ],
+        "extensions": [
+          ".soar"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "soar",
+        "scopeName": "source.soar",
+        "path": "./syntaxes/soar.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "soar",
+        "path": "./snippets/soar.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "soar.helloWorld",
+        "title": "Hello World",
+        "category": "Soar"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.x",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/test-electron": "^2.3.0",
+    "eslint": "^8.40.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.19.0",
+    "mocha": "^10.0.0",
+    "@types/mocha": "^10.0.0",
+    "glob": "^10.0.0",
+    "@types/glob": "^8.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  }
+}

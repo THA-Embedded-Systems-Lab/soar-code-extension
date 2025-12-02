@@ -1,0 +1,17 @@
+.vscode/**
+.vscode-test/**
+.devcontainer/**
+src/**
+test/**
+node_modules/**
+.gitignore
+.eslintrc.json
+**/*.map
+**/*.ts
+tsconfig.json
+instructions/**
+INSTRUCTIONS.md
+GET-STARTED.md
+REFERENCES.md
+BOOTSTRAP-COMPLETE.md
+!server/soar-language-server.jar

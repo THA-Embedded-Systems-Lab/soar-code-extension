@@ -1,0 +1,235 @@
+# Example Soar Production File
+# This file demonstrates comprehensive Soar syntax for testing
+
+# Basic production with operator proposal
+sp {propose*operator*hello-world
+   (state <s> ^type state
+              ^superstate nil)
+-->
+   (<s> ^operator <o> +)
+   (<o> ^name hello-world)
+}
+
+# Operator application with I/O and functions
+sp {apply*hello-world
+   (state <s> ^operator <o>
+              ^io.output-link <out>)
+   (<o> ^name hello-world)
+-->
+   (write |Hello, World!|)
+   (write (crlf))
+   (halt)
+}
+
+# Elaborate state name from superstate
+sp {elaborate*state*name
+   (state <s> ^superstate.operator.name <name>)
+-->
+   (<s> ^name <name>)
+}
+
+# More complex example with math functions
+sp {apply*operator*calculate
+   (state <s> ^operator <o>
+              ^value <v>)
+   (<o> ^name calculate)
+-->
+   (<s> ^result (+ <v> 10)
+        ^result2 (* <v> 2)
+        ^result3 (sqrt (+ (* <v> <v>) 16))
+        ^rounded (int (/ <v> 3)))
+}
+
+# Test preferences (acceptable, better, best, worse, worst, indifferent, require, prohibit)
+sp {propose*operator*with-preferences
+   (state <s> ^type state
+              ^situation critical)
+-->
+   (<s> ^operator <o1> + =
+        ^operator <o2> + <
+        ^operator <o3> + >)
+   (<o1> ^name best-operator)
+   (<o2> ^name worst-operator)
+   (<o3> ^name better-operator)
+}
+
+# Test negation in conditions
+sp {apply*check-no-flag
+   (state <s> ^operator <o>
+             -^flag-set
+             -^blocked true)
+   (<o> ^name check-flag)
+-->
+   (write |Flag is not set|)
+   (<s> ^verified true)
+}
+
+# Test disjunctions (multi-value matching)
+sp {elaborate*color-detected
+   (state <s> ^value << red green blue yellow >>)
+-->
+   (<s> ^color-detected true)
+}
+
+# Test conjunctive tests
+sp {apply*range-check
+   (state <s> ^operator <o>
+              ^value { <v> > 0 < 100 })
+   (<o> ^name range-check)
+-->
+   (<s> ^in-range true)
+}
+
+# Test multiple attributes and nested structures
+sp {propose*move-block
+   (state <s> ^type state
+              ^io.input-link.block <b>
+              ^desired.on-top <target>)
+   (<b> ^name <name>
+        ^on <current>
+        ^clear true)
+   (<target> ^clear true
+            ^name { <> <current> })
+-->
+   (<s> ^operator <o> +)
+   (<o> ^name move-block
+        ^block <b>
+        ^destination <target>)
+}
+
+# Test RHS functions and actions
+sp {apply*move-block*output
+   (state <s> ^operator <o>
+              ^io.output-link <out>)
+   (<o> ^name move-block
+        ^block.name <block-name>
+        ^destination.name <dest-name>)
+-->
+   (<out> ^move.block-name <block-name>
+          ^move.destination <dest-name>)
+   (write |Moving block: | <block-name> | to | <dest-name>)
+}
+
+# Test attribute path notation
+sp {elaborate*deep*path
+   (state <s> ^io.input-link.sensors.vision.object <obj>)
+   (<obj> ^id <id>
+          ^position.x <x>
+          ^position.y <y>)
+-->
+   (<s> ^tracked-object <t>)
+   (<t> ^id <id>
+        ^location (concat |x:| <x> |,y:| <y>))
+}
+
+# Test numeric comparisons
+sp {apply*threshold-check
+   (state <s> ^operator <o>
+              ^temperature <temp> >= 75
+              ^humidity <humid> <= 60)
+   (<o> ^name check-comfort)
+-->
+   (<s> ^comfortable true)
+}
+
+# Test multiple operators with different preferences
+sp {propose*operators*multiple
+   (state <s> ^type state
+              ^task <task>)
+-->
+   (<s> ^operator <o1> + = 5
+        ^operator <o2> + = 3
+        ^operator <o3> + !)
+   (<o1> ^name high-priority ^task <task>)
+   (<o2> ^name low-priority ^task <task>)
+   (<o3> ^name required ^task <task>)
+}
+
+# Test impasse elaboration
+sp {elaborate*impasse*operator-tie
+   (state <s> ^impasse tie
+              ^attribute operator
+              ^superstate <ss>)
+-->
+   (<s> ^name tie-impasse
+        ^type selection)
+   (write |Operator tie detected|)
+}
+
+# Test goal production (gp)
+gp {goal*achieve-target
+   (state <s> ^name achieve
+              ^desired <d>
+              ^current <c>)
+   (<d> ^value <v>)
+   (<c> ^value <v>)
+-->
+   (<s> ^success true)
+}
+
+# Test all comparison operators
+sp {test*comparisons
+   (state <s> ^operator <o>
+              ^a <a> <> <b>
+              ^b <b> < <c>
+              ^c <c> > <d>
+              ^d <d> <= <e>
+              ^e <e> >= <f>
+              ^f <f> = <g>
+              ^g <g>)
+   (<o> ^name test-comparisons)
+-->
+   (<s> ^all-tests-passed true)
+}
+
+# Test multi-valued attributes
+sp {elaborate*multi-values
+   (state <s> ^item <i1>
+              ^item <i2>
+              ^item <i3>)
+   (<i1> ^name a)
+   (<i2> ^name b)
+   (<i3> ^name c)
+-->
+   (<s> ^count 3
+        ^has-items true)
+}
+
+# Test string literals with both pipe and quote notation
+sp {test*strings
+   (state <s> ^operator.name test-strings)
+-->
+   (write |This is a pipe-delimited string|)
+   (write "This is a quote-delimited string")
+   (<s> ^message1 |pipes|
+        ^message2 "quotes")
+}
+
+# Test arithmetic operators
+sp {test*arithmetic
+   (state <s> ^operator.name calculate
+              ^x 10
+              ^y 3)
+-->
+   (<s> ^sum (+ <x> <y>)
+        ^difference (- <x> <y>)
+        ^product (* <x> <y>)
+        ^quotient (/ <x> <y>)
+        ^modulo (mod <x> <y>)
+        ^absolute (abs (- <y> <x>))
+        ^minimum (min <x> <y>)
+        ^maximum (max <x> <y>))
+}
+
+# Test floating-point numbers
+sp {test*floats
+   (state <s> ^operator.name test-floats
+              ^value 3.14159
+              ^temperature -12.5
+              ^scientific 1.5e-10)
+-->
+   (<s> ^pi <value>
+        ^cold <temperature>
+        ^small <scientific>
+        ^rounded (round <value>))
+}

@@ -1,0 +1,25 @@
+{
+    "name": "Soar VS Code Extension",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
+    "features": {
+        "ghcr.io/devcontainers/features/java:1": {
+            "version": "17",
+            "installMaven": "false",
+            "installGradle": "true"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "ms-vscode.vscode-typescript-next"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "forwardPorts": [],
+    "postCreateCommand": "npm install",
+    "remoteUser": "node"
+}

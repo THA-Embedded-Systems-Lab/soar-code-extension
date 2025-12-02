@@ -1,0 +1,256 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Soar",
+  "scopeName": "source.soar",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#production" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#variables" },
+    { "include": "#attributes" },
+    { "include": "#operators" },
+    { "include": "#functions" },
+    { "include": "#preferences" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.soar",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "production": {
+      "patterns": [
+        {
+          "name": "meta.production.soar",
+          "begin": "\\b(sp|gp)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.production.soar" }
+          },
+          "end": "\\}",
+          "patterns": [
+            { "include": "#comments" },
+            { "include": "#production-name" },
+            { "include": "#production-body" }
+          ]
+        }
+      ]
+    },
+    "production-name": {
+      "patterns": [
+        {
+          "name": "entity.name.function.production.soar",
+          "match": "\\b[a-zA-Z][a-zA-Z0-9_*-]*\\b"
+        }
+      ]
+    },
+    "production-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#actions" },
+        { "include": "#conditions" },
+        { "include": "#variables" },
+        { "include": "#attributes" },
+        { "include": "#strings" },
+        { "include": "#numbers" },
+        { "include": "#operators" },
+        { "include": "#functions" },
+        { "include": "#preferences" }
+      ]
+    },
+    "conditions": {
+      "patterns": [
+        {
+          "name": "meta.condition.soar",
+          "begin": "\\(",
+          "end": "\\)",
+          "patterns": [
+            { "include": "#comments" },
+            { "include": "#state-keyword" },
+            { "include": "#variables" },
+            { "include": "#attributes" },
+            { "include": "#operators" },
+            { "include": "#strings" },
+            { "include": "#numbers" },
+            { "include": "#negation" },
+            { "include": "#conjunctive-test" },
+            { "include": "#disjunction" },
+            { "include": "#conditions" },
+            { "include": "#functions" }
+          ]
+        }
+      ]
+    },
+    "actions": {
+      "patterns": [
+        {
+          "name": "keyword.operator.action.soar",
+          "match": "-->"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.soar",
+          "match": "\\b(sp|gp|source|learn|watch|excise|chunk|rl|cmd|default-wme-depth|echo|epmem|explain|explain-backtraces|gds-print|help|indifferent-selection|load-library|max-chunks|max-dc-time|max-elaborations|max-goal-depth|max-memory-usage|max-nil-output-cycles|numeric-indifferent-mode|o-support-mode|output-strings-destination|print|production|production-find|pwatch|quit|rand|rete-net|run|save-backtraces|select|set-library-location|set-stop-phase|smem|soar|soarnews|stats|stop-soar|svs|time|timers|version|waitsnc|warnings|wm|wma)\\b"
+        }
+      ]
+    },
+    "state-keyword": {
+      "patterns": [
+        {
+          "name": "keyword.other.state.soar",
+          "match": "\\b(state|impasse|operator|superstate|problem-space|type|name|io|input-link|output-link|item|quiescence|tie|conflict|constraint-failure|no-change|attribute|choices|multi-attributes|t)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.pipe.soar",
+          "begin": "\\|",
+          "end": "\\|",
+          "patterns": [
+            {
+              "name": "constant.character.escape.soar",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.soar",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.soar",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.soar",
+          "match": "\\b-?[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.soar",
+          "match": "\\b-?[0-9]+\\b"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.soar",
+          "match": "<[a-zA-Z][a-zA-Z0-9_-]*>"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.soar",
+          "match": "\\^[a-zA-Z][a-zA-Z0-9_-]*"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.soar",
+          "match": "(<>|<=|>=|<=>|<|>|==|=)"
+        },
+        {
+          "name": "keyword.operator.logical.soar",
+          "match": "(<<|>>)"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "meta.function-call.soar",
+          "begin": "\\(\\s*(write|crlf|halt|interrupt|timestamp|cmd|exec|tcl|dont-learn|force-learn|make-constant-symbol)\\b",
+          "beginCaptures": {
+            "1": { "name": "support.function.builtin.soar" }
+          },
+          "end": "\\)",
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#numbers" },
+            { "include": "#variables" },
+            { "include": "#attributes" }
+          ]
+        },
+        {
+          "name": "meta.function-call.math.soar",
+          "begin": "\\(\\s*(\\+|-|\\*|/|div|mod|abs|sqrt|sin|cos|tan|atan2|log|ln|exp|int|float|round|min|max)\\b",
+          "beginCaptures": {
+            "1": { "name": "support.function.math.soar" }
+          },
+          "end": "\\)",
+          "patterns": [
+            { "include": "#numbers" },
+            { "include": "#variables" },
+            { "include": "#functions" }
+          ]
+        }
+      ]
+    },
+    "preferences": {
+      "patterns": [
+        {
+          "name": "keyword.operator.preference.soar",
+          "match": "\\s(\\+|!|~|-|@|#|=|<|>|&)(?=\\s|\\)|$)"
+        }
+      ]
+    },
+    "negation": {
+      "patterns": [
+        {
+          "name": "keyword.operator.negation.soar",
+          "match": "-(?=\\^)"
+        }
+      ]
+    },
+    "conjunctive-test": {
+      "patterns": [
+        {
+          "name": "meta.conjunctive-test.soar",
+          "begin": "\\{",
+          "end": "\\}",
+          "patterns": [
+            { "include": "#operators" },
+            { "include": "#variables" },
+            { "include": "#numbers" },
+            { "include": "#strings" }
+          ]
+        }
+      ]
+    },
+    "disjunction": {
+      "patterns": [
+        {
+          "name": "meta.disjunction.soar",
+          "begin": "<<",
+          "end": ">>",
+          "patterns": [
+            { "include": "#variables" },
+            { "include": "#numbers" },
+            { "include": "#strings" },
+            { "include": "#attributes" }
+          ]
+        }
+      ]
+    }
+  }
+}
