@@ -111,9 +111,11 @@ export class SoarParser {
             functionCalls: []
         };
 
-        // Parse body
-        const body = content.substring(startOffset + typeMatch[0].length, endOffset);
-        this.parseProductionBody(body, production, production.range.start);
+        // Parse body - calculate the base position where the body starts
+        const bodyStartOffset = startOffset + typeMatch[0].length;
+        const bodyBasePosition = this.offsetToPosition(content, bodyStartOffset, lines);
+        const body = content.substring(bodyStartOffset, endOffset);
+        this.parseProductionBody(body, production, bodyBasePosition);
 
         return production;
     }
@@ -146,10 +148,9 @@ export class SoarParser {
 
         while ((match = variableRegex.exec(body)) !== null) {
             const varName = match[1];
-            const range: Range = {
-                start: { line: basePosition.line, character: basePosition.character + match.index },
-                end: { line: basePosition.line, character: basePosition.character + match.index + match[0].length }
-            };
+            const startPos = this.getPositionInBody(body, match.index, basePosition);
+            const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
+            const range: Range = { start: startPos, end: endPos };
 
             if (!production.variables.has(varName)) {
                 production.variables.set(varName, {
@@ -167,13 +168,12 @@ export class SoarParser {
         while ((match = attributeRegex.exec(body)) !== null) {
             const isNegated = match[1] === '-';
             const attrName = match[2];
+            const startPos = this.getPositionInBody(body, match.index, basePosition);
+            const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
 
             production.attributes.push({
                 name: attrName,
-                range: {
-                    start: { line: basePosition.line, character: basePosition.character + match.index },
-                    end: { line: basePosition.line, character: basePosition.character + match.index + match[0].length }
-                },
+                range: { start: startPos, end: endPos },
                 isNegated
             });
         }
@@ -181,15 +181,34 @@ export class SoarParser {
         // Parse function calls
         const functionRegex = /\(([a-zA-Z][a-zA-Z0-9_+-/*]*)/g;
         while ((match = functionRegex.exec(body)) !== null) {
+            const startPos = this.getPositionInBody(body, match.index, basePosition);
+            const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
+
             production.functionCalls.push({
                 name: match[1],
                 args: [],
-                range: {
-                    start: { line: basePosition.line, character: basePosition.character + match.index },
-                    end: { line: basePosition.line, character: basePosition.character + match.index + match[0].length }
-                }
+                range: { start: startPos, end: endPos }
             });
         }
+    }
+
+    /**
+     * Convert offset within production body to absolute position in document
+     */
+    private getPositionInBody(body: string, offset: number, basePosition: Position): Position {
+        let line = basePosition.line;
+        let character = basePosition.character;
+
+        for (let i = 0; i < offset && i < body.length; i++) {
+            if (body[i] === '\n') {
+                line++;
+                character = 0;
+            } else {
+                character++;
+            }
+        }
+
+        return { line, character };
     }
 
     private offsetToPosition(content: string, offset: number, lines: string[]): Position {

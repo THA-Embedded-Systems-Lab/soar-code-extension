@@ -14,6 +14,7 @@ export interface ValidationError {
     attributePath: string;
     line: number;
     column: number;
+    range: { start: { line: number; character: number }; end: { line: number; character: number } };
     message: string;
     severity: 'error' | 'warning' | 'info';
 }
@@ -113,6 +114,7 @@ export class DatamapValidator {
                 attributePath: `^${attr.name}`,
                 line: attr.range.start.line,
                 column: attr.range.start.character,
+                range: attr.range,
                 message: `Attribute '^${attr.name}' not found anywhere in project datamap (possible typo?)`,
                 severity: 'warning'
             };
@@ -261,11 +263,12 @@ export class DatamapValidator {
         document: vscode.TextDocument
     ): vscode.Diagnostic[] {
         return errors.map(error => {
+            // Use the range from the parser which has the correct line/column positions
             const range = new vscode.Range(
-                error.line,
-                error.column,
-                error.line,
-                error.column + error.attribute.length + 1 // +1 for ^
+                error.range.start.line,
+                error.range.start.character,
+                error.range.end.line,
+                error.range.end.character
             );
 
             const severity =
