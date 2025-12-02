@@ -14,7 +14,8 @@ export class LayoutTreeItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly node: LayoutNode,
-        public readonly projectContext: ProjectContext
+        public readonly projectContext: ProjectContext,
+        private readonly parentPath: string = ''
     ) {
         super(label, collapsibleState);
 
@@ -26,7 +27,9 @@ export class LayoutTreeItem extends vscode.TreeItem {
         // Set resource URI for file nodes so they can be opened
         if ('file' in node && node.file) {
             const workspaceFolder = path.dirname(projectContext.projectFile);
-            this.resourceUri = vscode.Uri.file(path.join(workspaceFolder, node.file));
+            // Build the full file path by combining parent path with the file
+            const fullPath = path.join(workspaceFolder, parentPath, node.file);
+            this.resourceUri = vscode.Uri.file(fullPath);
             this.command = {
                 command: 'vscode.open',
                 title: 'Open File',
@@ -202,7 +205,8 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
                     rootNode.name || 'Project Root',
                     vscode.TreeItemCollapsibleState.Expanded,
                     rootNode,
-                    this.projectContext
+                    this.projectContext,
+                    '' // Root element has no parent path
                 )
             ]);
         }
@@ -213,6 +217,14 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
         }
 
         const children: LayoutTreeItem[] = [];
+
+        // Build the parent path for children
+        // Children's files are located inside this node's folder
+        let childParentPath = element['parentPath'] || '';
+        if ('folder' in element.node && element.node.folder) {
+            // Add this node's folder to the path for children
+            childParentPath = childParentPath ? path.join(childParentPath, element.node.folder) : element.node.folder;
+        }
 
         for (const childNode of element.node.children) {
             const hasChildNodes = hasChildren(childNode) && childNode.children && childNode.children.length > 0;
@@ -226,7 +238,8 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
                     childNode.name,
                     collapsibleState,
                     childNode,
-                    this.projectContext
+                    this.projectContext,
+                    childParentPath
                 )
             );
         }
