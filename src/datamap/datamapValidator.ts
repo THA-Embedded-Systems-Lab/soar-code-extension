@@ -115,8 +115,8 @@ export class DatamapValidator {
                 line: attr.range.start.line,
                 column: attr.range.start.character,
                 range: attr.range,
-                message: `Attribute '^${attr.name}' not found anywhere in project datamap (possible typo?)`,
-                severity: 'warning'
+                message: `Attribute '^${attr.name}' not found in project datamap`,
+                severity: 'error'
             };
         }
 
