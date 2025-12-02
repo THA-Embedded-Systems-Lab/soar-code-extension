@@ -2,7 +2,7 @@
   "name": "soar",
   "displayName": "Soar",
   "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "publisher": "soar-group",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
     "datamap"
   ],
   "activationEvents": [
-    "onLanguage:soar"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -311,12 +311,12 @@
     "check:links": "markdown-link-check README.md && find doc -name '*.md' -exec markdown-link-check {} \\;",
     "format": "prettier --write 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
     "format:check": "prettier --check 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
-    "test": "node ./out/test/runTest.js",
+    "test": "xvfb-run -a node ./out/test/runTest.js",
     "package": "vsce package",
     "precommit": "npm run lint && npm run format:check && npm run lint:md"
   },
   "devDependencies": {
-    "@types/glob": "^8.0.0",
+    "@types/glob": "^9.0.0",
     "@types/mocha": "^10.0.0",
     "@types/node": "^18.x",
     "@types/vscode": "^1.80.0",
@@ -330,7 +330,8 @@
     "markdownlint-cli": "^0.39.0",
     "mocha": "^10.0.0",
     "prettier": "^3.1.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vsce": "^3.7.0"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",

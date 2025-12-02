@@ -3,7 +3,7 @@
 .devcontainer/**
 src/**
 test/**
-node_modules/**
+out/test/**
 .gitignore
 .eslintrc.json
 **/*.map
@@ -15,3 +15,15 @@ GET-STARTED.md
 REFERENCES.md
 BOOTSTRAP-COMPLETE.md
 !server/soar-language-server.jar
+node_modules/@types/**
+node_modules/@typescript-eslint/**
+node_modules/@vscode/test-electron/**
+node_modules/@vscode/vsce/**
+node_modules/eslint/**
+node_modules/glob/**
+node_modules/markdown-link-check/**
+node_modules/markdownlint-cli/**
+node_modules/mocha/**
+node_modules/prettier/**
+node_modules/typescript/**
+node_modules/vsce/**
