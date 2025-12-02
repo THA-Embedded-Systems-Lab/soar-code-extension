@@ -1,0 +1,44 @@
+# Test File for Datamap Validation
+# This file contains intentional errors to test validation
+
+# VALID: Uses attributes that exist in datamap
+sp {test*valid*attributes
+   (state <s> ^io <io>
+              ^type state
+              ^name test)
+   (<io> ^input-link <in>
+         ^output-link <out>)
+-->
+   (<out> ^command move
+          ^status complete)
+}
+
+# INVALID: Uses attributes not in datamap
+sp {test*invalid*attributes
+   (state <s> ^foo <f>           # 'foo' doesn't exist in datamap
+              ^bar <b>)           # 'bar' doesn't exist in datamap
+   (<f> ^baz 123)                # 'baz' doesn't exist in datamap
+-->
+   (<s> ^result ok
+        ^invalid-output test)    # 'invalid-output' doesn't exist
+}
+
+# MIXED: Some valid, some invalid
+sp {test*mixed*attributes
+   (state <s> ^io <io>           # Valid
+              ^type state        # Valid
+              ^unknown value)    # INVALID: 'unknown' not in datamap
+   (<io> ^input-link <in>)       # Valid
+   (<in> ^data <d>               # Valid
+         ^bad-attr 42)           # INVALID: 'bad-attr' not in datamap
+-->
+   (<s> ^result (+ <d> 10))
+}
+
+# NEGATIONS: Should not report errors for negated attributes
+sp {test*negations
+   (state <s> ^io <io>
+             -^nonexistent attr) # Should NOT report error (testing absence)
+-->
+   (<s> ^ok yes)
+}

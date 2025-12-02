@@ -1,6 +1,8 @@
 import * as path from 'path';
-import Mocha from 'mocha';
 import { glob } from 'glob';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const Mocha = require('mocha');
 
 export function run(): Promise<void> {
     const mocha = new Mocha({
@@ -12,7 +14,7 @@ export function run(): Promise<void> {
 
     return new Promise((resolve, reject) => {
         glob('**/**.test.js', { cwd: testsRoot }).then((files: string[]) => {
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+            files.forEach((f: string) => mocha.addFile(path.resolve(testsRoot, f)));
 
             try {
                 mocha.run((failures: number) => {
@@ -22,7 +24,7 @@ export function run(): Promise<void> {
                         resolve();
                     }
                 });
-            } catch (err) {
+            } catch (err: any) {
                 reject(err);
             }
         }).catch((err: any) => {

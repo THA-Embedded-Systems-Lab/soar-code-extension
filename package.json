@@ -22,7 +22,9 @@
     "language-server",
     "datamap"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:soar"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
@@ -56,8 +58,85 @@
         "command": "soar.helloWorld",
         "title": "Hello World",
         "category": "Soar"
+      },
+      {
+        "command": "soar.restartLanguageServer",
+        "title": "Restart Language Server",
+        "category": "Soar"
+      },
+      {
+        "command": "soar.refreshDatamap",
+        "title": "Refresh Datamap",
+        "category": "Soar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "soar.loadDatamap",
+        "title": "Load Datamap",
+        "category": "Soar"
+      },
+      {
+        "command": "soar.validateAgainstDatamap",
+        "title": "Validate Against Datamap",
+        "category": "Soar",
+        "icon": "$(check)"
+      },
+      {
+        "command": "soar.validateWorkspaceAgainstDatamap",
+        "title": "Validate Workspace Against Datamap",
+        "category": "Soar",
+        "icon": "$(checklist)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "soar-explorer",
+          "title": "Soar",
+          "icon": "$(circuit-board)"
+        }
+      ]
+    },
+    "views": {
+      "soar-explorer": [
+        {
+          "id": "soarDatamap",
+          "name": "Datamap",
+          "icon": "$(type-hierarchy)",
+          "contextualTitle": "Soar Datamap"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "soar.refreshDatamap",
+          "when": "view == soarDatamap",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Soar",
+      "properties": {
+        "soar.maxNumberOfProblems": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of problems to report per file"
+        },
+        "soar.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -69,20 +148,22 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
+    "@types/glob": "^8.0.0",
+    "@types/mocha": "^10.0.0",
     "@types/node": "^18.x",
+    "@types/vscode": "^1.80.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.0",
-    "eslint": "^8.40.0",
-    "typescript": "^5.0.0",
     "@vscode/vsce": "^2.19.0",
-    "mocha": "^10.0.0",
-    "@types/mocha": "^10.0.0",
+    "eslint": "^8.40.0",
     "glob": "^10.0.0",
-    "@types/glob": "^8.0.0"
+    "mocha": "^10.0.0",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
-    "vscode-languageclient": "^9.0.0"
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }

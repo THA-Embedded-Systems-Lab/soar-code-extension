@@ -1,0 +1,24 @@
+# Test Datamap-Aware Completions
+# This file tests the smart attribute path completion feature
+
+# When you type the following, completions should work:
+# 1. Type "^" - should suggest: io, type, name, operator, superstate
+# 2. Type "^io." - should suggest: input-link, output-link
+# 3. Type "^io.input-link." - should suggest: data, value
+# 4. Type "^io.output-link." - should suggest: command, status
+
+sp {test*datamap*completions
+   (state <s> ^io <io>)
+   (<io> input-link <in> output-link <out>)
+   (<in> ^data <data>
+         ^value <val>)
+-->
+   (<out> ^command move
+          ^status complete)
+}
+
+# Test: Place cursor after the dot and press Ctrl+Space:
+# ^io.
+# ^io.input-link.
+# ^io.output-link.
+# ^operator.

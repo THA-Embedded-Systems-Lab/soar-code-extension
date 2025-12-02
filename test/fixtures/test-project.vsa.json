@@ -1,0 +1,182 @@
+{
+  "version": "6",
+  "datamap": {
+    "rootId": "root-state",
+    "vertices": [
+      {
+        "id": "root-state",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "io",
+            "toId": "io-vertex",
+            "comment": "Input/output interface"
+          },
+          {
+            "name": "type",
+            "toId": "type-enum",
+            "comment": "State type"
+          },
+          {
+            "name": "name",
+            "toId": "name-string",
+            "comment": "State name"
+          },
+          {
+            "name": "operator",
+            "toId": "operator-vertex",
+            "comment": "Current operator"
+          },
+          {
+            "name": "superstate",
+            "toId": "root-state",
+            "comment": "Parent state"
+          }
+        ]
+      },
+      {
+        "id": "io-vertex",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "input-link",
+            "toId": "input-link-vertex",
+            "comment": "Sensory input"
+          },
+          {
+            "name": "output-link",
+            "toId": "output-link-vertex",
+            "comment": "Motor output"
+          }
+        ]
+      },
+      {
+        "id": "input-link-vertex",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "data",
+            "toId": "data-string"
+          },
+          {
+            "name": "value",
+            "toId": "value-int"
+          }
+        ]
+      },
+      {
+        "id": "output-link-vertex",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "command-enum"
+          },
+          {
+            "name": "status",
+            "toId": "status-enum"
+          }
+        ]
+      },
+      {
+        "id": "operator-vertex",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "operator-name-enum"
+          }
+        ]
+      },
+      {
+        "id": "type-enum",
+        "type": "ENUMERATION",
+        "choices": [
+          "state",
+          "operator"
+        ]
+      },
+      {
+        "id": "name-string",
+        "type": "STRING"
+      },
+      {
+        "id": "data-string",
+        "type": "STRING"
+      },
+      {
+        "id": "value-int",
+        "type": "INTEGER",
+        "min": 0,
+        "max": 100
+      },
+      {
+        "id": "command-enum",
+        "type": "ENUMERATION",
+        "choices": [
+          "move",
+          "stop",
+          "turn"
+        ]
+      },
+      {
+        "id": "status-enum",
+        "type": "ENUMERATION",
+        "choices": [
+          "pending",
+          "complete",
+          "error"
+        ]
+      },
+      {
+        "id": "operator-name-enum",
+        "type": "ENUMERATION",
+        "choices": [
+          "initialize",
+          "process-input",
+          "generate-output",
+          "cleanup"
+        ]
+      }
+    ]
+  },
+  "layout": {
+    "type": "OPERATOR_ROOT",
+    "id": "root-layout",
+    "name": "TestProject",
+    "folder": ".",
+    "children": [
+      {
+        "type": "FILE",
+        "id": "file-1",
+        "name": "README.txt",
+        "file": "README.txt"
+      },
+      {
+        "type": "HIGH_LEVEL_OPERATOR",
+        "id": "op-initialize",
+        "name": "initialize",
+        "file": "initialize.soar",
+        "dmId": "root-state",
+        "folder": "initialize",
+        "children": [
+          {
+            "type": "FILE_OPERATOR",
+            "id": "file-op-1",
+            "name": "elaborate",
+            "file": "elaborate.soar"
+          }
+        ]
+      },
+      {
+        "type": "HIGH_LEVEL_OPERATOR",
+        "id": "op-process",
+        "name": "process-input",
+        "file": "process-input.soar",
+        "dmId": "root-state",
+        "folder": "process-input",
+        "children": []
+      }
+    ]
+  }
+}

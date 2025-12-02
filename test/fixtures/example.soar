@@ -13,7 +13,7 @@ sp {propose*operator*hello-world
 # Operator application with I/O and functions
 sp {apply*hello-world
    (state <s> ^operator <o>
-              ^io.output-link <out>)
+              ^io.output <out>)
    (<o> ^name hello-world)
 -->
    (write |Hello, World!|)

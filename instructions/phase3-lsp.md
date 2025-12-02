@@ -1,203 +1,651 @@
-# Phase 3: LSP Integration
+# Phase 3: TypeScript LSP Implementation
 
 ## Objective
 
-Integrate the SoarTech Soar Language Server to provide IDE features including diagnostics, hover information, code completion, and go-to-definition functionality.
+Implement a native TypeScript Language Server Protocol (LSP) server for Soar, providing IDE features including diagnostics, hover information, code completion, and go-to-definition functionality. This replaces the Java-based external server with an integrated TypeScript solution for easier maintenance and distribution.
 
 ## Prerequisites
 
 - Completed Phase 1 (Project scaffolding)
 - Completed Phase 2 (Syntax highlighting)
-- Access to the Soar Language Server repository
 - Understanding of Language Server Protocol (LSP)
+- Familiarity with TypeScript and VS Code extension development
+- Access to the SoarTech Soar Language Server repository (as reference)
 
 ## Background
 
-The Language Server Protocol enables language-specific features in editors. The Soar Language Server (from SoarTech) provides:
+The Language Server Protocol enables language-specific features in editors. Instead of using an external Java-based server, we'll implement a TypeScript LSP server that runs in the same process as the extension, providing:
 
-- **Diagnostics**: Parse errors and warnings
-- **Hover**: Documentation and type information
+- **Diagnostics**: Parse errors and semantic warnings
+- **Hover**: Documentation and production information
 - **Completion**: Context-aware code suggestions
 - **Go to Definition**: Navigate to production definitions
 - **Find References**: Find all uses of a symbol
+- **Document Symbols**: Outline view of productions
+
+### Why TypeScript LSP?
+
+**Advantages:**
+- No external dependencies (no Java required)
+- Easier to maintain and debug
+- Faster startup time
+- Direct integration with extension
+- Easier distribution via VS Code Marketplace
+- Shared code with datamap logic
+
+**Reference:**
+We'll use the SoarTech Java LSP as a reference for features and behavior: https://github.com/soartech/soar-language-server
 
 ## Steps
 
 ### 3.1 Install LSP Dependencies
 
-Install the VS Code language client library:
+Install the required LSP libraries:
 
 ```bash
-npm install vscode-languageclient
+npm install vscode-languageclient vscode-languageserver vscode-languageserver-textdocument
 ```
 
-### 3.2 Obtain the Soar Language Server
-
-You have several options:
-
-#### Option A: Clone and Build from Source
+Install development dependencies:
 
 ```bash
-# Clone the repository
-cd server/
-git clone https://github.com/soartech/soar-language-server.git
-cd soar-language-server
-
-# Build the server (requires Java and Gradle)
-./gradlew build
-
-# The JAR file will be in build/libs/
+npm install --save-dev @types/node
 ```
 
-#### Option B: Download Pre-built Binary
+### 3.2 Create Soar Parser Types
 
-If available, download a pre-built JAR from the releases page.
-
-#### Option C: Use Existing Installation
-
-If the server is already installed on the system, reference its path.
-
-### 3.3 Create Server Configuration
-
-Create `src/server/serverConfig.ts`:
+Create `src/server/soarTypes.ts` for core Soar data structures:
 
 ```typescript
-import * as path from 'path';
-import * as fs from 'fs';
+/**
+ * Core types for Soar language structures
+ */
 
-export interface ServerConfig {
-    command: string;
+export interface Position {
+    line: number;
+    character: number;
+}
+
+export interface Range {
+    start: Position;
+    end: Position;
+}
+
+export interface Location {
+    uri: string;
+    range: Range;
+}
+
+export enum ProductionType {
+    SP = 'sp',  // Soar production
+    GP = 'gp'   // Goal production
+}
+
+export interface SoarVariable {
+    name: string;
+    range: Range;
+    references: Range[];
+}
+
+export interface SoarAttribute {
+    name: string;
+    range: Range;
+    value?: string;
+    isNegated: boolean;
+}
+
+export interface SoarCondition {
+    range: Range;
+    variables: SoarVariable[];
+    attributes: SoarAttribute[];
+    tests: SoarTest[];
+}
+
+export interface SoarAction {
+    range: Range;
+    attributes: SoarAttribute[];
+    functionCalls: SoarFunctionCall[];
+}
+
+export interface SoarTest {
+    operator: string;  // <, >, <=, >=, <>, =, etc.
+    value: string;
+    range: Range;
+}
+
+export interface SoarFunctionCall {
+    name: string;
     args: string[];
-    options?: any;
+    range: Range;
 }
 
-/**
- * Get the Soar Language Server configuration
- * @param extensionPath The extension's installation path
- */
-export function getServerConfig(extensionPath: string): ServerConfig | null {
-    // Option 1: Bundled JAR in extension
-    const bundledJar = path.join(extensionPath, 'server', 'soar-language-server.jar');
-    
-    if (fs.existsSync(bundledJar)) {
-        return {
-            command: 'java',
-            args: ['-jar', bundledJar],
-            options: {}
-        };
-    }
-
-    // Option 2: Check for system-installed server
-    // You can add logic here to check common installation paths
-    
-    // Option 3: Use environment variable
-    const serverPath = process.env.SOAR_LSP_SERVER;
-    if (serverPath && fs.existsSync(serverPath)) {
-        return {
-            command: 'java',
-            args: ['-jar', serverPath],
-            options: {}
-        };
-    }
-
-    return null;
+export interface SoarProduction {
+    name: string;
+    type: ProductionType;
+    range: Range;
+    nameRange: Range;
+    documentation?: string;
+    conditions: SoarCondition[];
+    actions: SoarAction[];
+    variables: Map<string, SoarVariable>;
 }
 
-/**
- * Validate that Java is installed and accessible
- */
-export async function validateJava(): Promise<boolean> {
-    const { exec } = require('child_process');
-    
-    return new Promise((resolve) => {
-        exec('java -version', (error: any) => {
-            resolve(!error);
-        });
-    });
+export interface SoarDocument {
+    uri: string;
+    version: number;
+    content: string;
+    productions: SoarProduction[];
+    errors: SoarDiagnostic[];
+}
+
+export interface SoarDiagnostic {
+    range: Range;
+    message: string;
+    severity: DiagnosticSeverity;
+    source: string;
+}
+
+export enum DiagnosticSeverity {
+    Error = 1,
+    Warning = 2,
+    Information = 3,
+    Hint = 4
 }
 ```
 
-### 3.4 Create LSP Client
+### 3.3 Create Soar Parser
 
-Create `src/client/lspClient.ts`:
+Create `src/server/soarParser.ts` for parsing Soar code:
 
 ```typescript
-import * as path from 'path';
-import * as vscode from 'vscode';
-import {
-    LanguageClient,
-    LanguageClientOptions,
-    ServerOptions,
-    TransportKind
-} from 'vscode-languageclient/node';
-import { getServerConfig, validateJava } from '../server/serverConfig';
-
-let client: LanguageClient | undefined;
+import { SoarDocument, SoarProduction, ProductionType, SoarDiagnostic, DiagnosticSeverity, Range, Position } from './soarTypes';
 
 /**
- * Start the Soar Language Server client
+ * Simple Soar parser for LSP features
+ * Uses regex-based parsing for simplicity
  */
-export async function startLanguageClient(context: vscode.ExtensionContext): Promise<void> {
-    // Validate Java installation
-    const javaInstalled = await validateJava();
-    if (!javaInstalled) {
-        const message = 'Java is required for Soar language features. Please install Java and reload the window.';
-        vscode.window.showErrorMessage(message, 'Install Java').then(selection => {
-            if (selection === 'Install Java') {
-                vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/'));
+export class SoarParser {
+    
+    parse(uri: string, content: string, version: number): SoarDocument {
+        const document: SoarDocument = {
+            uri,
+            version,
+            content,
+            productions: [],
+            errors: []
+        };
+
+        try {
+            this.parseProductions(content, document);
+        } catch (error) {
+            document.errors.push({
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                message: `Parse error: ${error}`,
+                severity: DiagnosticSeverity.Error,
+                source: 'soar-parser'
+            });
+        }
+
+        return document;
+    }
+
+    private parseProductions(content: string, document: SoarDocument): void {
+        // Match sp {...} or gp {...} blocks
+        const productionRegex = /\b(sp|gp)\s*\{\s*([a-zA-Z][a-zA-Z0-9_*-]*)/g;
+        const lines = content.split('\n');
+        let match;
+
+        while ((match = productionRegex.exec(content)) !== null) {
+            const type = match[1] as 'sp' | 'gp';
+            const name = match[2];
+            const startOffset = match.index;
+            
+            // Find the production's extent
+            const productionRange = this.findProductionRange(content, startOffset, lines);
+            const nameRange = this.offsetToRange(content, match.index + match[1].length, match.index + match[0].length, lines);
+            
+            // Extract production body
+            const productionText = content.substring(
+                this.rangeToOffset(content, productionRange.start),
+                this.rangeToOffset(content, productionRange.end)
+            );
+
+            const production: SoarProduction = {
+                name,
+                type: type === 'sp' ? ProductionType.SP : ProductionType.GP,
+                range: productionRange,
+                nameRange,
+                conditions: [],
+                actions: [],
+                variables: new Map()
+            };
+
+            // Parse production body
+            this.parseProductionBody(productionText, production, productionRange.start);
+            
+            document.productions.push(production);
+        }
+    }
+
+    private findProductionRange(content: string, startOffset: number, lines: string[]): Range {
+        // Find matching closing brace
+        let braceCount = 0;
+        let inBraces = false;
+        let endOffset = startOffset;
+
+        for (let i = startOffset; i < content.length; i++) {
+            const char = content[i];
+            if (char === '{') {
+                braceCount++;
+                inBraces = true;
+            } else if (char === '}') {
+                braceCount--;
+                if (braceCount === 0 && inBraces) {
+                    endOffset = i + 1;
+                    break;
+                }
             }
+        }
+
+        return {
+            start: this.offsetToPosition(content, startOffset, lines),
+            end: this.offsetToPosition(content, endOffset, lines)
+        };
+    }
+
+    private parseProductionBody(body: string, production: SoarProduction, basePosition: Position): void {
+        // Find the --> separator
+        const arrowIndex = body.indexOf('-->');
+        
+        if (arrowIndex === -1) {
+            // No arrow found - syntax error
+            return;
+        }
+
+        const conditionsText = body.substring(0, arrowIndex);
+        const actionsText = body.substring(arrowIndex + 3);
+
+        // Parse variables
+        this.parseVariables(body, production, basePosition);
+        
+        // Parse conditions and actions
+        // (Simplified - real implementation would be more comprehensive)
+        production.conditions.push({
+            range: { start: basePosition, end: basePosition },
+            variables: [],
+            attributes: [],
+            tests: []
         });
-        return;
+
+        production.actions.push({
+            range: { start: basePosition, end: basePosition },
+            attributes: [],
+            functionCalls: []
+        });
     }
 
-    // Get server configuration
-    const serverConfig = getServerConfig(context.extensionPath);
-    if (!serverConfig) {
-        const message = 'Soar Language Server not found. Some features will be unavailable.';
-        vscode.window.showWarningMessage(message);
-        return;
+    private parseVariables(text: string, production: SoarProduction, basePosition: Position): void {
+        const variableRegex = /<([a-zA-Z][a-zA-Z0-9_-]*)>/g;
+        let match;
+
+        while ((match = variableRegex.exec(text)) !== null) {
+            const varName = match[1];
+            const range: Range = {
+                start: { line: basePosition.line, character: match.index },
+                end: { line: basePosition.line, character: match.index + match[0].length }
+            };
+
+            if (!production.variables.has(varName)) {
+                production.variables.set(varName, {
+                    name: varName,
+                    range,
+                    references: []
+                });
+            } else {
+                production.variables.get(varName)!.references.push(range);
+            }
+        }
     }
 
-    // Define server options
-    const serverOptions: ServerOptions = {
-        command: serverConfig.command,
-        args: serverConfig.args,
-        options: serverConfig.options
+    private offsetToPosition(content: string, offset: number, lines: string[]): Position {
+        let currentOffset = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const lineLength = lines[i].length + 1; // +1 for newline
+            if (currentOffset + lineLength > offset) {
+                return { line: i, character: offset - currentOffset };
+            }
+            currentOffset += lineLength;
+        }
+        return { line: lines.length - 1, character: 0 };
+    }
+
+    private offsetToRange(content: string, startOffset: number, endOffset: number, lines: string[]): Range {
+        return {
+            start: this.offsetToPosition(content, startOffset, lines),
+            end: this.offsetToPosition(content, endOffset, lines)
+        };
+    }
+
+    private rangeToOffset(content: string, position: Position): number {
+        const lines = content.split('\n');
+        let offset = 0;
+        for (let i = 0; i < position.line && i < lines.length; i++) {
+            offset += lines[i].length + 1;
+        }
+        return offset + position.character;
+    }
+}
+```
+
+### 3.4 Create LSP Server
+
+Create `src/server/soarLanguageServer.ts` for the main server implementation:
+
+```typescript
+import {
+    createConnection,
+    TextDocuments,
+    ProposedFeatures,
+    InitializeParams,
+    TextDocumentSyncKind,
+    InitializeResult,
+    CompletionItem,
+    CompletionItemKind,
+    TextDocumentPositionParams,
+    Hover,
+    MarkupKind,
+    Definition,
+    Location as LSPLocation,
+    SymbolInformation,
+    SymbolKind,
+    DocumentSymbolParams
+} from 'vscode-languageserver/node';
+
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { SoarParser } from './soarParser';
+import { SoarDocument } from './soarTypes';
+
+// Create a connection for the server
+const connection = createConnection(ProposedFeatures.all);
+
+// Create a document manager
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+
+// Create parser instance
+const parser = new SoarParser();
+
+// Cache for parsed documents
+const documentCache = new Map<string, SoarDocument>();
+
+connection.onInitialize((params: InitializeParams) => {
+    const result: InitializeResult = {
+        capabilities: {
+            textDocumentSync: TextDocumentSyncKind.Incremental,
+            completionProvider: {
+                resolveProvider: true,
+                triggerCharacters: ['^', '<', '(', ' ']
+            },
+            hoverProvider: true,
+            definitionProvider: true,
+            documentSymbolProvider: true,
+            referencesProvider: true
+        }
     };
+    return result;
+});
 
-    // Define client options
-    const clientOptions: LanguageClientOptions = {
-        documentSelector: [
-            { scheme: 'file', language: 'soar' },
-            { scheme: 'untitled', language: 'soar' }
-        ],
-        synchronize: {
-            // Notify the server about file changes to '.soar' files in the workspace
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.soar')
+connection.onInitialized(() => {
+    connection.console.log('Soar Language Server initialized');
+});
+
+// Document change handler
+documents.onDidChangeContent(change => {
+    validateDocument(change.document);
+});
+
+// Document close handler
+documents.onDidClose(e => {
+    documentCache.delete(e.document.uri);
+});
+
+async function validateDocument(textDocument: TextDocument): Promise<void> {
+    const text = textDocument.getText();
+    const soarDoc = parser.parse(textDocument.uri, text, textDocument.version);
+    
+    // Cache the parsed document
+    documentCache.set(textDocument.uri, soarDoc);
+
+    // Send diagnostics
+    const diagnostics = soarDoc.errors.map(error => ({
+        severity: error.severity,
+        range: {
+            start: { line: error.range.start.line, character: error.range.start.character },
+            end: { line: error.range.end.line, character: error.range.end.character }
         },
-        outputChannelName: 'Soar Language Server',
-        revealOutputChannelOn: 2, // RevealOutputChannelOn.Info
-    };
+        message: error.message,
+        source: error.source
+    }));
 
-    // Create and start the language client
-    client = new LanguageClient(
-        'soarLanguageServer',
-        'Soar Language Server',
-        serverOptions,
-        clientOptions
-    );
+    connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
 
-    // Start the client and server
-    try {
-        await client.start();
-        console.log('Soar Language Server started successfully');
-        vscode.window.showInformationMessage('Soar Language Server is now active');
-    } catch (error) {
-        console.error('Failed to start Soar Language Server:', error);
-        vscode.window.showErrorMessage(`Failed to start Soar Language Server: ${error}`);
+// Completion handler
+connection.onCompletion(
+    (params: TextDocumentPositionParams): CompletionItem[] => {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            return [];
+        }
+
+        const soarDoc = documentCache.get(params.textDocument.uri);
+        const text = document.getText();
+        const offset = document.offsetAt(params.position);
+        const lineText = text.split('\n')[params.position.line];
+        const beforeCursor = lineText.substring(0, params.position.character);
+
+        const completions: CompletionItem[] = [];
+
+        // Attribute completions (after ^)
+        if (beforeCursor.match(/\^\w*$/)) {
+            completions.push(
+                { label: 'name', kind: CompletionItemKind.Property },
+                { label: 'type', kind: CompletionItemKind.Property },
+                { label: 'operator', kind: CompletionItemKind.Property },
+                { label: 'superstate', kind: CompletionItemKind.Property },
+                { label: 'io', kind: CompletionItemKind.Property },
+                { label: 'input-link', kind: CompletionItemKind.Property },
+                { label: 'output-link', kind: CompletionItemKind.Property }
+            );
+        }
+
+        // Variable completions (after <)
+        if (beforeCursor.match(/<[a-zA-Z]*$/)) {
+            if (soarDoc) {
+                soarDoc.productions.forEach(prod => {
+                    prod.variables.forEach((variable, name) => {
+                        completions.push({
+                            label: name,
+                            kind: CompletionItemKind.Variable,
+                            detail: 'Variable'
+                        });
+                    });
+                });
+            }
+        }
+
+        // Function completions (after ()
+        if (beforeCursor.match(/\(\s*[a-zA-Z]*$/)) {
+            const functions = [
+                'write', 'crlf', 'halt', 'interrupt', 'timestamp',
+                '+', '-', '*', '/', 'div', 'mod', 'abs', 'sqrt',
+                'sin', 'cos', 'tan', 'atan2', 'log', 'ln', 'exp',
+                'int', 'float', 'round', 'min', 'max'
+            ];
+            functions.forEach(func => {
+                completions.push({
+                    label: func,
+                    kind: CompletionItemKind.Function,
+                    detail: 'Soar function'
+                });
+            });
+        }
+
+        // Keyword completions at start of line
+        if (beforeCursor.trim().length === 0 || beforeCursor.match(/^\s*(sp|gp)?$/)) {
+            completions.push(
+                { label: 'sp', kind: CompletionItemKind.Keyword, detail: 'Soar production' },
+                { label: 'gp', kind: CompletionItemKind.Keyword, detail: 'Goal production' }
+            );
+        }
+
+        return completions;
+    }
+);
+
+// Hover handler
+connection.onHover(
+    (params: TextDocumentPositionParams): Hover | null => {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            return null;
+        }
+
+        const soarDoc = documentCache.get(params.textDocument.uri);
+        if (!soarDoc) {
+            return null;
+        }
+
+        const position = params.position;
+
+        // Find production at cursor
+        for (const prod of soarDoc.productions) {
+            if (this.isPositionInRange(position, prod.nameRange)) {
+                const markdown = [
+                    `**${prod.type}** \`${prod.name}\``,
+                    '',
+                    prod.documentation || 'Soar production',
+                    '',
+                    `Variables: ${Array.from(prod.variables.keys()).join(', ')}`
+                ].join('\n');
+
+                return {
+                    contents: {
+                        kind: MarkupKind.Markdown,
+                        value: markdown
+                    }
+                };
+            }
+        }
+
+        return null;
+    }
+);
+
+// Definition handler
+connection.onDefinition(
+    (params: TextDocumentPositionParams): Definition | null => {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            return null;
+        }
+
+        const soarDoc = documentCache.get(params.textDocument.uri);
+        if (!soarDoc) {
+            return null;
+        }
+
+        const text = document.getText();
+        const offset = document.offsetAt(params.position);
+        const wordRange = this.getWordRangeAtPosition(text, offset);
+        if (!wordRange) {
+            return null;
+        }
+
+        const word = text.substring(wordRange.start, wordRange.end);
+
+        // Find production by name
+        for (const prod of soarDoc.productions) {
+            if (prod.name === word) {
+                return {
+                    uri: params.textDocument.uri,
+                    range: {
+                        start: { line: prod.range.start.line, character: prod.range.start.character },
+                        end: { line: prod.range.end.line, character: prod.range.end.character }
+                    }
+                };
+            }
+        }
+
+        return null;
+    }
+);
+
+// Document symbols handler
+connection.onDocumentSymbol(
+    (params: DocumentSymbolParams): SymbolInformation[] => {
+        const soarDoc = documentCache.get(params.textDocument.uri);
+        if (!soarDoc) {
+            return [];
+        }
+
+        return soarDoc.productions.map(prod => ({
+            name: prod.name,
+            kind: SymbolKind.Function,
+            location: {
+                uri: params.textDocument.uri,
+                range: {
+                    start: { line: prod.range.start.line, character: prod.range.start.character },
+                    end: { line: prod.range.end.line, character: prod.range.end.character }
+                }
+            }
+        }));
+    }
+);
+
+// Helper functions
+function isPositionInRange(position: { line: number; character: number }, range: { start: { line: number; character: number }, end: { line: number; character: number } }): boolean {
+    if (position.line < range.start.line || position.line > range.end.line) {
+        return false;
+    }
+    if (position.line === range.start.line && position.character < range.start.character) {
+        return false;
+    }
+    if (position.line === range.end.line && position.character > range.end.character) {
+        return false;
+    }
+    return true;
+}
+
+function getWordRangeAtPosition(text: string, offset: number): { start: number; end: number } | null {
+    // Find word boundaries
+    let start = offset;
+    let end = offset;
+
+    while (start > 0 && /[a-zA-Z0-9_-]/.test(text[start - 1])) {
+        start--;
     }
 
-    // Register client for disposal
+    while (end < text.length && /[a-zA-Z0-9_-]/.test(text[end])) {
+        end++;
+    }
+
+    if (start === end) {
+        return null;
+    }
+
+    return { start, end };
+}
+
+// Make the text document manager listen on the connection
+documents.listen(connection);
+
+// Listen on the connection
+connection.listen();
+```
+
+### 3.5 Create LSP Client
+
+Create `src/client/lspClient.ts` to connect the extension to the server:
     context.subscriptions.push({
         dispose: () => stopLanguageClient()
     });
