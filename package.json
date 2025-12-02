@@ -3,10 +3,11 @@
   "displayName": "Soar",
   "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
   "version": "0.1.4",
-  "publisher": "soar-group",
+  "publisher": "THA Embedded Systems Lab",
+  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SoarGroup/soar-vscode-extension"
+    "url": "https://github.com/THA-Embedded-Systems-Lab/soar-code-extension"
   },
   "engines": {
     "vscode": "^1.80.0"
