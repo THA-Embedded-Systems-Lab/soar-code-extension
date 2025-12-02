@@ -311,12 +311,12 @@
     "check:links": "markdown-link-check README.md && find doc -name '*.md' -exec markdown-link-check {} \\;",
     "format": "prettier --write 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
     "format:check": "prettier --check 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
-    "test": "xvfb-run -a node ./out/test/runTest.js",
+    "test": "node ./out/test/runTest.js",
+    "test:ci": "xvfb-run -a node ./out/test/runTest.js",
     "package": "vsce package",
     "precommit": "npm run lint && npm run format:check && npm run lint:md"
   },
   "devDependencies": {
-    "@types/glob": "^9.0.0",
     "@types/mocha": "^10.0.0",
     "@types/node": "^18.x",
     "@types/vscode": "^1.80.0",
@@ -327,11 +327,10 @@
     "eslint": "^8.40.0",
     "glob": "^10.0.0",
     "markdown-link-check": "^3.12.1",
-    "markdownlint-cli": "^0.39.0",
+    "markdownlint-cli": "^0.46.0",
     "mocha": "^10.0.0",
     "prettier": "^3.1.0",
-    "typescript": "^5.0.0",
-    "vsce": "^2.7.0"
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
