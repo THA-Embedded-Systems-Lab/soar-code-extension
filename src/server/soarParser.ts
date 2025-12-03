@@ -204,11 +204,15 @@ export class SoarParser {
         );
 
         // Collect all values from the text following the attribute
+        // Note: Filter out standalone '-' which is a WME removal operator in RHS
         const values: string[] = [];
         const valueRegex = /([a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>)/g;
         let valueMatch;
         while ((valueMatch = valueRegex.exec(valuesText)) !== null) {
-          values.push(valueMatch[1]);
+          // Skip standalone '-' which is used for WME removal on RHS
+          if (valueMatch[1] !== '-') {
+            values.push(valueMatch[1]);
+          }
         }
 
         // Create an attribute entry for each value (or one without value if none)
