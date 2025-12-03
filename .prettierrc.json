@@ -20,6 +20,12 @@
       "options": {
         "printWidth": 80
       }
+    },
+    {
+      "files": "*.yml",
+      "options": {
+        "singleQuote": false
+      }
     }
   ]
 }
