@@ -2,7 +2,7 @@
   "name": "soar",
   "displayName": "Soar",
   "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
   "repository": {
@@ -64,6 +64,12 @@
         "command": "soar.restartLanguageServer",
         "title": "Restart Language Server",
         "category": "Soar"
+      },
+      {
+        "command": "soar.selectProject",
+        "title": "Select Soar Project",
+        "category": "Soar",
+        "icon": "$(folder-library)"
       },
       {
         "command": "soar.refreshDatamap",

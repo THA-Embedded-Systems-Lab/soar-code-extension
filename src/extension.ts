@@ -7,6 +7,7 @@ import { LayoutTreeProvider } from './layout/layoutTreeProvider';
 import { LayoutOperations } from './layout/layoutOperations';
 import { ProjectSync } from './layout/projectSync';
 import { SoarParser } from './server/soarParser';
+import { ProjectManager } from './projectManager';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -14,6 +15,7 @@ let diagnosticsCollection: vscode.DiagnosticCollection;
 let datamapProviderGlobal: DatamapTreeProvider;
 let layoutProviderGlobal: LayoutTreeProvider;
 let parser: SoarParser;
+let projectManager: ProjectManager;
 
 /**
  * Extension activation function
@@ -21,6 +23,10 @@ let parser: SoarParser;
  */
 export function activate(context: vscode.ExtensionContext) {
   console.log('Soar extension is now active');
+
+  // Initialize project manager
+  projectManager = ProjectManager.getInstance(context);
+  context.subscriptions.push(projectManager);
 
   // Initialize validator and parser
   validator = new DatamapValidator();
@@ -55,25 +61,45 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(datamapTreeView);
 
+  // Register project selection command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.selectProject', async () => {
+      const project = await projectManager.showProjectSelector();
+      if (project) {
+        await datamapProvider.loadProjectFromFile(project.projectFile);
+        await layoutProvider.loadProjectFromFile(project.projectFile);
+      }
+    })
+  );
+
   // Register commands for datamap tree
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshDatamap', async () => {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        await datamapProvider.loadProject(workspaceFolders[0].uri);
+      const activeProject = projectManager.getActiveProject();
+      if (activeProject) {
+        await datamapProvider.loadProjectFromFile(activeProject.projectFile);
       } else {
-        vscode.window.showWarningMessage('No workspace folder open');
+        // Fall back to old behavior
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          await datamapProvider.loadProject(workspaceFolders[0].uri);
+        } else {
+          vscode.window.showWarningMessage(
+            'No workspace folder open. Use "Select Soar Project" command to choose a project.'
+          );
+        }
       }
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.loadDatamap', async () => {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        await datamapProvider.loadProject(workspaceFolders[0].uri);
+      const activeProject = projectManager.getActiveProject();
+      if (activeProject) {
+        await datamapProvider.loadProjectFromFile(activeProject.projectFile);
       } else {
-        vscode.window.showWarningMessage('No workspace folder open');
+        // Trigger project selection
+        await vscode.commands.executeCommand('soar.selectProject');
       }
     })
   );
@@ -145,11 +171,19 @@ export function activate(context: vscode.ExtensionContext) {
   // Register commands for layout tree
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshLayout', async () => {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        await layoutProvider.loadProject(workspaceFolders[0].uri);
+      const activeProject = projectManager.getActiveProject();
+      if (activeProject) {
+        await layoutProvider.loadProjectFromFile(activeProject.projectFile);
       } else {
-        vscode.window.showWarningMessage('No workspace folder open');
+        // Fall back to old behavior
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          await layoutProvider.loadProject(workspaceFolders[0].uri);
+        } else {
+          vscode.window.showWarningMessage(
+            'No workspace folder open. Use "Select Soar Project" command to choose a project.'
+          );
+        }
       }
     })
   );
@@ -300,10 +334,23 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Auto-load layout if project file exists
-  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-    layoutProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
-  }
+  // Auto-discover and load projects
+  (async () => {
+    await projectManager.discoverProjects();
+    await projectManager.restoreActiveProject();
+
+    const activeProject = projectManager.getActiveProject();
+    if (activeProject) {
+      await layoutProvider.loadProjectFromFile(activeProject.projectFile);
+      await datamapProvider.loadProjectFromFile(activeProject.projectFile);
+    } else {
+      // Try to auto-load from first workspace folder for backward compatibility
+      if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+        await layoutProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
+        await datamapProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
+      }
+    }
+  })();
 
   // Register project sync commands
   context.subscriptions.push(
@@ -407,11 +454,6 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
-
-  // Auto-load datamap if project file exists
-  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-    datamapProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
-  }
 
   // Validate all open Soar documents
   vscode.workspace.textDocuments.forEach(doc => {
