@@ -168,12 +168,7 @@ export class DatamapValidator {
     // If attribute has a value, check if it's valid for enumeration types
     if (attr.value && !attr.value.startsWith('<')) {
       // Skip if value is a variable (starts with '<')
-      const enumError = this.validateEnumerationValue(
-        attr,
-        production,
-        projectContext,
-        variableBindings
-      );
+      const enumError = this.validateEnumerationValue(attr, production, projectContext);
       if (enumError) {
         return enumError;
       }
@@ -274,14 +269,13 @@ export class DatamapValidator {
   }
 
   /**
-   * Validate that an attribute value matches enumeration choices
-   * This checks enumerations reachable via the specific attribute path from the parent identifier context
+   * Simplified enumeration validation
+   * Checks if the attribute value is valid in ANY enumeration for that attribute anywhere in the datamap
    */
   private validateEnumerationValue(
     attr: SoarAttribute,
     production: SoarProduction,
-    projectContext: ProjectContext,
-    variableBindings: Map<string, Set<string>>
+    projectContext: ProjectContext
   ): ValidationError | null {
     if (!attr.value) {
       return null;
@@ -292,48 +286,32 @@ export class DatamapValidator {
       return null;
     }
 
-    const attrValue = attr.value; // Type guard: now TypeScript knows it's not undefined
+    const attrValue = attr.value;
     const pathSegments = attr.name.split('.');
+    const lastSegment = pathSegments[pathSegments.length - 1];
 
-    // Determine starting vertices based on parent identifier context
-    let startVertexIds: string[];
-    if (attr.parentId && variableBindings.has(attr.parentId)) {
-      // Use the specific vertex IDs bound to this parent identifier
-      startVertexIds = Array.from(variableBindings.get(attr.parentId)!);
-    } else {
-      // Fallback: search globally (but this should rarely happen with proper parsing)
-      startVertexIds = [projectContext.project.datamap.rootId];
-    }
+    // Find all enumerations for this attribute path anywhere in the datamap
+    const allEnumerations = this.findAllEnumerationsForAttribute(pathSegments, projectContext);
 
-    // Find all enumeration vertices reachable via this specific path from the context vertices
-    const reachableEnumerations = this.findEnumerationsForPathFromVertices(
-      pathSegments,
-      startVertexIds,
-      projectContext
-    );
-
-    // If no enumeration vertices found for this path, it's not an enumeration - no error
-    if (reachableEnumerations.length === 0) {
+    // If no enumerations found, it's not an enumeration attribute - no error
+    if (allEnumerations.length === 0) {
       return null;
     }
 
-    // Check if the value is valid in ANY of the reachable enumerations
-    const validInAnyContext = reachableEnumerations.some(e => e.choices.includes(attrValue));
+    // Check if value is valid in ANY enumeration
+    const isValid = allEnumerations.some(enumInfo => enumInfo.choices.includes(attrValue));
 
-    if (validInAnyContext) {
-      // Value is valid in at least one context - no error
+    if (isValid) {
       return null;
     }
 
-    // Value is invalid in ALL reachable contexts
-    // Collect all valid choices from all enumerations reachable via this path
+    // Collect all valid choices
     const allValidChoices = new Set<string>();
-    for (const enumInfo of reachableEnumerations) {
+    for (const enumInfo of allEnumerations) {
       enumInfo.choices.forEach(choice => allValidChoices.add(choice));
     }
 
     const validChoices = Array.from(allValidChoices).sort().join(', ');
-    const lastSegment = pathSegments[pathSegments.length - 1];
 
     return {
       production: production.name,
@@ -348,35 +326,74 @@ export class DatamapValidator {
   }
 
   /**
-   * Find all enumeration vertices reachable via a specific attribute path from given starting vertices
-   * This provides context-aware enumeration lookup based on parent identifier bindings
+   * Find all enumerations for an attribute path anywhere in the datamap
+   * This is a simplified approach that searches globally
    */
-  private findEnumerationsForPathFromVertices(
+  private findAllEnumerationsForAttribute(
     pathSegments: string[],
-    startVertexIds: string[],
     projectContext: ProjectContext
   ): Array<{ vertexId: string; choices: string[] }> {
     const enumerations: Array<{ vertexId: string; choices: string[] }> = [];
     const seenVertexIds = new Set<string>();
 
-    if (pathSegments.length === 0) {
-      return enumerations;
-    }
+    // Search all vertices in the datamap
+    for (const vertex of projectContext.project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
 
-    // Navigate from each starting vertex
-    for (const startVertexId of startVertexIds) {
-      const foundEnums = this.findEnumerationsFromVertex(
-        startVertexId,
-        pathSegments,
-        projectContext
-      );
+      // Try to navigate the path from this vertex
+      const reachableEnums = this.navigatePathFromVertex(vertex.id, pathSegments, projectContext);
 
-      // Add unique enumerations
-      for (const enumInfo of foundEnums) {
+      for (const enumInfo of reachableEnums) {
         if (!seenVertexIds.has(enumInfo.vertexId)) {
           seenVertexIds.add(enumInfo.vertexId);
           enumerations.push(enumInfo);
         }
+      }
+    }
+
+    return enumerations;
+  }
+
+  /**
+   * Navigate a path from a vertex and return any enumerations found
+   */
+  private navigatePathFromVertex(
+    vertexId: string,
+    pathSegments: string[],
+    projectContext: ProjectContext
+  ): Array<{ vertexId: string; choices: string[] }> {
+    if (pathSegments.length === 0) {
+      return [];
+    }
+
+    const vertex = projectContext.datamapIndex.get(vertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID') {
+      return [];
+    }
+
+    const firstSegment = pathSegments[0];
+    const remainingSegments = pathSegments.slice(1);
+    const enumerations: Array<{ vertexId: string; choices: string[] }> = [];
+
+    // Find all edges matching the first segment
+    const matchingEdges = vertex.outEdges?.filter(e => e.name === firstSegment) || [];
+
+    for (const edge of matchingEdges) {
+      if (remainingSegments.length === 0) {
+        // End of path - check if target is an enumeration
+        const targetVertex = projectContext.datamapIndex.get(edge.toId);
+        if (targetVertex && targetVertex.type === 'ENUMERATION') {
+          enumerations.push({
+            vertexId: edge.toId,
+            choices: targetVertex.choices,
+          });
+        }
+      } else {
+        // Continue navigating
+        const found = this.navigatePathFromVertex(edge.toId, remainingSegments, projectContext);
+        enumerations.push(...found);
       }
     }
 
@@ -407,9 +424,9 @@ export class DatamapValidator {
       const firstSegment = pathSegments[0];
       const remainingSegments = pathSegments.slice(1);
 
-      // Find the edge with this attribute name
-      const matchingEdge = vertex.outEdges?.find(e => e.name === firstSegment);
-      if (matchingEdge) {
+      // Find ALL edges with this attribute name (can have multiple, e.g., ^operator -> multiple operator types)
+      const matchingEdges = vertex.outEdges?.filter(e => e.name === firstSegment) || [];
+      for (const matchingEdge of matchingEdges) {
         if (remainingSegments.length > 0) {
           // Recursively navigate remaining path
           const results = this.findTargetVerticesForPath(
@@ -426,54 +443,6 @@ export class DatamapValidator {
     }
 
     return Array.from(targetVertices);
-  }
-
-  /**
-   * Find enumerations by navigating from a starting vertex through path segments
-   * Now starts from the given vertex and navigates the full path
-   */
-  private findEnumerationsFromVertex(
-    startVertexId: string,
-    pathSegments: string[],
-    projectContext: ProjectContext
-  ): Array<{ vertexId: string; choices: string[] }> {
-    const enumerations: Array<{ vertexId: string; choices: string[] }> = [];
-
-    // Base case: no more path segments
-    if (pathSegments.length === 0) {
-      // Check if current vertex is an enumeration
-      const vertex = projectContext.datamapIndex.get(startVertexId);
-      if (vertex && vertex.type === 'ENUMERATION') {
-        enumerations.push({
-          vertexId: startVertexId,
-          choices: vertex.choices,
-        });
-      }
-      return enumerations;
-    }
-
-    // Navigate to next segment
-    const vertex = projectContext.datamapIndex.get(startVertexId);
-    if (!vertex || vertex.type !== 'SOAR_ID') {
-      return enumerations;
-    }
-
-    const firstSegment = pathSegments[0];
-    const remainingSegments = pathSegments.slice(1);
-
-    // Find the edge with this name (should be unique within this vertex)
-    const matchingEdge = vertex.outEdges?.find(e => e.name === firstSegment);
-
-    if (matchingEdge) {
-      const foundEnums = this.findEnumerationsFromVertex(
-        matchingEdge.toId,
-        remainingSegments,
-        projectContext
-      );
-      enumerations.push(...foundEnums);
-    }
-
-    return enumerations;
   }
 
   /**
