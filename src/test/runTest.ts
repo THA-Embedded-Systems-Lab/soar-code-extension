@@ -5,11 +5,13 @@ async function main() {
   try {
     const extensionDevelopmentPath = path.resolve(__dirname, '../../');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
+    const testWorkspacePath = path.resolve(__dirname, '../../test/BW-Hierarchical');
 
     await runTests({
       extensionDevelopmentPath,
       extensionTestsPath,
       launchArgs: [
+        testWorkspacePath, // Open the test workspace
         '--disable-extensions',
         '--disable-gpu',
         '--no-sandbox',

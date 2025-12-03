@@ -132,4 +132,43 @@ suite('Datamap Test Suite', () => {
       assert.fail(`Should be able to open Soar file: ${error}`);
     }
   });
+
+  test('Should detect enumeration errors when validating project', async function () {
+    this.timeout(5000); // Increase timeout for this test
+
+    // First ensure the datamap is loaded
+    await vscode.commands.executeCommand('soar.loadDatamap');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Run full project validation
+    await vscode.commands.executeCommand('soar.validateSelectedProjectAgainstDatamap');
+
+    // Wait for validation to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Check for diagnostics in move-block.soar
+    const moveBlockPath = path.join(workspaceUri.fsPath, 'BW-Hierarchical', 'move-block.soar');
+    const moveBlockUri = vscode.Uri.file(moveBlockPath);
+    const diagnostics = vscode.languages.getDiagnostics(moveBlockUri);
+
+    console.log(`Found ${diagnostics.length} diagnostic(s) in move-block.soar`);
+
+    if (diagnostics.length > 0) {
+      diagnostics.forEach(d => {
+        console.log(`  - Line ${d.range.start.line + 1}: ${d.message}`);
+      });
+    }
+
+    // Should find the typo "moe-block" instead of "move-block"
+    const enumError = diagnostics.find(
+      d => d.message.includes('moe-block') && d.message.includes('Invalid enumeration value')
+    );
+
+    assert.ok(enumError, 'Should detect the enumeration typo "moe-block" in move-block.soar');
+    assert.strictEqual(
+      enumError.range.start.line,
+      19,
+      'Error should be on line 20 (0-indexed: 19)'
+    );
+  });
 });
