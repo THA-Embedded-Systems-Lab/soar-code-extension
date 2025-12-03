@@ -89,8 +89,8 @@
         "icon": "$(check)"
       },
       {
-        "command": "soar.validateWorkspaceAgainstDatamap",
-        "title": "Validate Workspace Against Datamap",
+        "command": "soar.validateSelectedProjectAgainstDatamap",
+        "title": "Validate Selected Project Against Datamap",
         "category": "Soar",
         "icon": "$(checklist)"
       },

@@ -432,10 +432,10 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Register validate workspace command
+  // Register validate selected project command
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.validateWorkspaceAgainstDatamap', async () => {
-      await validateWorkspace();
+    vscode.commands.registerCommand('soar.validateSelectedProjectAgainstDatamap', async () => {
+      await validateSelectedProject();
     })
   );
 
@@ -533,9 +533,9 @@ async function validateCurrentDocument(): Promise<void> {
 }
 
 /**
- * Validate all Soar files in the active project (not the entire workspace)
+ * Validate all Soar files in the selected/active project
  */
-async function validateWorkspace(): Promise<void> {
+async function validateSelectedProject(): Promise<void> {
   const projectContext = datamapProviderGlobal.getProjectContext();
   if (!projectContext) {
     vscode.window.showWarningMessage('No project loaded. Load a project file first.');

@@ -335,7 +335,7 @@ pick-up.soar: file = "pick-up.soar", parentPath = "BW-Hierarchical/move-block"
 **Validation**:
 
 - `soar.validateAgainstDatamap`: Validate current file
-- `soar.validateWorkspaceAgainstDatamap`: Validate all files
+- `soar.validateSelectedProjectAgainstDatamap`: Validate all files in the selected project
 
 **Sync**:
 

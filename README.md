@@ -183,15 +183,15 @@ Errors appear:
 
 Access via Command Palette (`Ctrl+Shift+P`):
 
-| Command                                    | Description                      |
-| ------------------------------------------ | -------------------------------- |
-| `Soar: Refresh Datamap`                    | Reload datamap from project file |
-| `Soar: Refresh Project Structure`          | Reload project structure         |
-| `Soar: View Root Datamap`                  | Return to root datamap view      |
-| `Soar: Validate Against Datamap`           | Manually validate current file   |
-| `Soar: Validate Workspace Against Datamap` | Validate all .soar files         |
-| `Soar: Find Orphaned Files`                | Find untracked .soar files       |
-| `Soar: Sync Project Files`                 | Import orphaned files            |
+| Command                                           | Description                                      |
+| ------------------------------------------------- | ------------------------------------------------ |
+| `Soar: Refresh Datamap`                           | Reload datamap from project file                 |
+| `Soar: Refresh Project Structure`                 | Reload project structure                         |
+| `Soar: View Root Datamap`                         | Return to root datamap view                      |
+| `Soar: Validate Against Datamap`                  | Manually validate current file                   |
+| `Soar: Validate Selected Project Against Datamap` | Validate all .soar files in the selected project |
+| `Soar: Find Orphaned Files`                       | Find untracked .soar files                       |
+| `Soar: Sync Project Files`                        | Import orphaned files                            |
 
 ## Project File Format
 
