@@ -32,7 +32,8 @@ export class LayoutTreeItem extends vscode.TreeItem {
     // Set resource URI for file nodes so they can be opened
     if ('file' in node && node.file) {
       const workspaceFolder = path.dirname(projectContext.projectFile);
-      // Build the full file path by combining parent path with the file
+      // File paths in the .vsa.json are relative to their parent folder
+      // parentPath already includes the full path from root (including project folder)
       const fullPath = path.join(workspaceFolder, parentPath, node.file);
       this.resourceUri = vscode.Uri.file(fullPath);
       this.command = {

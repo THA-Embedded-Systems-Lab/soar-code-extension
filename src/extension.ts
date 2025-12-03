@@ -202,8 +202,9 @@ export function activate(context: vscode.ExtensionContext) {
       const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
       const success = await LayoutOperations.addOperator(projectContext, nodeId);
       if (success) {
-        layoutProvider.refresh();
-        datamapProvider.refresh(); // Refresh both views
+        // Reload both providers from the updated project file
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       }
     })
   );

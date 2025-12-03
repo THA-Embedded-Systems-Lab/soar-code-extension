@@ -1,6 +1,6 @@
 /**
  * Layout Operations
- * 
+ *
  * Handles CRUD operations on the project layout structure (operators, substates, files, folders)
  */
 
@@ -8,505 +8,969 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-    VisualSoarProject,
-    LayoutNode,
-    ProjectContext,
-    OperatorNode,
-    HighLevelOperatorNode,
-    FileNode,
-    FolderNode,
-    hasChildren
+  VisualSoarProject,
+  LayoutNode,
+  ProjectContext,
+  OperatorNode,
+  HighLevelOperatorNode,
+  FileNode,
+  FolderNode,
+  hasChildren,
 } from '../server/visualSoarProject';
 import { SoarTemplates } from './soarTemplates';
 
 export class LayoutOperations {
+  /**
+   * Add a new operator (simple operator, not substate)
+   */
+  static async addOperator(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
+    let parentNode = projectContext.layoutIndex.get(parentNodeId);
 
-    /**
-     * Add a new operator (simple operator, not substate)
-     */
-    static async addOperator(
-        projectContext: ProjectContext,
-        parentNodeId: string
-    ): Promise<boolean> {
-        const parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-        if (!parentNode || !hasChildren(parentNode)) {
-            vscode.window.showErrorMessage('Can only add operators to folder nodes');
-            return false;
-        }
-
-        // Prompt for operator name
-        const operatorName = await vscode.window.showInputBox({
-            prompt: 'Enter operator name',
-            placeHolder: 'e.g., initialize, move-forward, attack',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Operator name cannot be empty';
-                }
-                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                    return 'Operator name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-                }
-                return null;
-            }
-        });
-
-        if (!operatorName) {
-            return false;
-        }
-
-        // Determine file path
-        const workspaceFolder = path.dirname(projectContext.projectFile);
-        const parentFolder = 'folder' in parentNode ? parentNode.folder : '';
-        const operatorFile = path.join(parentFolder, `${operatorName}.soar`);
-        const fullPath = path.join(workspaceFolder, operatorFile);
-
-        // Check if file already exists
-        if (fs.existsSync(fullPath)) {
-            vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
-            return false;
-        }
-
-        // Create the operator node
-        const newNodeId = this.generateNodeId(projectContext.project);
-        const newNode: OperatorNode = {
-            type: 'OPERATOR',
-            id: newNodeId,
-            name: operatorName,
-            file: operatorFile
-        };
-
-        // Add to parent's children
-        if (!parentNode.children) {
-            parentNode.children = [];
-        }
-        parentNode.children.push(newNode);
-        projectContext.layoutIndex.set(newNodeId, newNode);
-
-        // Generate file content
-        const content = SoarTemplates.generateOperatorFile(operatorName);
-
-        // Create file
-        await fs.promises.writeFile(fullPath, content, 'utf-8');
-
-        // Save project
-        await this.saveProject(projectContext);
-
-        vscode.window.showInformationMessage(`Created operator '${operatorName}'`);
-
-        // Open the file
-        const doc = await vscode.workspace.openTextDocument(fullPath);
-        await vscode.window.showTextDocument(doc);
-
-        return true;
+    if (!parentNode) {
+      vscode.window.showErrorMessage('Parent node not found');
+      return false;
     }
 
-    /**
-     * Add a new substate (high-level operator with datamap)
-     */
-    static async addSubstate(
-        projectContext: ProjectContext,
-        parentNodeId: string
-    ): Promise<boolean> {
-        const parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-        if (!parentNode || !hasChildren(parentNode)) {
-            vscode.window.showErrorMessage('Can only add substates to folder nodes');
-            return false;
-        }
-
-        // Prompt for substate name
-        const substateName = await vscode.window.showInputBox({
-            prompt: 'Enter substate name',
-            placeHolder: 'e.g., plan-route, execute-mission, handle-error',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Substate name cannot be empty';
-                }
-                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                    return 'Substate name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-                }
-                return null;
-            }
-        });
-
-        if (!substateName) {
-            return false;
-        }
-
-        // Create datamap vertex for this substate
-        const dmVertexId = this.generateVertexId(projectContext.project);
-        const dmVertex: any = {
-            id: dmVertexId,
-            type: 'SOAR_ID',
-            outEdges: []
-        };
-        projectContext.project.datamap.vertices.push(dmVertex);
-        projectContext.datamapIndex.set(dmVertexId, dmVertex);
-
-        // Determine folder path
-        const workspaceFolder = path.dirname(projectContext.projectFile);
-        const parentFolder = 'folder' in parentNode ? parentNode.folder : '';
-        const substateFolder = path.join(parentFolder, substateName);
-        const fullFolderPath = path.join(workspaceFolder, substateFolder);
-
-        // Create folder structure
-        await fs.promises.mkdir(fullFolderPath, { recursive: true });
-        await fs.promises.mkdir(path.join(fullFolderPath, 'elaborations'), { recursive: true });
-
-        // Create files
-        const initFile = path.join(substateFolder, 'elaborations', '_all.soar');
-        const initContent = SoarTemplates.generateSubstateInit(substateName);
-        await fs.promises.writeFile(path.join(workspaceFolder, initFile), initContent, 'utf-8');
-
-        const proposeFile = path.join(substateFolder, 'propose.soar');
-        const proposeContent = SoarTemplates.generateSubstatePropose(substateName);
-        await fs.promises.writeFile(path.join(workspaceFolder, proposeFile), proposeContent, 'utf-8');
-
-        // Create the substate node
-        const newNodeId = this.generateNodeId(projectContext.project);
-        const newNode: HighLevelOperatorNode = {
-            type: 'HIGH_LEVEL_OPERATOR',
-            id: newNodeId,
-            name: substateName,
-            file: proposeFile,
-            dmId: dmVertexId,
-            folder: substateFolder,
-            children: [
-                {
-                    type: 'FOLDER',
-                    id: this.generateNodeId(projectContext.project),
-                    name: 'elaborations',
-                    folder: path.join(substateFolder, 'elaborations'),
-                    children: [
-                        {
-                            type: 'FILE',
-                            id: this.generateNodeId(projectContext.project),
-                            name: '_all',
-                            file: initFile
-                        }
-                    ]
-                }
-            ]
-        };
-
-        // Add to parent's children
-        if (!parentNode.children) {
-            parentNode.children = [];
-        }
-        parentNode.children.push(newNode);
-        projectContext.layoutIndex.set(newNodeId, newNode);
-
-        // Save project
-        await this.saveProject(projectContext);
-
-        vscode.window.showInformationMessage(`Created substate '${substateName}'`);
-
-        // Open the propose file
-        const doc = await vscode.workspace.openTextDocument(path.join(workspaceFolder, proposeFile));
-        await vscode.window.showTextDocument(doc);
-
-        return true;
+    // If parent is a regular OPERATOR, convert it to HIGH_LEVEL_OPERATOR first
+    if (parentNode.type === 'OPERATOR') {
+      const converted = await this.convertOperatorToHighLevel(projectContext, parentNodeId);
+      if (!converted) {
+        return false;
+      }
+      // Re-fetch the parent node after conversion
+      parentNode = projectContext.layoutIndex.get(parentNodeId);
+      if (!parentNode) {
+        vscode.window.showErrorMessage('Failed to convert operator to high-level operator');
+        return false;
+      }
     }
 
-    /**
-     * Add a new file to a folder
-     */
-    static async addFile(
-        projectContext: ProjectContext,
-        parentNodeId: string
-    ): Promise<boolean> {
-        const parentNode = projectContext.layoutIndex.get(parentNodeId);
+    if (!hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Can only add operators to folder nodes');
+      return false;
+    }
 
-        if (!parentNode || !hasChildren(parentNode)) {
-            vscode.window.showErrorMessage('Can only add files to folder nodes');
-            return false;
+    // Prompt for operator name
+    const operatorName = await vscode.window.showInputBox({
+      prompt: 'Enter operator name',
+      placeHolder: 'e.g., initialize, move-forward, attack',
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Operator name cannot be empty';
         }
-
-        // Prompt for file name
-        const fileName = await vscode.window.showInputBox({
-            prompt: 'Enter file name (without .soar extension)',
-            placeHolder: 'e.g., utilities, helpers, common',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'File name cannot be empty';
-                }
-                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                    return 'File name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-                }
-                return null;
-            }
-        });
-
-        if (!fileName) {
-            return false;
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'Operator name must start with a letter and contain only letters, numbers, hyphens, and underscores';
         }
+        return null;
+      },
+    });
 
-        // Determine file path
-        const workspaceFolder = path.dirname(projectContext.projectFile);
-        const parentFolder = 'folder' in parentNode ? parentNode.folder : '';
-        const filePath = path.join(parentFolder, `${fileName}.soar`);
-        const fullPath = path.join(workspaceFolder, filePath);
+    if (!operatorName) {
+      return false;
+    }
 
-        // Check if file already exists
-        if (fs.existsSync(fullPath)) {
-            vscode.window.showErrorMessage(`File already exists: ${filePath}`);
-            return false;
+    // Determine the parent state context (root or substate)
+    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
+
+    // Create operator datamap vertex and add to parent state
+    const operatorDmId = this.addOperatorToDatamap(
+      projectContext,
+      stateContext.datamapId,
+      operatorName
+    );
+    if (!operatorDmId) {
+      vscode.window.showWarningMessage(
+        `Could not add operator '${operatorName}' to datamap. Continuing with file creation.`
+      );
+    }
+
+    // Determine file path
+    // File should be stored relative to the parent node's folder
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const operatorFile = `${operatorName}.soar`; // Just the filename, relative to parent
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    // Check if file already exists
+    if (fs.existsSync(fullPath)) {
+      vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
+      return false;
+    }
+
+    // Create the operator node with dmId
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: OperatorNode = {
+      type: 'OPERATOR',
+      id: newNodeId,
+      name: operatorName,
+      file: operatorFile,
+      dmId: operatorDmId,
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Generate file content with proper state name
+    const content = SoarTemplates.generateOperatorFile(operatorName, stateContext.stateName);
+
+    // Create file
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Created operator '${operatorName}'`);
+
+    // Open the file
+    const doc = await vscode.workspace.openTextDocument(fullPath);
+    await vscode.window.showTextDocument(doc);
+
+    return true;
+  }
+
+  /**
+   * Add a new substate (high-level operator with datamap)
+   */
+  static async addSubstate(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode || !hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Can only add substates to folder nodes');
+      return false;
+    }
+
+    // Prompt for substate name
+    const substateName = await vscode.window.showInputBox({
+      prompt: 'Enter substate name',
+      placeHolder: 'e.g., plan-route, execute-mission, handle-error',
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Substate name cannot be empty';
         }
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'Substate name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+        }
+        return null;
+      },
+    });
 
-        // Create the file node
-        const newNodeId = this.generateNodeId(projectContext.project);
-        const newNode: FileNode = {
-            type: 'FILE',
-            id: newNodeId,
-            name: fileName,
-            file: filePath
+    if (!substateName) {
+      return false;
+    }
+
+    // Create datamap vertex for this substate with proper structure
+    const dmVertexId = this.generateVertexId(projectContext.project);
+    const dmVertex: any = {
+      id: dmVertexId,
+      type: 'SOAR_ID',
+      outEdges: [],
+    };
+    projectContext.project.datamap.vertices.push(dmVertex);
+    projectContext.datamapIndex.set(dmVertexId, dmVertex);
+
+    // Add ^name enumeration for the substate
+    const nameEnumId = this.generateVertexId(projectContext.project);
+    const nameEnum: any = {
+      id: nameEnumId,
+      type: 'ENUMERATION',
+      choices: [substateName],
+    };
+    projectContext.project.datamap.vertices.push(nameEnum);
+    projectContext.datamapIndex.set(nameEnumId, nameEnum);
+    dmVertex.outEdges.push({
+      name: 'name',
+      toId: nameEnumId,
+    });
+
+    // Add ^type state enumeration
+    let stateEnumVertex = projectContext.project.datamap.vertices.find(
+      (v: any) => v.type === 'ENUMERATION' && v.choices?.length === 1 && v.choices[0] === 'state'
+    );
+    if (!stateEnumVertex) {
+      const stateEnumId = this.generateVertexId(projectContext.project);
+      stateEnumVertex = {
+        id: stateEnumId,
+        type: 'ENUMERATION',
+        choices: ['state'],
+      };
+      projectContext.project.datamap.vertices.push(stateEnumVertex);
+      projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
+    }
+    dmVertex.outEdges.push({
+      name: 'type',
+      toId: stateEnumVertex.id,
+    });
+
+    // Determine folder path (relative to parent)
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const substateFolder = substateName; // Just the folder name, relative to parent
+    const fullFolderPath = path.join(workspaceFolder, parentFolderPath, substateFolder);
+
+    // Create folder structure
+    await fs.promises.mkdir(fullFolderPath, { recursive: true });
+    await fs.promises.mkdir(path.join(fullFolderPath, 'elaborations'), { recursive: true });
+
+    // Create files
+    const initFile = '_all.soar'; // Relative to elaborations folder
+    const initContent = SoarTemplates.generateSubstateInit(substateName);
+    await fs.promises.writeFile(
+      path.join(fullFolderPath, 'elaborations', initFile),
+      initContent,
+      'utf-8'
+    );
+
+    const proposeFile = 'propose.soar'; // Relative to substate folder
+    const proposeContent = SoarTemplates.generateSubstatePropose(substateName);
+    await fs.promises.writeFile(path.join(fullFolderPath, proposeFile), proposeContent, 'utf-8');
+
+    // Create the substate node
+    // All paths are relative to the parent
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: HighLevelOperatorNode = {
+      type: 'HIGH_LEVEL_OPERATOR',
+      id: newNodeId,
+      name: substateName,
+      file: proposeFile, // Relative to parent: propose.soar
+      dmId: dmVertexId,
+      folder: substateFolder, // Relative to parent: substate-name/
+      children: [
+        {
+          type: 'FOLDER',
+          id: this.generateNodeId(projectContext.project),
+          name: 'elaborations',
+          folder: 'elaborations', // Relative to this node's folder
+          children: [
+            {
+              type: 'FILE',
+              id: this.generateNodeId(projectContext.project),
+              name: '_all',
+              file: initFile, // Relative to elaborations folder: _all.soar
+            },
+          ],
+        },
+      ],
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Created substate '${substateName}'`);
+
+    // Open the propose file
+    const doc = await vscode.workspace.openTextDocument(path.join(fullFolderPath, proposeFile));
+    await vscode.window.showTextDocument(doc);
+
+    return true;
+  }
+
+  /**
+   * Add a new file to a folder
+   */
+  static async addFile(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode || !hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Can only add files to folder nodes');
+      return false;
+    }
+
+    // Prompt for file name
+    const fileName = await vscode.window.showInputBox({
+      prompt: 'Enter file name (without .soar extension)',
+      placeHolder: 'e.g., utilities, helpers, common',
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'File name cannot be empty';
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'File name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+        }
+        return null;
+      },
+    });
+
+    if (!fileName) {
+      return false;
+    }
+
+    // Determine file path (relative to parent)
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const filePath = `${fileName}.soar`; // Just the filename, relative to parent
+    const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
+
+    // Check if file already exists
+    if (fs.existsSync(fullPath)) {
+      vscode.window.showErrorMessage(`File already exists: ${filePath}`);
+      return false;
+    }
+
+    // Create the file node
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: FileNode = {
+      type: 'FILE',
+      id: newNodeId,
+      name: fileName,
+      file: filePath, // Relative to parent
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Generate file content
+    const content = SoarTemplates.generateProductionFile(fileName);
+
+    // Create file
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Created file '${fileName}.soar'`);
+
+    // Open the file
+    const doc = await vscode.workspace.openTextDocument(fullPath);
+    await vscode.window.showTextDocument(doc);
+
+    return true;
+  }
+
+  /**
+   * Add a new folder
+   */
+  static async addFolder(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode || !hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Can only add folders to folder nodes');
+      return false;
+    }
+
+    // Prompt for folder name
+    const folderName = await vscode.window.showInputBox({
+      prompt: 'Enter folder name',
+      placeHolder: 'e.g., operators, substates, utilities',
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Folder name cannot be empty';
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'Folder name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+        }
+        return null;
+      },
+    });
+
+    if (!folderName) {
+      return false;
+    }
+
+    // Determine folder path (relative to parent)
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const folderPath = folderName; // Just the folder name, relative to parent
+    const fullPath = path.join(workspaceFolder, parentFolderPath, folderPath);
+
+    // Check if folder already exists
+    if (fs.existsSync(fullPath)) {
+      vscode.window.showErrorMessage(`Folder already exists: ${folderPath}`);
+      return false;
+    }
+
+    // Create folder
+    await fs.promises.mkdir(fullPath, { recursive: true });
+
+    // Create the folder node
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: FolderNode = {
+      type: 'FOLDER',
+      id: newNodeId,
+      name: folderName,
+      folder: folderPath, // Relative to parent
+      children: [],
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Created folder '${folderName}'`);
+    return true;
+  }
+
+  /**
+   * Rename a node (operator, file, or folder)
+   */
+  static async renameNode(projectContext: ProjectContext, nodeId: string): Promise<boolean> {
+    const node = projectContext.layoutIndex.get(nodeId);
+
+    if (!node) {
+      vscode.window.showErrorMessage('Node not found');
+      return false;
+    }
+
+    const newName = await vscode.window.showInputBox({
+      prompt: 'Enter new name',
+      value: node.name,
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Name cannot be empty';
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'Name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+        }
+        return null;
+      },
+    });
+
+    if (!newName || newName === node.name) {
+      return false;
+    }
+
+    // Update the node name
+    node.name = newName;
+
+    // If it has a file or folder, we should also rename the physical file/folder
+    // but that's complex and risky, so we'll just update the logical name for now
+    vscode.window.showWarningMessage(
+      'Note: Physical file/folder not renamed. Only logical name updated.'
+    );
+
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(`Renamed to '${newName}'`);
+    return true;
+  }
+
+  /**
+   * Delete a node (operator, file, folder, or substate)
+   */
+  static async deleteNode(
+    projectContext: ProjectContext,
+    nodeId: string,
+    parentNodeId: string
+  ): Promise<boolean> {
+    const node = projectContext.layoutIndex.get(nodeId);
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!node || !parentNode || !hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Cannot delete node');
+      return false;
+    }
+
+    // Collect all files and folders that will be deleted
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const filesToDelete: string[] = [];
+    const foldersToDelete: string[] = [];
+    this.collectFilesAndFolders(node, workspaceFolder, filesToDelete, foldersToDelete);
+
+    // Build confirmation message
+    let message = `Are you sure you want to delete '${node.name}'?\n\n`;
+    message += 'This will delete from the project structure AND the file system:\n';
+    if (filesToDelete.length > 0) {
+      message += `- ${filesToDelete.length} file(s)\n`;
+    }
+    if (foldersToDelete.length > 0) {
+      message += `- ${foldersToDelete.length} folder(s)\n`;
+    }
+
+    // Confirm deletion
+    const confirm = await vscode.window.showWarningMessage(message, { modal: true }, 'Delete');
+
+    if (confirm !== 'Delete') {
+      return false;
+    }
+
+    // Delete files first
+    for (const file of filesToDelete) {
+      try {
+        if (fs.existsSync(file)) {
+          await fs.promises.unlink(file);
+        }
+      } catch (error: any) {
+        console.error(`Failed to delete file ${file}:`, error);
+      }
+    }
+
+    // Delete folders (in reverse order to delete children first)
+    for (let i = foldersToDelete.length - 1; i >= 0; i--) {
+      try {
+        if (fs.existsSync(foldersToDelete[i])) {
+          await fs.promises.rmdir(foldersToDelete[i]);
+        }
+      } catch (error: any) {
+        console.error(`Failed to delete folder ${foldersToDelete[i]}:`, error);
+      }
+    }
+
+    // Remove from parent's children
+    const index = parentNode.children!.findIndex((n: LayoutNode) => n.id === nodeId);
+    if (index !== -1) {
+      parentNode.children!.splice(index, 1);
+    }
+
+    // Remove from index recursively
+    this.removeNodeRecursive(node, projectContext.layoutIndex);
+
+    // If it's a high-level operator, also remove its datamap vertex
+    if ('dmId' in node && node.dmId) {
+      const dmIndex = projectContext.project.datamap.vertices.findIndex(
+        (v: any) => v.id === node.dmId
+      );
+      if (dmIndex !== -1) {
+        projectContext.project.datamap.vertices.splice(dmIndex, 1);
+        projectContext.datamapIndex.delete(node.dmId);
+      }
+    }
+
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(
+      `Deleted '${node.name}' from project structure and file system`
+    );
+    return true;
+  }
+
+  /**
+   * Helper: Generate a unique node ID
+   */
+  private static generateNodeId(project: VisualSoarProject): string {
+    const existingIds = new Set<string>();
+
+    const collectIds = (node: LayoutNode) => {
+      existingIds.add(node.id);
+      if (hasChildren(node) && node.children) {
+        for (const child of node.children) {
+          collectIds(child);
+        }
+      }
+    };
+
+    collectIds(project.layout);
+
+    let id = 1;
+    while (existingIds.has(id.toString())) {
+      id++;
+    }
+    return id.toString();
+  }
+
+  /**
+   * Helper: Generate a unique vertex ID
+   */
+  private static generateVertexId(project: VisualSoarProject): string {
+    const existingIds = new Set(project.datamap.vertices.map((v: any) => parseInt(v.id, 10)));
+    let id = 1;
+    while (existingIds.has(id)) {
+      id++;
+    }
+    return id.toString();
+  }
+
+  /**
+   * Helper: Collect all files and folders associated with a node and its children
+   */
+  private static collectFilesAndFolders(
+    node: LayoutNode,
+    workspaceFolder: string,
+    files: string[],
+    folders: string[]
+  ): void {
+    // Add this node's file if it has one
+    if ('file' in node && node.file) {
+      const fullPath = path.join(workspaceFolder, node.file);
+      files.push(fullPath);
+    }
+
+    // Add this node's folder if it has one (and it's a HIGH_LEVEL_OPERATOR)
+    if ('folder' in node && node.folder && node.type === 'HIGH_LEVEL_OPERATOR') {
+      const fullPath = path.join(workspaceFolder, node.folder);
+      folders.push(fullPath);
+    }
+
+    // For regular FOLDER nodes, collect its folder path
+    if (node.type === 'FOLDER' && 'folder' in node && node.folder) {
+      const fullPath = path.join(workspaceFolder, node.folder);
+      folders.push(fullPath);
+    }
+
+    // Recursively collect from children
+    if (hasChildren(node) && node.children) {
+      for (const child of node.children) {
+        this.collectFilesAndFolders(child, workspaceFolder, files, folders);
+      }
+    }
+  }
+
+  /**
+   * Helper: Recursively remove a node and all its descendants from the index
+   */
+  private static removeNodeRecursive(node: LayoutNode, index: Map<string, LayoutNode>): void {
+    index.delete(node.id);
+
+    if (hasChildren(node) && node.children) {
+      for (const child of node.children) {
+        this.removeNodeRecursive(child, index);
+      }
+    }
+  }
+
+  /**
+   * Convert a regular OPERATOR to a HIGH_LEVEL_OPERATOR
+   * Creates folder structure and moves the operator file
+   */
+  private static async convertOperatorToHighLevel(
+    projectContext: ProjectContext,
+    operatorNodeId: string
+  ): Promise<boolean> {
+    const operatorNode = projectContext.layoutIndex.get(operatorNodeId);
+
+    if (!operatorNode || operatorNode.type !== 'OPERATOR') {
+      return false;
+    }
+
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const operatorName = operatorNode.name;
+
+    // Get the parent folder path to know where to create the new folder
+    const parentId = this.findParentId(projectContext, operatorNodeId);
+    if (!parentId) {
+      vscode.window.showErrorMessage('Cannot find parent node');
+      return false;
+    }
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentId);
+    const oldFile = operatorNode.file; // This is relative to parent
+    const oldFullPath = path.join(workspaceFolder, parentFolderPath, oldFile);
+
+    // New folder and file paths (relative to parent)
+    const newFolderRelative = operatorName; // Just the folder name
+    const newFullFolderPath = path.join(workspaceFolder, parentFolderPath, newFolderRelative);
+
+    // Check if folder already exists
+    if (fs.existsSync(newFullFolderPath)) {
+      vscode.window.showErrorMessage(`Folder already exists: ${newFolderRelative}`);
+      return false;
+    }
+
+    // Create folder structure
+    await fs.promises.mkdir(newFullFolderPath, { recursive: true });
+    await fs.promises.mkdir(path.join(newFullFolderPath, 'elaborations'), { recursive: true });
+
+    // Move the operator file to the new folder location
+    const newFile = `${operatorName}.soar`; // Relative to the new folder
+    const newFullPath = path.join(newFullFolderPath, newFile);
+
+    if (fs.existsSync(oldFullPath)) {
+      await fs.promises.rename(oldFullPath, newFullPath);
+    }
+
+    // Create elaborations file
+    const elabFile = '_all.soar'; // Relative to elaborations folder
+    const elabContent = `###\n### Elaborations for ${operatorName}\n###\n\n# Add elaborations here\n`;
+    await fs.promises.writeFile(
+      path.join(newFullFolderPath, 'elaborations', elabFile),
+      elabContent,
+      'utf-8'
+    );
+
+    // Create or reuse datamap vertex for this operator
+    let dmId = 'dmId' in operatorNode ? operatorNode.dmId : undefined;
+    let dmVertex: any;
+
+    if (!dmId) {
+      // If no dmId exists, create a new datamap vertex
+      dmId = this.generateVertexId(projectContext.project);
+      dmVertex = {
+        id: dmId,
+        type: 'SOAR_ID',
+        outEdges: [],
+      };
+      projectContext.project.datamap.vertices.push(dmVertex);
+      projectContext.datamapIndex.set(dmId, dmVertex);
+    } else {
+      dmVertex = projectContext.datamapIndex.get(dmId);
+    }
+
+    // Ensure the datamap has substate structure: ^name and ^type state
+    if (dmVertex && dmVertex.type === 'SOAR_ID') {
+      // Add ^name edge if not present
+      const hasNameEdge = dmVertex.outEdges?.some((e: any) => e.name === 'name');
+      if (!hasNameEdge) {
+        const nameEnumId = this.generateVertexId(projectContext.project);
+        const nameEnum: any = {
+          id: nameEnumId,
+          type: 'ENUMERATION',
+          choices: [operatorName],
         };
+        projectContext.project.datamap.vertices.push(nameEnum);
+        projectContext.datamapIndex.set(nameEnumId, nameEnum);
 
-        // Add to parent's children
-        if (!parentNode.children) {
-            parentNode.children = [];
+        if (!dmVertex.outEdges) {
+          dmVertex.outEdges = [];
         }
-        parentNode.children.push(newNode);
-        projectContext.layoutIndex.set(newNodeId, newNode);
-
-        // Generate file content
-        const content = SoarTemplates.generateProductionFile(fileName);
-
-        // Create file
-        await fs.promises.writeFile(fullPath, content, 'utf-8');
-
-        // Save project
-        await this.saveProject(projectContext);
-
-        vscode.window.showInformationMessage(`Created file '${fileName}.soar'`);
-
-        // Open the file
-        const doc = await vscode.workspace.openTextDocument(fullPath);
-        await vscode.window.showTextDocument(doc);
-
-        return true;
-    }
-
-    /**
-     * Add a new folder
-     */
-    static async addFolder(
-        projectContext: ProjectContext,
-        parentNodeId: string
-    ): Promise<boolean> {
-        const parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-        if (!parentNode || !hasChildren(parentNode)) {
-            vscode.window.showErrorMessage('Can only add folders to folder nodes');
-            return false;
-        }
-
-        // Prompt for folder name
-        const folderName = await vscode.window.showInputBox({
-            prompt: 'Enter folder name',
-            placeHolder: 'e.g., operators, substates, utilities',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Folder name cannot be empty';
-                }
-                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                    return 'Folder name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-                }
-                return null;
-            }
+        dmVertex.outEdges.push({
+          name: 'name',
+          toId: nameEnumId,
         });
+      }
 
-        if (!folderName) {
-            return false;
-        }
-
-        // Determine folder path
-        const workspaceFolder = path.dirname(projectContext.projectFile);
-        const parentFolder = 'folder' in parentNode ? parentNode.folder : '';
-        const folderPath = path.join(parentFolder, folderName);
-        const fullPath = path.join(workspaceFolder, folderPath);
-
-        // Check if folder already exists
-        if (fs.existsSync(fullPath)) {
-            vscode.window.showErrorMessage(`Folder already exists: ${folderPath}`);
-            return false;
-        }
-
-        // Create folder
-        await fs.promises.mkdir(fullPath, { recursive: true });
-
-        // Create the folder node
-        const newNodeId = this.generateNodeId(projectContext.project);
-        const newNode: FolderNode = {
-            type: 'FOLDER',
-            id: newNodeId,
-            name: folderName,
-            folder: folderPath,
-            children: []
-        };
-
-        // Add to parent's children
-        if (!parentNode.children) {
-            parentNode.children = [];
-        }
-        parentNode.children.push(newNode);
-        projectContext.layoutIndex.set(newNodeId, newNode);
-
-        // Save project
-        await this.saveProject(projectContext);
-
-        vscode.window.showInformationMessage(`Created folder '${folderName}'`);
-        return true;
-    }
-
-    /**
-     * Rename a node (operator, file, or folder)
-     */
-    static async renameNode(
-        projectContext: ProjectContext,
-        nodeId: string
-    ): Promise<boolean> {
-        const node = projectContext.layoutIndex.get(nodeId);
-
-        if (!node) {
-            vscode.window.showErrorMessage('Node not found');
-            return false;
-        }
-
-        const newName = await vscode.window.showInputBox({
-            prompt: 'Enter new name',
-            value: node.name,
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Name cannot be empty';
-                }
-                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                    return 'Name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-                }
-                return null;
-            }
-        });
-
-        if (!newName || newName === node.name) {
-            return false;
-        }
-
-        // Update the node name
-        node.name = newName;
-
-        // If it has a file or folder, we should also rename the physical file/folder
-        // but that's complex and risky, so we'll just update the logical name for now
-        vscode.window.showWarningMessage('Note: Physical file/folder not renamed. Only logical name updated.');
-
-        await this.saveProject(projectContext);
-        vscode.window.showInformationMessage(`Renamed to '${newName}'`);
-        return true;
-    }
-
-    /**
-     * Delete a node (operator, file, folder, or substate)
-     */
-    static async deleteNode(
-        projectContext: ProjectContext,
-        nodeId: string,
-        parentNodeId: string
-    ): Promise<boolean> {
-        const node = projectContext.layoutIndex.get(nodeId);
-        const parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-        if (!node || !parentNode || !hasChildren(parentNode)) {
-            vscode.window.showErrorMessage('Cannot delete node');
-            return false;
-        }
-
-        // Confirm deletion
-        const confirm = await vscode.window.showWarningMessage(
-            `Are you sure you want to delete '${node.name}'? This will remove it from the project structure (files will not be deleted).`,
-            { modal: true },
-            'Delete'
+      // Add ^type state edge if not present
+      const hasTypeEdge = dmVertex.outEdges?.some((e: any) => e.name === 'type');
+      if (!hasTypeEdge) {
+        // Find or create the 'state' enumeration vertex
+        let stateEnumVertex = projectContext.project.datamap.vertices.find(
+          (v: any) =>
+            v.type === 'ENUMERATION' && v.choices?.length === 1 && v.choices[0] === 'state'
         );
 
-        if (confirm !== 'Delete') {
-            return false;
+        if (!stateEnumVertex) {
+          const stateEnumId = this.generateVertexId(projectContext.project);
+          stateEnumVertex = {
+            id: stateEnumId,
+            type: 'ENUMERATION',
+            choices: ['state'],
+          };
+          projectContext.project.datamap.vertices.push(stateEnumVertex);
+          projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
         }
 
-        // Remove from parent's children
-        const index = parentNode.children!.findIndex((n: LayoutNode) => n.id === nodeId);
-        if (index !== -1) {
-            parentNode.children!.splice(index, 1);
-        }
-
-        // Remove from index recursively
-        this.removeNodeRecursive(node, projectContext.layoutIndex);
-
-        // If it's a high-level operator, also remove its datamap vertex
-        if ('dmId' in node && node.dmId) {
-            const dmIndex = projectContext.project.datamap.vertices.findIndex((v: any) => v.id === node.dmId);
-            if (dmIndex !== -1) {
-                projectContext.project.datamap.vertices.splice(dmIndex, 1);
-                projectContext.datamapIndex.delete(node.dmId);
-            }
-        }
-
-        await this.saveProject(projectContext);
-        vscode.window.showInformationMessage(`Deleted '${node.name}' from project structure`);
-        return true;
+        dmVertex.outEdges.push({
+          name: 'type',
+          toId: stateEnumVertex.id,
+        });
+      }
     }
 
-    /**
-     * Helper: Generate a unique node ID
-     */
-    private static generateNodeId(project: VisualSoarProject): string {
-        const existingIds = new Set<string>();
+    // Convert to HIGH_LEVEL_OPERATOR
+    // All paths are relative to the parent
+    const highLevelNode: HighLevelOperatorNode = {
+      type: 'HIGH_LEVEL_OPERATOR',
+      id: operatorNode.id,
+      name: operatorName,
+      file: newFile, // Relative to parent: operator-name.soar
+      dmId: dmId!,
+      folder: newFolderRelative, // Relative to parent: operator-name/
+      children: [
+        {
+          type: 'FOLDER',
+          id: this.generateNodeId(projectContext.project),
+          name: 'elaborations',
+          folder: 'elaborations', // Relative to this node's folder
+          children: [
+            {
+              type: 'FILE',
+              id: this.generateNodeId(projectContext.project),
+              name: '_all',
+              file: elabFile, // Relative to elaborations folder: _all.soar
+            },
+          ],
+        },
+      ],
+    };
 
-        const collectIds = (node: LayoutNode) => {
-            existingIds.add(node.id);
-            if (hasChildren(node) && node.children) {
-                for (const child of node.children) {
-                    collectIds(child);
-                }
-            }
+    // Replace the node in the parent's children
+    const parent = this.findParentNode(projectContext.project.layout, operatorNodeId);
+    if (parent && hasChildren(parent) && parent.children) {
+      const index = parent.children.findIndex((n: LayoutNode) => n.id === operatorNodeId);
+      if (index !== -1) {
+        parent.children[index] = highLevelNode;
+      }
+    }
+
+    // Update in the index
+    projectContext.layoutIndex.set(operatorNodeId, highLevelNode);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Converted '${operatorName}' to high-level operator`);
+    return true;
+  }
+
+  /**
+   * Helper: Find the parent state context for adding an operator
+   * Traverses up the layout tree to find the nearest HIGH_LEVEL_OPERATOR or root
+   */
+  private static findParentStateContext(
+    projectContext: ProjectContext,
+    nodeId: string
+  ): { stateName: string; datamapId: string } {
+    let currentNodeId = nodeId;
+    let currentNode = projectContext.layoutIndex.get(currentNodeId);
+
+    // Traverse up the tree to find a HIGH_LEVEL_OPERATOR or root
+    while (currentNode) {
+      if (currentNode.type === 'HIGH_LEVEL_OPERATOR' && 'dmId' in currentNode && currentNode.dmId) {
+        // We're in a substate - use the substate's name and datamap ID
+        return {
+          stateName: currentNode.name,
+          datamapId: currentNode.dmId,
         };
+      }
 
-        collectIds(project.layout);
+      // Try to find parent by searching the entire layout tree
+      const parent = this.findParentNode(projectContext.project.layout, currentNodeId);
+      if (!parent) {
+        break;
+      }
+      currentNodeId = parent.id;
+      currentNode = parent;
+    }
 
-        let id = 1;
-        while (existingIds.has(id.toString())) {
-            id++;
+    // Default to root state
+    return {
+      stateName: projectContext.project.layout.name || 'root',
+      datamapId: projectContext.project.datamap.rootId,
+    };
+  }
+
+  /**
+   * Helper: Find the parent node of a given node ID
+   */
+  private static findParentNode(node: LayoutNode, targetId: string): LayoutNode | null {
+    if (hasChildren(node) && node.children) {
+      for (const child of node.children) {
+        if (child.id === targetId) {
+          return node;
         }
-        return id.toString();
-    }
-
-    /**
-     * Helper: Generate a unique vertex ID
-     */
-    private static generateVertexId(project: VisualSoarProject): string {
-        const existingIds = new Set(project.datamap.vertices.map((v: any) => parseInt(v.id, 10)));
-        let id = 1;
-        while (existingIds.has(id)) {
-            id++;
+        const found = this.findParentNode(child, targetId);
+        if (found) {
+          return found;
         }
-        return id.toString();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Helper: Add an operator to the datamap
+   * Creates a new operator vertex with ^name enumeration and adds ^operator edge from parent state
+   * Returns the operator vertex ID
+   */
+  private static addOperatorToDatamap(
+    projectContext: ProjectContext,
+    stateVertexId: string,
+    operatorName: string
+  ): string | undefined {
+    const stateVertex = projectContext.datamapIndex.get(stateVertexId);
+    if (!stateVertex || stateVertex.type !== 'SOAR_ID') {
+      return undefined;
     }
 
-    /**
-     * Helper: Recursively remove a node and all its descendants from the index
-     */
-    private static removeNodeRecursive(node: LayoutNode, index: Map<string, LayoutNode>): void {
-        index.delete(node.id);
+    // Create operator vertex (SOAR_ID)
+    const operatorVertexId = this.generateVertexId(projectContext.project);
+    const operatorVertex: any = {
+      id: operatorVertexId,
+      type: 'SOAR_ID',
+      outEdges: [],
+    };
+    projectContext.project.datamap.vertices.push(operatorVertex);
+    projectContext.datamapIndex.set(operatorVertexId, operatorVertex);
 
-        if (hasChildren(node) && node.children) {
-            for (const child of node.children) {
-                this.removeNodeRecursive(child, index);
-            }
+    // Create name enumeration vertex for this operator
+    const nameVertexId = this.generateVertexId(projectContext.project);
+    const nameVertex: any = {
+      id: nameVertexId,
+      type: 'ENUMERATION',
+      choices: [operatorName],
+    };
+    projectContext.project.datamap.vertices.push(nameVertex);
+    projectContext.datamapIndex.set(nameVertexId, nameVertex);
+
+    // Add ^name edge from operator vertex to name enumeration
+    operatorVertex.outEdges.push({
+      name: 'name',
+      toId: nameVertexId,
+    });
+
+    // Add ^operator edge from state vertex to operator vertex
+    if (!stateVertex.outEdges) {
+      stateVertex.outEdges = [];
+    }
+    stateVertex.outEdges.push({
+      name: 'operator',
+      toId: operatorVertexId,
+    });
+
+    return operatorVertexId;
+  }
+
+  /**
+   * Helper: Get the full folder path for a node by traversing up to the root
+   */
+  private static getNodeFolderPath(projectContext: ProjectContext, nodeId: string): string {
+    const pathParts: string[] = [];
+    let currentId: string | null = nodeId;
+
+    while (currentId) {
+      const node = projectContext.layoutIndex.get(currentId);
+      if (!node) {
+        break;
+      }
+
+      // Add this node's folder to the path
+      if ('folder' in node && node.folder) {
+        pathParts.unshift(node.folder);
+      }
+
+      // Move to parent
+      currentId = this.findParentId(projectContext, currentId);
+    }
+
+    return path.join(...pathParts);
+  }
+
+  /**
+   * Helper: Find the parent ID of a node
+   */
+  private static findParentId(projectContext: ProjectContext, nodeId: string): string | null {
+    const findParent = (
+      node: LayoutNode,
+      targetId: string,
+      parentId: string | null = null
+    ): string | null => {
+      if (node.id === targetId) {
+        return parentId;
+      }
+      if (hasChildren(node) && node.children) {
+        for (const child of node.children) {
+          const found = findParent(child, targetId, node.id);
+          if (found !== null) {
+            return found;
+          }
         }
-    }
+      }
+      return null;
+    };
 
-    /**
-     * Helper: Save project to file
-     */
-    private static async saveProject(projectContext: ProjectContext): Promise<void> {
-        const json = JSON.stringify(projectContext.project, null, 2);
-        await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
-    }
+    return findParent(projectContext.project.layout, nodeId, null);
+  }
+
+  /**
+   * Helper: Save project to file
+   */
+  private static async saveProject(projectContext: ProjectContext): Promise<void> {
+    const json = JSON.stringify(projectContext.project, null, 2);
+    await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
+  }
 }

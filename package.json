@@ -250,7 +250,7 @@
         },
         {
           "command": "soar.addOperator",
-          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|operator|high-level-operator|high-level-file-operator)$/",
           "group": "1_add@1"
         },
         {
