@@ -1,0 +1,29 @@
+# Test file for enumeration validation
+
+# Valid: status is an enum with "complete" as a valid choice
+sp {test*valid-enum
+   (state <s> ^io.output-link.status complete)
+-->
+   (<s> ^test yes)
+}
+
+# Invalid: status enum doesn't have "finished" as a choice
+sp {test*invalid-enum
+   (state <s> ^io.output-link.status finished)
+-->
+   (<s> ^test no)
+}
+
+# Valid: command enum has "move" as a choice
+sp {test*valid-command
+   (state <s> ^io.output-link.command move)
+-->
+   (<s> ^done true)
+}
+
+# Invalid: command enum doesn't have "jump" as a choice
+sp {test*invalid-command
+   (state <s> ^io.output-link.command jump)
+-->
+   (<s> ^done false)
+}

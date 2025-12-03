@@ -117,6 +117,11 @@ export class DatamapOperations {
         }
         parentVertex.outEdges.push(newEdge);
 
+        // Debug: Log the state before saving
+        console.log(`Adding attribute '^${attributeName}' to vertex ${parentVertexId}`);
+        console.log(`Total vertices in project: ${projectContext.project.datamap.vertices.length}`);
+        console.log(`Saving to file: ${projectContext.projectFile}`);
+
         // Save project
         await this.saveProject(projectContext);
 
@@ -429,7 +434,15 @@ export class DatamapOperations {
      * Helper: Save project to file
      */
     private static async saveProject(projectContext: ProjectContext): Promise<void> {
-        const json = JSON.stringify(projectContext.project, null, 2);
-        await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
+        try {
+            const json = JSON.stringify(projectContext.project, null, 2);
+            await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
+            console.log(`Successfully saved project to: ${projectContext.projectFile}`);
+        } catch (error: any) {
+            const errorMsg = `Failed to save project: ${error.message}`;
+            console.error(errorMsg);
+            vscode.window.showErrorMessage(errorMsg);
+            throw error;
+        }
     }
 }

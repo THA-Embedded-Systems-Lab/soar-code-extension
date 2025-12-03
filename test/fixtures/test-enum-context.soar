@@ -1,0 +1,41 @@
+# Test file for context-aware enumeration validation
+# This demonstrates that the same attribute name (e.g., "name") can have
+# different enumeration values depending on which vertex it's attached to
+
+# Example: operator.name vs state.name have different valid values
+
+# Valid: operator name can be "initialize"
+sp {test*operator-name-initialize
+   (state <s> ^operator <o>)
+   (<o> ^name initialize)
+-->
+   (<s> ^result success)
+}
+
+# Valid: operator name can be "process-input"
+sp {test*operator-name-process
+   (state <s> ^operator <o>)
+   (<o> ^name process-input)
+-->
+   (<s> ^result success)
+}
+
+# Invalid: "foobar" is not a valid operator name
+sp {test*operator-name-invalid
+   (state <s> ^operator <o>)
+   (<o> ^name foobar)
+-->
+   (<s> ^result failure)
+}
+
+# Valid: state type can be "state"
+sp {test*state-type
+   (state <s> ^type state)
+-->
+   (<s> ^initialized true)
+}
+
+# The validator should correctly distinguish between:
+# - ^operator.name (which has enumeration: initialize, process-input, generate-output, cleanup)
+# - ^type (which has enumeration: state, operator)
+# Even though both are attributes called "name" or have their own types

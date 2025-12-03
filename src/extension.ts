@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
@@ -531,19 +533,43 @@ async function validateCurrentDocument(): Promise<void> {
 }
 
 /**
- * Validate all Soar files in the workspace
+ * Validate all Soar files in the active project (not the entire workspace)
  */
 async function validateWorkspace(): Promise<void> {
   const projectContext = datamapProviderGlobal.getProjectContext();
   if (!projectContext) {
-    vscode.window.showWarningMessage('No datamap loaded. Load a project file first.');
+    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
     return;
   }
 
-  const soarFiles = await vscode.workspace.findFiles('**/*.soar', '**/node_modules/**');
+  // Get the project directory
+  const projectDir = path.dirname(projectContext.projectFile);
 
-  if (soarFiles.length === 0) {
-    vscode.window.showInformationMessage('No Soar files found in workspace');
+  // Collect all files referenced in the project layout
+  const projectFiles = ProjectSync['collectProjectFiles'](projectContext.project.layout);
+
+  if (projectFiles.length === 0) {
+    vscode.window.showInformationMessage('No Soar files found in project');
+    return;
+  }
+
+  // Convert relative paths to absolute URIs
+  const soarFileUris: vscode.Uri[] = [];
+  for (const relPath of projectFiles) {
+    if (relPath.endsWith('.soar')) {
+      const absPath = path.resolve(projectDir, relPath);
+      try {
+        // Check if file exists before adding
+        await fs.promises.access(absPath);
+        soarFileUris.push(vscode.Uri.file(absPath));
+      } catch (error) {
+        console.warn(`Project file not found: ${absPath}`);
+      }
+    }
+  }
+
+  if (soarFileUris.length === 0) {
+    vscode.window.showInformationMessage('No Soar files found in project');
     return;
   }
 
@@ -552,18 +578,18 @@ async function validateWorkspace(): Promise<void> {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: 'Validating Soar files against datamap',
+      title: 'Validating project files against datamap',
       cancellable: false,
     },
     async progress => {
-      for (let i = 0; i < soarFiles.length; i++) {
-        const file = soarFiles[i];
+      for (let i = 0; i < soarFileUris.length; i++) {
+        const fileUri = soarFileUris[i];
         progress.report({
-          increment: 100 / soarFiles.length,
-          message: `${i + 1}/${soarFiles.length}: ${file.fsPath.split('/').pop()}`,
+          increment: 100 / soarFileUris.length,
+          message: `${i + 1}/${soarFileUris.length}: ${path.basename(fileUri.fsPath)}`,
         });
 
-        const document = await vscode.workspace.openTextDocument(file);
+        const document = await vscode.workspace.openTextDocument(fileUri);
         await validateDocument(document);
 
         const diagnostics = diagnosticsCollection.get(document.uri);
@@ -572,13 +598,15 @@ async function validateWorkspace(): Promise<void> {
     }
   );
 
+  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
+
   if (totalErrors === 0) {
     vscode.window.showInformationMessage(
-      `✓ Validated ${soarFiles.length} file(s). No datamap issues found.`
+      `✓ Validated ${soarFileUris.length} file(s) in project "${projectName}". No datamap issues found.`
     );
   } else {
     vscode.window.showWarningMessage(
-      `Validated ${soarFiles.length} file(s). Found ${totalErrors} datamap issue(s). Check the Problems panel.`
+      `Validated ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalErrors} datamap issue(s). Check the Problems panel.`
     );
   }
 }

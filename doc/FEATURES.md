@@ -167,7 +167,7 @@ ProjectContext {
 
 ### 8. Datamap Validation
 
-**Files**: `src/datamap/datamapValidator.ts`
+**Files**: `src/datamap/datamapValidator.ts`, `src/server/soarParser.ts`
 
 **Strategy**:
 
@@ -175,6 +175,35 @@ ProjectContext {
 - Report error if not found (typo detection)
 - Skip negated attributes (testing absence)
 - Use full parsed range for diagnostics
+
+**Enumeration Value Validation** (NEW):
+
+- Parser extracts attribute values from patterns like `^status complete`
+- Validator checks if values match enumeration choices in datamap
+- Supports dotted attribute paths (e.g., `^io.output-link.status complete`)
+- **Context-aware validation**: Handles cases where the same attribute name appears in different contexts
+  - Example: `^name` on an operator vs `^name` on a state may have different valid enumerations
+  - Validator checks ALL possible enumeration contexts for the attribute
+  - Only reports error if the value is invalid in ALL contexts
+  - This prevents false positives when attribute names are reused across different vertex types
+- Navigation: Follows path through datamap from root for dotted paths
+- Reports errors with all valid choices from all contexts
+
+**Examples**:
+
+```soar
+# Valid - "complete" is in status enum
+(state <s> ^io.output-link.status complete)
+
+# Invalid - "finished" is not in status enum
+(state <s> ^io.output-link.status finished)  # Error reported
+
+# Valid - "move" is in command enum
+(state <s> ^io.output-link.command move)
+
+# Variables are not validated (dynamic values)
+(state <s> ^status <my-status>)  # No error
+```
 
 **Severity**: Errors (breaks Soar import)
 

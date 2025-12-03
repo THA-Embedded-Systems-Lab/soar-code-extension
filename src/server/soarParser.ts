@@ -163,19 +163,70 @@ export class SoarParser {
             }
         }
 
-        // Parse attributes
-        const attributeRegex = /(-?)\^([a-zA-Z][a-zA-Z0-9_-]*)/g;
-        while ((match = attributeRegex.exec(body)) !== null) {
-            const isNegated = match[1] === '-';
-            const attrName = match[2];
-            const startPos = this.getPositionInBody(body, match.index, basePosition);
-            const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
+        // Parse attributes with their parent identifier context
+        // Match: (<id> ^attribute value) patterns to understand context
+        // Examples: (<s> ^name blocks-world), (<o> ^name initialize-blocks-world)
+        const contextAttributeRegex = /\(<?([a-zA-Z][a-zA-Z0-9_-]*)>?\s+((?:(?:-?\^[a-zA-Z][a-zA-Z0-9_.-]*)(?:\s+(?:[a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>))?\s*)+)/g;
+        while ((match = contextAttributeRegex.exec(body)) !== null) {
+            const parentId = match[1]; // The identifier (without < >)
+            const attributesBlock = match[2];
+            const blockStartOffset = match.index + match[1].length + 1; // Position after "(<id> "
 
-            production.attributes.push({
-                name: attrName,
-                range: { start: startPos, end: endPos },
-                isNegated
-            });
+            // Parse each attribute within this context
+            // Note: An attribute can have multiple values on the same line: ^object <a> <b> <c>
+            const attributeRegex = /(-?)\^([a-zA-Z][a-zA-Z0-9_.-]*)(?:\s+([a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>))?/g;
+            let attrMatch;
+            while ((attrMatch = attributeRegex.exec(attributesBlock)) !== null) {
+                const isNegated = attrMatch[1] === '-';
+                const attrPath = attrMatch[2];
+                const firstValue = attrMatch[3];
+                const attrStartOffset = blockStartOffset + attrMatch.index;
+
+                // Check if there are multiple values following this attribute
+                // Pattern: ^attribute value1 value2 value3 (until next ^ or closing paren)
+                let remainingText = attributesBlock.substring(attrMatch.index + attrMatch[0].length);
+                const nextAttrMatch = remainingText.match(/\^|$/);
+                const valuesText = remainingText.substring(0, nextAttrMatch ? nextAttrMatch.index : remainingText.length);
+
+                // Collect all values (including the first one)
+                const values: string[] = [];
+                if (firstValue) {
+                    values.push(firstValue);
+                }
+
+                // Find additional values in the remaining text
+                const additionalValueRegex = /([a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>)/g;
+                let valueMatch;
+                while ((valueMatch = additionalValueRegex.exec(valuesText)) !== null) {
+                    values.push(valueMatch[1]);
+                }
+
+                // Create an attribute entry for each value (or one without value if none)
+                if (values.length === 0) {
+                    const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
+                    const endPos = this.getPositionInBody(body, attrStartOffset + attrMatch[0].length, basePosition);
+                    production.attributes.push({
+                        name: attrPath,
+                        range: { start: startPos, end: endPos },
+                        value: undefined,
+                        isNegated,
+                        parentId
+                    });
+                } else {
+                    // Create separate attribute for each value
+                    for (const value of values) {
+                        const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
+                        const endPos = this.getPositionInBody(body, attrStartOffset + attrMatch[0].length, basePosition);
+                        production.attributes.push({
+                            name: attrPath,
+                            range: { start: startPos, end: endPos },
+                            value: value,
+                            isNegated,
+                            parentId
+                        });
+                    }
+                }
+            }
         }
 
         // Parse function calls

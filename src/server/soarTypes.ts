@@ -30,6 +30,7 @@ export interface SoarAttribute {
     range: Range;
     value?: string;
     isNegated: boolean;
+    parentId?: string; // The identifier this attribute is attached to (e.g., 's', 'o', 'i1')
 }
 
 export interface SoarTest {
