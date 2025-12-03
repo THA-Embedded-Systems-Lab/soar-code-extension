@@ -877,6 +877,33 @@ export class LayoutOperations {
       return undefined;
     }
 
+    // Check if an operator with this name already exists in this state
+    if (stateVertex.outEdges) {
+      for (const edge of stateVertex.outEdges) {
+        if (edge.name === 'operator') {
+          const existingOpVertex = projectContext.datamapIndex.get(edge.toId);
+          if (
+            existingOpVertex &&
+            existingOpVertex.type === 'SOAR_ID' &&
+            existingOpVertex.outEdges
+          ) {
+            const nameEdge = existingOpVertex.outEdges.find((e: any) => e.name === 'name');
+            if (nameEdge) {
+              const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+              if (
+                nameVertex &&
+                nameVertex.type === 'ENUMERATION' &&
+                nameVertex.choices?.includes(operatorName)
+              ) {
+                // Operator with this name already exists, return its ID
+                return existingOpVertex.id;
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Create operator vertex (SOAR_ID)
     const operatorVertexId = this.generateVertexId(projectContext.project);
     const operatorVertex: any = {
@@ -904,18 +931,24 @@ export class LayoutOperations {
     });
 
     // Add ^operator edge from state vertex to operator vertex
+    // Check if this exact edge already exists to prevent duplicates
     if (!stateVertex.outEdges) {
       stateVertex.outEdges = [];
     }
-    stateVertex.outEdges.push({
-      name: 'operator',
-      toId: operatorVertexId,
-    });
+
+    const edgeExists = stateVertex.outEdges.some(
+      (edge: any) => edge.name === 'operator' && edge.toId === operatorVertexId
+    );
+
+    if (!edgeExists) {
+      stateVertex.outEdges.push({
+        name: 'operator',
+        toId: operatorVertexId,
+      });
+    }
 
     return operatorVertexId;
-  }
-
-  /**
+  } /**
    * Helper: Get the full folder path for a node by traversing up to the root
    */
   private static getNodeFolderPath(projectContext: ProjectContext, nodeId: string): string {
