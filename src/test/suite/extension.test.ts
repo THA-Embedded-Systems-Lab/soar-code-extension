@@ -6,11 +6,11 @@ suite('Extension Test Suite', () => {
   vscode.window.showInformationMessage('Start all tests.');
 
   test('Extension should be present', () => {
-    assert.ok(vscode.extensions.getExtension('soar-group.soar'));
+    assert.ok(vscode.extensions.getExtension('tha-embedded-systems-lab.soar'));
   });
 
   test('Extension should activate', async () => {
-    const extension = vscode.extensions.getExtension('soar-group.soar');
+    const extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar');
     await extension?.activate();
     assert.ok(extension?.isActive);
   });
@@ -25,7 +25,7 @@ suite('Datamap Test Suite', () => {
     workspaceUri = vscode.Uri.file(testProjectPath);
 
     // Ensure extension is activated
-    const extension = vscode.extensions.getExtension('soar-group.soar');
+    const extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar');
     if (!extension?.isActive) {
       await extension?.activate();
     }
