@@ -542,7 +542,6 @@ Inspect `projectContext.datamapIndex.size` to verify vertices loaded.
 
 ### High Priority
 
-1. **Context-Aware Completions**: Track variable bindings, suggest based on context
 2. **Hover Information**: Show attribute info from datamap on hover
 3. **Go to Definition**: Navigate to operator/substate definitions
 

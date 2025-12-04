@@ -74,3 +74,18 @@ export function restart(): Thenable<void> {
 export function getClient(): LanguageClient | undefined {
   return client;
 }
+
+/**
+ * Notify the LSP server to load a specific project file
+ */
+export async function notifyProjectChanged(projectFile: string): Promise<void> {
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.sendNotification('soar/projectChanged', { projectFile });
+  } catch (error) {
+    console.error('Failed to notify LSP of project change:', error);
+  }
+}

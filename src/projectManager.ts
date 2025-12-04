@@ -132,6 +132,10 @@ export class ProjectManager {
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, project.projectFile);
 
     this.updateStatusBar();
+
+    // Notify LSP server of project change
+    const lspClient = await import('./client/lspClient');
+    await lspClient.notifyProjectChanged(project.projectFile);
   }
 
   /**
@@ -164,6 +168,10 @@ export class ProjectManager {
       if (project) {
         this.activeProject = project;
         this.updateStatusBar();
+
+        // Notify LSP server of restored project
+        const lspClient = await import('./client/lspClient');
+        await lspClient.notifyProjectChanged(project.projectFile);
       } else {
         // Project file exists but not in discovered projects, create minimal info
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(
@@ -181,6 +189,10 @@ export class ProjectManager {
             workspaceFolder,
           };
           this.updateStatusBar();
+
+          // Notify LSP server of restored project
+          const lspClient = await import('./client/lspClient');
+          await lspClient.notifyProjectChanged(savedProjectFile);
         }
       }
     } catch {

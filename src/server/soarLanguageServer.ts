@@ -95,6 +95,20 @@ connection.onInitialized(async () => {
   }
 });
 
+// Handle project change notifications from the client
+connection.onNotification('soar/projectChanged', async (params: { projectFile: string }) => {
+  try {
+    connection.console.log(`Loading project from notification: ${params.projectFile}`);
+    currentProject = await projectLoader.loadProject(params.projectFile);
+    connection.console.log(`Successfully loaded project: ${params.projectFile}`);
+
+    // Revalidate all open documents with the new project
+    documents.all().forEach(validateTextDocument);
+  } catch (error: any) {
+    connection.console.error(`Failed to load project from notification: ${error.message}`);
+  }
+});
+
 // Configuration changes
 connection.onDidChangeConfiguration(change => {
   if (change.settings) {
@@ -278,10 +292,81 @@ connection.onHover((params: HoverParams): Hover | null => {
   return null;
 });
 
+// Helper function to build variable bindings (shared with validator logic)
+function buildVariableBindings(production: any, projectContext: any): Map<string, Set<string>> {
+  const variableBindings = new Map<string, Set<string>>();
+  const rootId = projectContext.project.datamap.rootId;
+  variableBindings.set('s', new Set([rootId]));
+
+  for (const attr of production.attributes) {
+    if (!attr.parentId || !attr.value || !attr.value.startsWith('<')) {
+      continue;
+    }
+
+    const parentVertices = variableBindings.get(attr.parentId);
+    if (!parentVertices) {
+      continue;
+    }
+
+    const targetVertices = findTargetVerticesForPath(
+      Array.from(parentVertices),
+      attr.name.split('.'),
+      projectContext
+    );
+
+    const varName = attr.value.substring(1, attr.value.length - 1);
+    if (!variableBindings.has(varName)) {
+      variableBindings.set(varName, new Set());
+    }
+    targetVertices.forEach(v => variableBindings.get(varName)!.add(v));
+  }
+
+  return variableBindings;
+}
+
+// Helper function to navigate paths (shared with validator logic)
+function findTargetVerticesForPath(
+  startVertexIds: string[],
+  pathSegments: string[],
+  projectContext: any
+): string[] {
+  if (pathSegments.length === 0) {
+    return startVertexIds;
+  }
+
+  const targetVertices = new Set<string>();
+
+  for (const startVertexId of startVertexIds) {
+    const vertex = projectContext.datamapIndex.get(startVertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID') {
+      continue;
+    }
+
+    const firstSegment = pathSegments[0];
+    const remainingSegments = pathSegments.slice(1);
+
+    const matchingEdges = vertex.outEdges?.filter((e: any) => e.name === firstSegment) || [];
+    for (const matchingEdge of matchingEdges) {
+      if (remainingSegments.length > 0) {
+        const results = findTargetVerticesForPath(
+          [matchingEdge.toId],
+          remainingSegments,
+          projectContext
+        );
+        results.forEach(v => targetVertices.add(v));
+      } else {
+        targetVertices.add(matchingEdge.toId);
+      }
+    }
+  }
+
+  return Array.from(targetVertices);
+}
+
 // Completion
 connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] => {
   const doc = parsedDocuments.get(params.textDocument.uri);
-  if (!doc) {
+  if (!doc || !currentProject) {
     return [];
   }
 
@@ -293,117 +378,140 @@ connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] =
     return completions;
   }
 
+  // Find which production we're currently in
+  const currentProduction = doc.productions.find(
+    prod =>
+      params.position.line >= prod.range.start.line && params.position.line <= prod.range.end.line
+  );
+
+  if (!currentProduction) {
+    return completions;
+  }
+
+  connection.console.log(`Completion in production: ${currentProduction.name}`);
+
+  // Build variable bindings using the same logic as the validator
+  const variableBindings = buildVariableBindings(currentProduction, currentProject);
+
+  connection.console.log(`Variable bindings:`);
+  for (const [varName, vertices] of variableBindings.entries()) {
+    connection.console.log(`  <${varName}> -> ${Array.from(vertices).join(', ')}`);
+  }
+
   // Get the current line text to detect attribute path context
   const line = textDoc.getText({
     start: { line: params.position.line, character: 0 },
     end: { line: params.position.line, character: params.position.character },
   });
 
-  // Debug logging
-  connection.console.log(`Completion request at line: "${line}"`);
-  connection.console.log(`Current project loaded: ${currentProject !== null}`);
-  if (currentProject) {
-    connection.console.log(`Root vertex: ${currentProject.project.datamap.rootId}`);
+  // Find the variable context - look backwards for unclosed (<varname>
+  let contextVarName: string | null = null;
+  const beforeCursor = textDoc.getText({
+    start: { line: Math.max(0, params.position.line - 10), character: 0 },
+    end: params.position,
+  });
+
+  const openParens: Array<{ varName: string; pos: number }> = [];
+  const openParenRegex = /\(<([a-zA-Z0-9_-]+)>/g;
+  let match;
+
+  while ((match = openParenRegex.exec(beforeCursor)) !== null) {
+    openParens.push({ varName: match[1], pos: match.index });
   }
 
-  // Check if we're completing an attribute path (e.g., "^io." or "^io.input-link.")
+  const closeParens: number[] = [];
+  const closeParenRegex = /\)/g;
+  while ((match = closeParenRegex.exec(beforeCursor)) !== null) {
+    closeParens.push(match.index);
+  }
+
+  // Find most recent unclosed paren
+  for (let i = openParens.length - 1; i >= 0; i--) {
+    const open = openParens[i];
+    const closesAfter = closeParens.filter(c => c > open.pos).length;
+    const opensAfter = openParens.slice(i + 1).length;
+
+    if (closesAfter < opensAfter + 1) {
+      contextVarName = open.varName;
+      connection.console.log(`Context variable: <${contextVarName}>`);
+      break;
+    }
+  }
+
+  // Check if we're completing an attribute path
+  // Pattern 1: Complete path with trailing dot (e.g., "^io." or "^io.input-link.")
   const attributePathMatch = line.match(/\^([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)\./);
 
-  connection.console.log(
-    `Attribute path match: ${attributePathMatch ? attributePathMatch[0] : 'null'}`
-  );
+  // Pattern 2: Partial path without trailing dot (e.g., "^io.input" or "^io.input-link")
+  const partialPathMatch = line.match(/\^([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]*)$/);
 
-  if (attributePathMatch && currentProject) {
-    // Parse the attribute path (e.g., "io.input-link")
-    const attributePath = attributePathMatch[1];
-    const pathSegments = attributePath.split('.');
+  if ((attributePathMatch || partialPathMatch) && currentProject) {
+    let pathSegments: string[];
+    let isPartial = false;
 
-    connection.console.log(
-      `Navigating path: ${attributePath} (segments: ${pathSegments.join(', ')})`
-    );
-
-    // Navigate through the datamap following the path
-    let currentVertexId = currentProject.project.datamap.rootId;
-    let foundPath = true;
-
-    for (const segment of pathSegments) {
-      // Find the edge with this attribute name from the current vertex
-      const vertex = currentProject.datamapIndex.get(currentVertexId);
-      if (!vertex || vertex.type !== 'SOAR_ID') {
-        foundPath = false;
-        break;
-      }
-
-      const edge = vertex.outEdges?.find(e => e.name === segment);
-      if (!edge) {
-        foundPath = false;
-        break;
-      }
-
-      currentVertexId = edge.toId;
+    if (attributePathMatch) {
+      // Complete path: "^io." → navigate to io and suggest children
+      const attributePath = attributePathMatch[1];
+      pathSegments = attributePath.split('.');
+      connection.console.log(`Completing after: ^${attributePath}.`);
+    } else {
+      // Partial path: "^io.input" → navigate to io and suggest children starting with "input"
+      const fullPath = partialPathMatch![1];
+      const parts = fullPath.split('.');
+      const lastPart = parts.pop()!; // The partial part being typed
+      pathSegments = parts; // Navigate to the parent
+      isPartial = true;
+      connection.console.log(
+        `Completing partial: ^${fullPath} (navigating to ^${parts.join('.')})`
+      );
     }
 
-    // If we found a valid path from root, return those completions
-    if (foundPath) {
-      const targetVertex = currentProject.datamapIndex.get(currentVertexId);
+    // Get starting vertices from variable bindings
+    let startVertices: string[];
+    if (contextVarName && variableBindings.has(contextVarName)) {
+      startVertices = Array.from(variableBindings.get(contextVarName)!);
+      connection.console.log(`Starting from <${contextVarName}>: ${startVertices.join(', ')}`);
+    } else {
+      startVertices = [currentProject.project.datamap.rootId];
+      connection.console.log(`Starting from root: ${startVertices[0]}`);
+    }
+
+    // Navigate the path from starting vertices
+    const targetVertices = findTargetVerticesForPath(startVertices, pathSegments, currentProject);
+
+    connection.console.log(`Target vertices after navigation: ${targetVertices.join(', ')}`);
+
+    // Get attributes from all target vertices
+    for (const targetVertexId of targetVertices) {
+      const targetVertex = currentProject.datamapIndex.get(targetVertexId);
+
       if (targetVertex && targetVertex.type === 'SOAR_ID') {
-        const attributes = projectLoader.getVertexAttributes(currentVertexId, currentProject);
+        const attributes = projectLoader.getVertexAttributes(targetVertexId, currentProject);
+        connection.console.log(
+          `  Vertex ${targetVertexId} has ${attributes.length} attributes: ${attributes
+            .map(a => a.name)
+            .join(', ')}`
+        );
         for (const attr of attributes) {
-          completions.push({
-            label: attr.name,
-            kind: CompletionItemKind.Property,
-            detail: attr.comment || 'Datamap attribute',
-            documentation: `Leads to vertex: ${attr.toId}`,
-            insertText: attr.name,
-          });
+          if (!completions.find(c => c.label === attr.name)) {
+            completions.push({
+              label: attr.name,
+              kind: CompletionItemKind.Property,
+              detail: attr.comment || 'Datamap attribute',
+              documentation: `From vertex: ${attr.toId}`,
+              insertText: attr.name,
+            });
+          }
         }
-        return completions;
       } else if (targetVertex && targetVertex.type === 'ENUMERATION') {
-        // If it's an enumeration, suggest its choices
         for (const choice of targetVertex.choices) {
-          completions.push({
-            label: choice,
-            kind: CompletionItemKind.EnumMember,
-            detail: 'Enumeration value',
-            insertText: choice,
-          });
-        }
-        return completions;
-      }
-    }
-
-    // Fallback: If path from root didn't work, search all vertices
-    // This handles cases like "^input-link." where we're working with a bound variable
-    connection.console.log(
-      `Path from root not found, searching all vertices for: ${
-        pathSegments[pathSegments.length - 1]
-      }`
-    );
-
-    const lastSegment = pathSegments[pathSegments.length - 1];
-    for (const vertex of currentProject.project.datamap.vertices) {
-      if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
-        for (const edge of vertex.outEdges) {
-          if (edge.name === lastSegment) {
-            // Found a vertex with this attribute name, get its children
-            const targetVertexId = edge.toId;
-            const targetVertex = currentProject.datamapIndex.get(targetVertexId);
-
-            if (targetVertex && targetVertex.type === 'SOAR_ID') {
-              const attributes = projectLoader.getVertexAttributes(targetVertexId, currentProject);
-              for (const attr of attributes) {
-                // Check if already added
-                if (!completions.find(c => c.label === attr.name)) {
-                  completions.push({
-                    label: attr.name,
-                    kind: CompletionItemKind.Property,
-                    detail: attr.comment || 'Datamap attribute',
-                    documentation: `From vertex: ${attr.toId}`,
-                    insertText: attr.name,
-                  });
-                }
-              }
-            }
+          if (!completions.find(c => c.label === choice)) {
+            completions.push({
+              label: choice,
+              kind: CompletionItemKind.EnumMember,
+              detail: 'Enumeration value',
+              insertText: choice,
+            });
           }
         }
       }
@@ -414,149 +522,44 @@ connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] =
     }
   }
 
-  // Detect if we're completing after "^"
+  // Detect if we're completing after "^" (root attribute)
   const rootAttrMatch = line.match(/\^[a-zA-Z0-9_-]*$/);
-  connection.console.log(`Root attribute match: ${rootAttrMatch ? rootAttrMatch[0] : 'null'}`);
 
   if (currentProject && rootAttrMatch) {
-    // Check if we're in a variable context
-    // Need to look backwards to find the opening parenthesis with variable
-    // Patterns to match:
-    //   (<io> ^attr <x>
-    //         ^     <- completing here, should use <io> context
-    //   (<io> ^
-    //         <- completing here, should use <io> context
+    connection.console.log(`Completing root attribute in context: <${contextVarName || 'root'}>`);
 
-    let varName: string | null = null;
-
-    // Strategy: Look backwards from current position to find the opening (<varname>
-    // that hasn't been closed yet
-    const beforeCursor = textDoc.getText({
-      start: { line: Math.max(0, params.position.line - 50), character: 0 },
-      end: params.position,
-    });
-
-    // Find all opening variable patterns (<varname> that might apply
-    // We need to find the most recent unclosed one
-    const openParens: Array<{ varName: string; pos: number }> = [];
-    const openParenRegex = /\(<([a-zA-Z0-9_-]+)>/g;
-    let match;
-
-    while ((match = openParenRegex.exec(beforeCursor)) !== null) {
-      openParens.push({ varName: match[1], pos: match.index });
+    // Get starting vertices from variable bindings or use root
+    let startVertices: string[];
+    if (contextVarName && variableBindings.has(contextVarName)) {
+      startVertices = Array.from(variableBindings.get(contextVarName)!);
+      connection.console.log(`Using vertices for <${contextVarName}>: ${startVertices.join(', ')}`);
+    } else {
+      startVertices = [currentProject.project.datamap.rootId];
+      connection.console.log(`Using root vertex: ${startVertices[0]}`);
     }
 
-    // Now find closing parens and match them
-    const closeParenRegex = /\)/g;
-    const closeParens: number[] = [];
+    // Get attributes from all starting vertices
+    for (const vertexId of startVertices) {
+      const attributes = projectLoader.getVertexAttributes(vertexId, currentProject);
 
-    while ((match = closeParenRegex.exec(beforeCursor)) !== null) {
-      closeParens.push(match.index);
-    }
-
-    // Find the most recent unclosed opening paren
-    for (let i = openParens.length - 1; i >= 0; i--) {
-      const open = openParens[i];
-      // Count how many close parens are after this open
-      const closesAfter = closeParens.filter(c => c > open.pos).length;
-      const opensAfter = openParens.slice(i + 1).length;
-
-      // If there are fewer closes than opens after this point, this paren is unclosed
-      if (closesAfter < opensAfter + 1) {
-        varName = open.varName;
-        connection.console.log(`Variable context detected: <${varName}> (unclosed parenthesis)`);
-        break;
-      }
-    }
-
-    if (varName) {
-      // Try to find what this variable is bound to in the production
-      // Look for patterns like "^attribute <varname>" earlier in the document
-      const fullText = textDoc.getText();
-
-      // Simple heuristic: look for "<s> ^attrname <varname>"
-      // This matches patterns like: "^io <io>" or "^input-link <in>"
-      const bindingPattern = new RegExp(
-        `\\^([a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*)\\s+<${varName}>`,
-        'g'
-      );
-      let bindingMatch;
-      const bindings: string[] = [];
-
-      while ((bindingMatch = bindingPattern.exec(fullText)) !== null) {
-        bindings.push(bindingMatch[1]);
-      }
-
-      connection.console.log(`Found bindings for <${varName}>: ${bindings.join(', ')}`);
-
-      // For each binding, try to navigate the datamap and get completions
-      for (const binding of bindings) {
-        const pathSegments = binding.split('.');
-        let currentVertexId = currentProject.project.datamap.rootId;
-        let foundPath = true;
-
-        for (const segment of pathSegments) {
-          const vertex = currentProject.datamapIndex.get(currentVertexId);
-          if (!vertex || vertex.type !== 'SOAR_ID') {
-            foundPath = false;
-            break;
-          }
-
-          const edge = vertex.outEdges?.find(e => e.name === segment);
-          if (!edge) {
-            foundPath = false;
-            break;
-          }
-
-          currentVertexId = edge.toId;
-        }
-
-        if (foundPath) {
-          const targetVertex = currentProject.datamapIndex.get(currentVertexId);
-          if (targetVertex && targetVertex.type === 'SOAR_ID') {
-            const attributes = projectLoader.getVertexAttributes(currentVertexId, currentProject);
-            connection.console.log(
-              `Adding ${attributes.length} attributes for <${varName}> bound to ${binding}`
-            );
-
-            for (const attr of attributes) {
-              // Avoid duplicates
-              if (!completions.find(c => c.label === attr.name)) {
-                completions.push({
-                  label: attr.name,
-                  kind: CompletionItemKind.Property,
-                  detail: attr.comment || `Attribute of ${binding}`,
-                  documentation: `Leads to vertex: ${attr.toId}`,
-                  insertText: attr.name,
-                });
-              }
-            }
-
-            // If we found completions from variable context, return them
-            if (completions.length > 0) {
-              return completions;
-            }
-          }
+      for (const attr of attributes) {
+        if (!completions.find(c => c.label === attr.name)) {
+          completions.push({
+            label: attr.name,
+            kind: CompletionItemKind.Property,
+            detail: attr.comment || 'Datamap attribute',
+            documentation: `From vertex: ${attr.toId}`,
+            insertText: attr.name,
+          });
         }
       }
     }
 
-    // Fallback: provide root-level attribute completions
-    connection.console.log('Adding root-level attribute completions');
-    const rootVertexId = currentProject.project.datamap.rootId;
-    const attributes = projectLoader.getVertexAttributes(rootVertexId, currentProject);
+    connection.console.log(`Added ${completions.length} attribute completions`);
 
-    for (const attr of attributes) {
-      completions.push({
-        label: attr.name,
-        kind: CompletionItemKind.Property,
-        detail: attr.comment || 'Datamap attribute',
-        documentation: `Leads to vertex: ${attr.toId}`,
-        insertText: attr.name,
-      });
+    if (completions.length > 0) {
+      return completions;
     }
-
-    connection.console.log(`Added ${attributes.length} root attributes`);
   }
 
   // Add production names
