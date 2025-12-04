@@ -131,12 +131,6 @@
         "icon": "$(symbol-method)"
       },
       {
-        "command": "soar.addSubstate",
-        "title": "Add Substate",
-        "category": "Soar",
-        "icon": "$(symbol-operator)"
-      },
-      {
         "command": "soar.addFile",
         "title": "Add File",
         "category": "Soar",
@@ -260,14 +254,9 @@
           "group": "1_add@1"
         },
         {
-          "command": "soar.addSubstate",
-          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
-          "group": "1_add@2"
-        },
-        {
           "command": "soar.addFile",
           "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
-          "group": "1_add@3"
+          "group": "1_add@2"
         },
         {
           "command": "soar.addFolder",

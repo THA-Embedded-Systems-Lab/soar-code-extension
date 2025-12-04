@@ -371,7 +371,6 @@ pick-up.soar: file = "pick-up.soar", parentPath = "BW-Hierarchical/move-block"
 
 - `soar.refreshLayout`: Reload project structure
 - `soar.addOperator`: Add operator node
-- `soar.addSubstate`: Add substate
 - `soar.addFile`: Add file node
 - `soar.addFolder`: Add folder node
 - `soar.renameNode`: Rename node
@@ -559,8 +558,3 @@ Inspect `projectContext.datamapIndex.size` to verify vertices loaded.
 8. **Import from Code**: Generate datamap from existing Soar code
 9. **Undo/Redo**: For datamap operations
 10. **Drag-and-Drop**: Reorganize layout tree
-
----
-
-**Last Updated**: December 2, 2025
-**Version**: 0.1.0

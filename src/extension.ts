@@ -278,23 +278,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.addSubstate', async treeItem => {
-      const projectContext = layoutProvider.getProjectContext();
-      if (!projectContext) {
-        vscode.window.showWarningMessage('No project loaded');
-        return;
-      }
-
-      const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
-      const success = await LayoutOperations.addSubstate(projectContext, nodeId);
-      if (success) {
-        layoutProvider.refresh();
-        datamapProvider.refresh(); // Refresh both views
-      }
-    })
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand('soar.addFile', async treeItem => {
       const projectContext = layoutProvider.getProjectContext();
       if (!projectContext) {
