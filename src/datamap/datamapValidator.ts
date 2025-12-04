@@ -152,7 +152,22 @@ export class DatamapValidator {
     const existsInDatamap = this.attributeExistsInDatamap(attr.name, projectContext);
 
     if (!existsInDatamap) {
-      // Attribute doesn't exist anywhere - likely a typo
+      // Attribute doesn't exist anywhere - find the specific invalid segment
+      const pathAnalysis = this.findFirstInvalidSegment(attr.name, projectContext);
+
+      let message: string;
+      if (pathAnalysis.invalidSegment) {
+        // Dotted path with a specific invalid segment
+        if (pathAnalysis.lastValidParent) {
+          message = `'${pathAnalysis.invalidSegment}' is not a valid attribute for '${pathAnalysis.lastValidParent}'`;
+        } else {
+          message = `Attribute '^${pathAnalysis.invalidSegment}' not found in project datamap`;
+        }
+      } else {
+        // Simple attribute not found
+        message = `Attribute '^${attr.name}' not found in project datamap`;
+      }
+
       return {
         production: production.name,
         attribute: attr.name,
@@ -160,7 +175,7 @@ export class DatamapValidator {
         line: attr.range.start.line,
         column: attr.range.start.character,
         range: attr.range,
-        message: `Attribute '^${attr.name}' not found in project datamap`,
+        message,
         severity: 'error',
       };
     }
@@ -241,6 +256,120 @@ export class DatamapValidator {
     }
 
     return false;
+  }
+
+  /**
+   * Find the first invalid segment in a dotted attribute path
+   * Returns the invalid segment and the last valid parent attribute
+   */
+  private findFirstInvalidSegment(
+    attributeName: string,
+    projectContext: ProjectContext
+  ): { invalidSegment?: string; lastValidParent?: string } {
+    const pathSegments = attributeName.split('.');
+
+    // If it's a simple attribute (no dots), just return it as invalid
+    if (pathSegments.length === 1) {
+      return { invalidSegment: attributeName };
+    }
+
+    // For dotted paths, try to navigate as far as possible
+    // Check all possible starting vertices that have the first segment
+
+    const firstSegment = pathSegments[0];
+
+    // Special case: ^superstate.* paths
+    if (firstSegment === 'superstate') {
+      const rootId = projectContext.project.datamap.rootId;
+      const result = this.findInvalidSegmentInPath(
+        rootId,
+        pathSegments.slice(1),
+        projectContext,
+        'superstate'
+      );
+      if (result) {
+        return result;
+      }
+    }
+
+    // Search for all vertices that have an attribute named firstSegment
+    for (const vertex of projectContext.project.datamap.vertices) {
+      if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
+        for (const edge of vertex.outEdges) {
+          if (edge.name === firstSegment) {
+            const result = this.findInvalidSegmentInPath(
+              edge.toId,
+              pathSegments.slice(1),
+              projectContext,
+              firstSegment
+            );
+            if (result) {
+              return result;
+            }
+          }
+        }
+      }
+    }
+
+    // If we couldn't find the first segment anywhere, it's the invalid one
+    return { invalidSegment: firstSegment };
+  }
+
+  /**
+   * Helper: Navigate a path and find where it becomes invalid
+   */
+  private findInvalidSegmentInPath(
+    startVertexId: string,
+    pathSegments: string[],
+    projectContext: ProjectContext,
+    lastValidParent: string
+  ): { invalidSegment: string; lastValidParent: string } | null {
+    if (pathSegments.length === 0) {
+      return null; // Path is valid
+    }
+
+    const vertex = projectContext.datamapIndex.get(startVertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID') {
+      // The parent exists but isn't a SOAR_ID, so the next segment is invalid
+      return {
+        invalidSegment: pathSegments[0],
+        lastValidParent,
+      };
+    }
+
+    const firstSegment = pathSegments[0];
+    const remainingSegments = pathSegments.slice(1);
+
+    // Find edge with the name of the first segment
+    const matchingEdges = vertex.outEdges?.filter(e => e.name === firstSegment) || [];
+
+    if (matchingEdges.length === 0) {
+      // This segment doesn't exist on the current vertex
+      return {
+        invalidSegment: firstSegment,
+        lastValidParent,
+      };
+    }
+
+    // Try to navigate deeper from each matching edge
+    for (const edge of matchingEdges) {
+      if (remainingSegments.length > 0) {
+        const result = this.findInvalidSegmentInPath(
+          edge.toId,
+          remainingSegments,
+          projectContext,
+          firstSegment
+        );
+        if (result) {
+          return result;
+        }
+      } else {
+        // Successfully navigated the entire path
+        return null;
+      }
+    }
+
+    return null;
   }
 
   /**
