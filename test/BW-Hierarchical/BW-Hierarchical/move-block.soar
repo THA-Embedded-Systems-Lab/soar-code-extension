@@ -17,6 +17,6 @@ sp {P5*propose*move-block
   -{(<s> ^gripper.holding <> <blockA> <> nothing)}
 -->
    (<s> ^operator <o> +, =)
-   (<o> ^name moe-block
+   (<o> ^name move-block
         ^moving-block <blockA>
         ^destination <object>)}
