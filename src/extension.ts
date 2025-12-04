@@ -376,20 +376,29 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Check if node has a datamap ID
-      if (!('dmId' in treeItem.node) || !treeItem.node.dmId) {
+      // Get datamap ID - use null for root node (OPERATOR_ROOT)
+      const datamapId =
+        treeItem.node.type === 'OPERATOR_ROOT'
+          ? null
+          : 'dmId' in treeItem.node
+            ? treeItem.node.dmId
+            : null;
+
+      // Check if node has a datamap (all nodes should, including root)
+      if (datamapId === null && treeItem.node.type !== 'OPERATOR_ROOT') {
         vscode.window.showInformationMessage('This node does not have an associated datamap');
         return;
       }
 
       // Switch datamap view to this node's datamap
-      datamapProvider.setDatamapRoot(treeItem.node.dmId);
+      datamapProvider.setDatamapRoot(datamapId);
 
       // Update layout view to highlight this node
-      layoutProvider.setCurrentDatamap(treeItem.node.dmId);
+      layoutProvider.setCurrentDatamap(datamapId);
 
       // Show success message
-      vscode.window.showInformationMessage(`Viewing datamap for: ${treeItem.node.name}`);
+      const displayName = datamapId === null ? `${treeItem.node.name} (root)` : treeItem.node.name;
+      vscode.window.showInformationMessage(`Viewing datamap for: ${displayName}`);
     })
   );
 
