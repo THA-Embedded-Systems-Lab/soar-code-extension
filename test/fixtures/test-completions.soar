@@ -9,7 +9,7 @@
 
 sp {test*datamap*completions
    (state <s> ^io <io>)
-   (<io> input-link <in> output-link <out>)
+   (<io> ^input-link <in> ^output-link <out>)
    (<in> ^data <data>
          ^value <val>)
 -->
