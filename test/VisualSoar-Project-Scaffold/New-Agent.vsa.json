@@ -1,0 +1,230 @@
+{
+  "datamap": {
+    "rootId": "79d6ccc7a1594b229d3bd15e57be0589",
+    "vertices": [
+      {
+        "id": "0679277dd9b14ae0b71564b73002b2d8",
+        "type": "INTEGER"
+      },
+      {
+        "id": "097854ab664e4d2fbaeadf27e7769bcb",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "0fb6dd1209434d7c80f73b01f60fd715",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["nil"],
+        "id": "1cd673abbbc54ec6ad78c4d113fcb6c0",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "3f014cee91db4bbead2416a7e970871e",
+        "outEdges": [
+          {
+            "name": "reward",
+            "toId": "59b2307bdfce4300884d19f24698c546"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "411ede46735b4957a7c01d7b05c102e4",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "eb3ee18408f740b78365cc9dba51aa1d"
+          },
+          {
+            "name": "present-id",
+            "toId": "0679277dd9b14ae0b71564b73002b2d8"
+          },
+          {
+            "name": "result",
+            "toId": "0fb6dd1209434d7c80f73b01f60fd715"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["state"],
+        "id": "4a533b8fc413473e9bc2deaf140b9b4a",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "59b2307bdfce4300884d19f24698c546",
+        "outEdges": [
+          {
+            "name": "value",
+            "toId": "6088751cbd674efaa2b5389cd4f38000"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "6088751cbd674efaa2b5389cd4f38000",
+        "type": "FLOAT"
+      },
+      {
+        "id": "79d6ccc7a1594b229d3bd15e57be0589",
+        "outEdges": [
+          {
+            "name": "epmem",
+            "toId": "411ede46735b4957a7c01d7b05c102e4"
+          },
+          {
+            "name": "io",
+            "toId": "b522a1f0117147c3859443672e312e0f"
+          },
+          {
+            "name": "name",
+            "toId": "7fec4bbc77b74c0a94fd3f18efe7f5f1"
+          },
+          {
+            "name": "operator",
+            "toId": "e252be8a8a004ec1b538a8cdfdf56189"
+          },
+          {
+            "name": "reward-link",
+            "toId": "3f014cee91db4bbead2416a7e970871e"
+          },
+          {
+            "name": "smem",
+            "toId": "cc15814bf13a4833a8394399589bc8d4"
+          },
+          {
+            "name": "superstate",
+            "toId": "1cd673abbbc54ec6ad78c4d113fcb6c0"
+          },
+          {
+            "name": "top-state",
+            "toId": "79d6ccc7a1594b229d3bd15e57be0589"
+          },
+          {
+            "name": "type",
+            "toId": "4a533b8fc413473e9bc2deaf140b9b4a"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["New-Agent"],
+        "id": "7fec4bbc77b74c0a94fd3f18efe7f5f1",
+        "type": "ENUMERATION"
+      },
+      {
+        "choices": ["initialize-New-Agent"],
+        "id": "8aa4f677dc8c4c7a8412e6e876d1962f",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "96df601b186a4201896d1007f5e0757c",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "b522a1f0117147c3859443672e312e0f",
+        "outEdges": [
+          {
+            "name": "input-link",
+            "toId": "f74288ea3ed841f9917133ee45c2c5a5"
+          },
+          {
+            "name": "output-link",
+            "toId": "097854ab664e4d2fbaeadf27e7769bcb"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "cc15814bf13a4833a8394399589bc8d4",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "d53791295e4b4637a4dac3a5519fb92f"
+          },
+          {
+            "name": "result",
+            "toId": "96df601b186a4201896d1007f5e0757c"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "d53791295e4b4637a4dac3a5519fb92f",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "e252be8a8a004ec1b538a8cdfdf56189",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "8aa4f677dc8c4c7a8412e6e876d1962f"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "eb3ee18408f740b78365cc9dba51aa1d",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "f74288ea3ed841f9917133ee45c2c5a5",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      }
+    ]
+  },
+  "layout": {
+    "folder": "New-Agent",
+    "id": "322ba9b4d7da4648a591dee4182af4db",
+    "name": "New-Agent",
+    "type": "OPERATOR_ROOT",
+    "children": [
+      {
+        "file": "_firstload.soar",
+        "id": "1929861842bc48ac8fe7fbe2f426dd50",
+        "name": "_firstload",
+        "type": "FILE_OPERATOR"
+      },
+      {
+        "folder": "all",
+        "id": "b6777889a75a4fefb69b510ad40516df",
+        "name": "all",
+        "type": "FOLDER"
+      },
+      {
+        "folder": "elaborations",
+        "id": "8884b5b8af924179994d028c0bc64774",
+        "name": "elaborations",
+        "type": "FOLDER",
+        "children": [
+          {
+            "file": "_all.soar",
+            "id": "e1fbbff89e9348c9b18067432ddda3db",
+            "name": "_all",
+            "type": "FILE_OPERATOR"
+          },
+          {
+            "file": "top-state.soar",
+            "id": "1b96d1789827459e86124ad0ea82c441",
+            "name": "top-state",
+            "type": "FILE_OPERATOR"
+          }
+        ]
+      },
+      {
+        "file": "initialize-New-Agent.soar",
+        "id": "4002431a40b94529832b59481a9314dd",
+        "name": "initialize-New-Agent",
+        "type": "OPERATOR"
+      }
+    ]
+  },
+  "version": "6"
+}

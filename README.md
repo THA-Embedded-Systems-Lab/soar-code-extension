@@ -6,6 +6,15 @@ seamless VisualSoar project integration.
 
 ## Features
 
+### 🆕 Project Creation
+
+- **Command**: "Create New Soar Project"
+- **Guided Setup**: Select directory and enter agent name
+- **Default Datamap**: Standard Soar state structure with IO, memory systems
+- **File Scaffolding**: Complete folder structure with source files
+- **VisualSoar Compatible**: Generates .vsa.json project files
+- **Ready to Run**: Includes initialization operator and elaborations
+
 ### 🎨 Syntax Highlighting
 
 - Complete TextMate grammar for Soar productions
@@ -70,24 +79,31 @@ npm run compile
 
 ### Quick Start
 
-1. **Open a Soar Project**
+1. **Create a New Project**
+
+   - Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+   - Run "Soar: Create New Soar Project"
+   - Select a directory and enter your agent name
+   - Project structure is automatically generated
+
+2. **Open an Existing Soar Project**
 
    - Open a folder containing a `.vsa.json`, `.vsproj`, or `.soarproj` file
    - The extension auto-loads the project structure
 
-2. **View Datamap**
+3. **View Datamap**
 
    - Open the Soar sidebar (circuit board icon in Activity Bar)
    - Explore the "Datamap" tree view
    - Right-click to add/edit/delete attributes
 
-3. **Navigate Project Structure**
+4. **Navigate Project Structure**
 
    - View the "Project Structure" tree
    - Click files to open them
    - Right-click to add operators or substates
 
-4. **Write Soar Code**
+5. **Write Soar Code**
    - Create a `.soar` file
    - Get syntax highlighting automatically
    - Save to validate against datamap

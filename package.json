@@ -66,6 +66,12 @@
         "category": "Soar"
       },
       {
+        "command": "soar.createProject",
+        "title": "Create New Soar Project",
+        "category": "Soar",
+        "icon": "$(add)"
+      },
+      {
         "command": "soar.selectProject",
         "title": "Select Soar Project",
         "category": "Soar",

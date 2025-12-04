@@ -500,3 +500,174 @@ suite('Layout File Path Test Suite', () => {
     assert.ok(true, 'All files in layout exist on disk');
   });
 });
+
+suite('Project Creation Test Suite', () => {
+  test('Should create a new project with correct structure', async () => {
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    // Create in temp directory
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-test-'));
+    const agentName = 'TestCreatedAgent';
+
+    try {
+      // Create project
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      // Verify project file exists
+      assert.ok(fs.existsSync(projectFilePath), 'Project file should exist');
+
+      // Load and verify project structure
+      const projectJson = JSON.parse(fs.readFileSync(projectFilePath, 'utf-8'));
+
+      // Check basic structure
+      assert.strictEqual(projectJson.version, '6', 'Version should be 6');
+      assert.ok(projectJson.datamap.rootId, 'Root ID should exist');
+      assert.ok(Array.isArray(projectJson.datamap.vertices), 'Vertices should be an array');
+      assert.strictEqual(projectJson.datamap.vertices.length, 19, 'Should have 19 vertices');
+
+      // Check layout
+      assert.strictEqual(projectJson.layout.name, agentName, 'Layout name should match agent name');
+      assert.strictEqual(
+        projectJson.layout.type,
+        'OPERATOR_ROOT',
+        'Layout type should be OPERATOR_ROOT'
+      );
+      assert.ok(Array.isArray(projectJson.layout.children), 'Layout children should be an array');
+      assert.strictEqual(projectJson.layout.children.length, 4, 'Should have 4 root children');
+
+      // Check root vertex attributes
+      const rootVertex = projectJson.datamap.vertices.find(
+        (v: any) => v.id === projectJson.datamap.rootId
+      );
+      assert.ok(rootVertex, 'Root vertex should exist');
+      assert.strictEqual(rootVertex.type, 'SOAR_ID', 'Root should be SOAR_ID');
+
+      const expectedAttrs = [
+        'io',
+        'name',
+        'operator',
+        'type',
+        'superstate',
+        'top-state',
+        'epmem',
+        'smem',
+        'reward-link',
+      ];
+      const actualAttrs = rootVertex.outEdges.map((e: any) => e.name);
+      for (const attr of expectedAttrs) {
+        assert.ok(actualAttrs.includes(attr), `Root should have ^${attr} attribute`);
+      }
+
+      // Check files exist
+      const projectPath = path.join(tempDir, agentName);
+      const agentFolder = path.join(projectPath, agentName);
+
+      const expectedFiles = [
+        path.join(projectPath, `${agentName}.vsa.json`),
+        path.join(projectPath, `${agentName}.soar`),
+        path.join(agentFolder, '_firstload.soar'),
+        path.join(agentFolder, `${agentName}_source.soar`),
+        path.join(agentFolder, `initialize-${agentName}.soar`),
+        path.join(agentFolder, 'elaborations', '_all.soar'),
+        path.join(agentFolder, 'elaborations', 'top-state.soar'),
+        path.join(agentFolder, 'elaborations', 'elaborations_source.soar'),
+        path.join(agentFolder, 'all', 'all_source.soar'),
+      ];
+
+      for (const file of expectedFiles) {
+        assert.ok(fs.existsSync(file), `File should exist: ${path.relative(tempDir, file)}`);
+      }
+    } finally {
+      // Clean up
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('Should create project with valid Soar code', async () => {
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-test-'));
+    const agentName = 'ValidAgent';
+
+    try {
+      await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      const agentFolder = path.join(tempDir, agentName, agentName);
+
+      // Check initialize operator has correct content
+      const initFile = path.join(agentFolder, `initialize-${agentName}.soar`);
+      const initContent = fs.readFileSync(initFile, 'utf-8');
+
+      assert.ok(
+        initContent.includes(`propose*initialize-${agentName}`),
+        'Should have propose rule'
+      );
+      assert.ok(initContent.includes(`apply*initialize-${agentName}`), 'Should have apply rule');
+      assert.ok(initContent.includes(`^name ${agentName}`), 'Should set agent name in apply');
+
+      // Check elaborations have state propagation
+      const elabAllFile = path.join(agentFolder, 'elaborations', '_all.soar');
+      const elabAllContent = fs.readFileSync(elabAllFile, 'utf-8');
+
+      assert.ok(elabAllContent.includes('elaborate*state*name'), 'Should have name elaboration');
+      assert.ok(
+        elabAllContent.includes('elaborate*state*top-state'),
+        'Should have top-state elaboration'
+      );
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('Should reject invalid agent names', async () => {
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-test-'));
+
+    try {
+      // Test empty name
+      await assert.rejects(
+        async () => {
+          await ProjectCreator.createProject({
+            directory: tempDir,
+            agentName: '',
+          });
+        },
+        /Agent name cannot be empty/,
+        'Should reject empty agent name'
+      );
+
+      // Test invalid directory
+      await assert.rejects(
+        async () => {
+          await ProjectCreator.createProject({
+            directory: '/nonexistent/directory',
+            agentName: 'TestAgent',
+          });
+        },
+        /Directory does not exist/,
+        'Should reject invalid directory'
+      );
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+});

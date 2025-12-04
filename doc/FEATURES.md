@@ -4,6 +4,51 @@ This document describes the implemented features and provides guidance for futur
 
 ## Implemented Features
 
+### 0. Project Creation
+
+**Files**: `src/layout/projectCreator.ts`
+
+**Command**: `soar.createProject` - "Create New Soar Project"
+
+**Functionality**:
+
+- Creates a complete Soar project structure matching VisualSoar's behavior
+- Prompts user for directory and agent name
+- Generates default datamap with standard Soar attributes
+- Creates file scaffolding with proper folder structure
+
+**Generated Structure**:
+
+```
+AgentName/
+├── AgentName.vsa.json          # Project file with datamap and layout
+├── AgentName.soar              # Main load file
+└── AgentName/                  # Agent folder
+    ├── _firstload.soar         # First load file (empty)
+    ├── AgentName_source.soar   # Source file with includes
+    ├── initialize-AgentName.soar  # Initialization operator
+    ├── all/                    # Generic rules folder
+    │   └── all_source.soar
+    └── elaborations/           # Elaborations folder
+        ├── _all.soar           # State propagation rules
+        ├── top-state.soar      # Top-state elaboration
+        └── elaborations_source.soar
+```
+
+**Default Datamap**:
+
+- Root state with: `^io`, `^name`, `^operator`, `^type`, `^superstate`, `^top-state`
+- Memory systems: `^epmem`, `^smem`, `^reward-link`
+- IO structure: `^io.input-link`, `^io.output-link` (empty SOAR_ID)
+- Initialize operator with proper propose/apply rules
+
+**Validation**:
+
+- Agent name must start with letter
+- Only alphanumeric, hyphens, and underscores allowed
+- Directory must exist
+- Prevents overwriting existing projects
+
 ### 1. Syntax Highlighting
 
 **Files**: `syntaxes/soar.tmLanguage.json`, `language-configuration.json`

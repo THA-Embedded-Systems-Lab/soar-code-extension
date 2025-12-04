@@ -54,6 +54,74 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register create project command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.createProject', async () => {
+      const { ProjectCreator } = await import('./layout/projectCreator');
+
+      // Get directory from user
+      const directoryUri = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: 'Select Directory',
+        title: 'Select Directory for New Soar Project',
+      });
+
+      if (!directoryUri || directoryUri.length === 0) {
+        return;
+      }
+
+      const directory = directoryUri[0].fsPath;
+
+      // Get agent name from user
+      const agentName = await vscode.window.showInputBox({
+        prompt: 'Enter agent name',
+        placeHolder: 'MyAgent',
+        validateInput: value => {
+          if (!value || value.trim().length === 0) {
+            return 'Agent name cannot be empty';
+          }
+          if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+            return 'Agent name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+          }
+          return null;
+        },
+      });
+
+      if (!agentName) {
+        return;
+      }
+
+      try {
+        const projectFilePath = await ProjectCreator.createProject({
+          directory,
+          agentName,
+        });
+
+        vscode.window.showInformationMessage(`Successfully created Soar project: ${agentName}`);
+
+        // Ask if user wants to open the project
+        const openProject = await vscode.window.showInformationMessage(
+          'Would you like to open the new project?',
+          'Yes',
+          'No'
+        );
+
+        if (openProject === 'Yes') {
+          const projectFolder = path.dirname(projectFilePath);
+          await vscode.commands.executeCommand(
+            'vscode.openFolder',
+            vscode.Uri.file(projectFolder),
+            false
+          );
+        }
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to create project: ${error.message}`);
+      }
+    })
+  );
+
   // Initialize Datamap Tree View
   const datamapProvider = new DatamapTreeProvider();
   datamapProviderGlobal = datamapProvider;

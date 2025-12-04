@@ -1,0 +1,3 @@
+pushd New-Agent
+source New-Agent_source.soar
+popd
