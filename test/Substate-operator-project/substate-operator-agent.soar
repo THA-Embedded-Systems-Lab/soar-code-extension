@@ -1,0 +1,3 @@
+pushd substate-operator-agent
+source substate-operator-agent_source.soar
+popd

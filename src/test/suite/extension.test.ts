@@ -671,3 +671,243 @@ suite('Project Creation Test Suite', () => {
     }
   });
 });
+
+suite('Operator Creation Test Suite', () => {
+  test('Should create operators programmatically on a new project', async function () {
+    this.timeout(10000); // Increase timeout for this test
+
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const { ProjectLoader } = await import('../../server/projectLoader');
+    const { LayoutOperations } = await import('../../layout/layoutOperations');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-op-test-'));
+    const agentName = 'TestOpAgent';
+
+    try {
+      // Step 1: Create a new project
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      assert.ok(fs.existsSync(projectFilePath), 'Project file should exist');
+
+      // Step 2: Load the project
+      const projectLoader = new ProjectLoader();
+      let projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Verify initial state
+      assert.strictEqual(
+        projectContext.project.layout.children?.length || 0,
+        4,
+        'Should have 4 initial children'
+      );
+
+      // Step 3: Add a simple operator "sub-operator-only" to root
+      const rootLayoutId = projectContext.project.layout.id;
+
+      const operatorResult1 = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        rootLayoutId,
+        'sub-operator-only'
+      );
+
+      assert.ok(operatorResult1.success, 'Should successfully add first operator');
+
+      // Reload project to get updated context
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Verify operator was added to layout
+      assert.strictEqual(
+        projectContext.project.layout.children?.length,
+        5,
+        'Should now have 5 children after adding operator'
+      );
+
+      const simpleOp = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'sub-operator-only'
+      );
+      assert.ok(simpleOp, 'Simple operator should exist in layout');
+      assert.strictEqual(simpleOp.type, 'OPERATOR', 'Should be type OPERATOR');
+      assert.strictEqual(simpleOp.file, 'sub-operator-only.soar', 'Should have correct filename');
+
+      // Verify file was created
+      const simpleOpFile = path.join(tempDir, agentName, agentName, 'sub-operator-only.soar');
+      assert.ok(fs.existsSync(simpleOpFile), 'Operator file should exist');
+
+      // Verify file content
+      const simpleOpContent = fs.readFileSync(simpleOpFile, 'utf-8');
+      assert.ok(simpleOpContent.includes('propose*sub-operator-only'), 'Should have propose rule');
+      assert.ok(simpleOpContent.includes('apply*sub-operator-only'), 'Should have apply rule');
+      assert.ok(simpleOpContent.includes(`^name ${agentName}`), 'Propose should check state name');
+
+      // Verify datamap was updated
+      const rootVertex = projectContext.project.datamap.vertices.find(
+        (v: any) => v.id === projectContext.project.datamap.rootId
+      );
+      assert.ok(rootVertex, 'Root vertex should exist');
+      const operatorEdges = (rootVertex as any).outEdges.filter((e: any) => e.name === 'operator');
+
+      // Should have 2 operator edges now (initialize + sub-operator-only)
+      assert.ok(operatorEdges.length >= 2, 'Should have at least 2 operator edges');
+
+      // Find the operator vertex for sub-operator-only
+      let foundSimpleOp = false;
+      for (const edge of operatorEdges) {
+        const opVertex = projectContext.datamapIndex.get(edge.toId);
+        if (opVertex && (opVertex as any).outEdges) {
+          const nameEdge = (opVertex as any).outEdges.find((e: any) => e.name === 'name');
+          if (nameEdge) {
+            const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+            if (
+              nameVertex &&
+              (nameVertex as any).choices &&
+              (nameVertex as any).choices.includes('sub-operator-only')
+            ) {
+              foundSimpleOp = true;
+              break;
+            }
+          }
+        }
+      }
+      assert.ok(foundSimpleOp, 'Should find sub-operator-only in datamap');
+
+      // Step 4: Add a high-level operator "sub-operator-with-child"
+      const operatorResult2 = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        rootLayoutId,
+        'sub-operator-with-child'
+      );
+
+      assert.ok(operatorResult2.success, 'Should successfully add second operator');
+
+      // Reload project
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      const highLevelOp = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'sub-operator-with-child'
+      );
+      assert.ok(highLevelOp, 'High-level operator should exist in layout');
+      assert.strictEqual(highLevelOp.type, 'OPERATOR', 'Should initially be type OPERATOR');
+
+      // Step 5: Add a child operator to make it a HIGH_LEVEL_OPERATOR
+      const childOperatorResult = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        highLevelOp.id,
+        'child-operator'
+      );
+
+      assert.ok(childOperatorResult.success, 'Should successfully add child operator');
+
+      // Reload project to see the conversion
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      const highLevelOpUpdated = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'sub-operator-with-child'
+      );
+      assert.ok(highLevelOpUpdated, 'High-level operator should still exist');
+      assert.strictEqual(
+        highLevelOpUpdated.type,
+        'HIGH_LEVEL_OPERATOR',
+        'Should now be HIGH_LEVEL_OPERATOR'
+      );
+      assert.ok(highLevelOpUpdated.folder, 'Should have folder property');
+      assert.ok(highLevelOpUpdated.children, 'Should have children array');
+      assert.ok(highLevelOpUpdated.dmId, 'Should have dmId for substate');
+
+      // Verify folder structure was created
+      const highLevelFolder = path.join(tempDir, agentName, agentName, 'sub-operator-with-child');
+      assert.ok(fs.existsSync(highLevelFolder), 'High-level operator folder should exist');
+
+      // Verify elaborations.soar was created
+      const elabFile = path.join(highLevelFolder, 'elaborations.soar');
+      assert.ok(fs.existsSync(elabFile), 'Elaborations file should exist');
+
+      // Verify source file was created
+      const sourceFile = path.join(highLevelFolder, 'sub-operator-with-child_source.soar');
+      assert.ok(fs.existsSync(sourceFile), 'Source file should exist');
+
+      // Verify child operator file
+      const childOpFile = path.join(highLevelFolder, 'child-operator.soar');
+      assert.ok(fs.existsSync(childOpFile), 'Child operator file should exist');
+
+      const childOpContent = fs.readFileSync(childOpFile, 'utf-8');
+      assert.ok(
+        childOpContent.includes('propose*child-operator'),
+        'Child should have propose rule'
+      );
+      assert.ok(childOpContent.includes('apply*child-operator'), 'Child should have apply rule');
+      assert.ok(
+        childOpContent.includes('^name sub-operator-with-child'),
+        'Child propose should check parent state name'
+      );
+
+      // Verify substate datamap was created
+      const substateVertex = projectContext.datamapIndex.get(highLevelOpUpdated.dmId);
+      assert.ok(substateVertex, 'Substate vertex should exist in datamap');
+      assert.strictEqual(substateVertex.type, 'SOAR_ID', 'Substate should be SOAR_ID');
+
+      // Verify substate has standard attributes
+      const substateAttrs = (substateVertex as any).outEdges?.map((e: any) => e.name) || [];
+      assert.ok(substateAttrs.includes('superstate'), 'Substate should have ^superstate');
+      assert.ok(substateAttrs.includes('operator'), 'Substate should have ^operator');
+      assert.ok(substateAttrs.includes('name'), 'Substate should have ^name');
+
+      // Verify child operator is in substate datamap
+      const substateOpEdges =
+        (substateVertex as any).outEdges?.filter((e: any) => e.name === 'operator') || [];
+      let foundChildOp = false;
+      for (const edge of substateOpEdges) {
+        const opVertex = projectContext.datamapIndex.get(edge.toId);
+        if (opVertex && (opVertex as any).outEdges) {
+          const nameEdge = (opVertex as any).outEdges.find((e: any) => e.name === 'name');
+          if (nameEdge) {
+            const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+            if (
+              nameVertex &&
+              (nameVertex as any).choices &&
+              (nameVertex as any).choices.includes('child-operator')
+            ) {
+              foundChildOp = true;
+              break;
+            }
+          }
+        }
+      }
+      assert.ok(foundChildOp, 'Should find child-operator in substate datamap');
+
+      // Final verification: count total operators in root state
+      const finalRootVertex = projectContext.project.datamap.vertices.find(
+        (v: any) => v.id === projectContext.project.datamap.rootId
+      );
+      assert.ok(finalRootVertex, 'Final root vertex should exist');
+      const finalOperatorEdges = (finalRootVertex as any).outEdges.filter(
+        (e: any) => e.name === 'operator'
+      );
+
+      // Should have 3 operators: initialize, sub-operator-only, sub-operator-with-child
+      assert.strictEqual(finalOperatorEdges.length, 3, 'Root should have exactly 3 operator edges');
+
+      // Verify layout structure matches expected
+      assert.strictEqual(
+        projectContext.project.layout.children?.length,
+        6,
+        'Root layout should have 6 children: _firstload, all, elaborations, initialize, sub-operator-only, sub-operator-with-child'
+      );
+
+      // Verify the high-level operator has 2 children
+      assert.strictEqual(
+        highLevelOpUpdated.children?.length,
+        2,
+        'High-level operator should have 2 children: elaborations and child-operator'
+      );
+    } finally {
+      // Clean up
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+});

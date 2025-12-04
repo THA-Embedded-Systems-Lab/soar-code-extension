@@ -674,7 +674,6 @@ export class LayoutOperations {
 
     // Create folder structure
     await fs.promises.mkdir(newFullFolderPath, { recursive: true });
-    await fs.promises.mkdir(path.join(newFullFolderPath, 'elaborations'), { recursive: true });
 
     // Move the operator file to the new folder location
     const newFile = `${operatorName}.soar`; // Relative to the new folder
@@ -684,14 +683,15 @@ export class LayoutOperations {
       await fs.promises.rename(oldFullPath, newFullPath);
     }
 
-    // Create elaborations file
-    const elabFile = '_all.soar'; // Relative to elaborations folder
-    const elabContent = `###\n### Elaborations for ${operatorName}\n###\n\n# Add elaborations here\n`;
-    await fs.promises.writeFile(
-      path.join(newFullFolderPath, 'elaborations', elabFile),
-      elabContent,
-      'utf-8'
-    );
+    // Create elaborations file (matching VisualSoar's behavior)
+    const elabFile = 'elaborations.soar'; // Relative to the operator folder
+    const elabContent = ''; // Empty file like VisualSoar
+    await fs.promises.writeFile(path.join(newFullFolderPath, elabFile), elabContent, 'utf-8');
+
+    // Create source file for loading
+    const sourceFile = `${operatorName}_source.soar`;
+    const sourceContent = `source elaborations.soar\n`;
+    await fs.promises.writeFile(path.join(newFullFolderPath, sourceFile), sourceContent, 'utf-8');
 
     // Create or reuse datamap vertex for this operator
     let dmId = 'dmId' in operatorNode ? operatorNode.dmId : undefined;
@@ -711,11 +711,17 @@ export class LayoutOperations {
       dmVertex = projectContext.datamapIndex.get(dmId);
     }
 
-    // Ensure the datamap has substate structure: ^name and ^type state
+    // Ensure the datamap has complete substate structure
     if (dmVertex && dmVertex.type === 'SOAR_ID') {
-      // Add ^name edge if not present
-      const hasNameEdge = dmVertex.outEdges?.some((e: any) => e.name === 'name');
-      if (!hasNameEdge) {
+      if (!dmVertex.outEdges) {
+        dmVertex.outEdges = [];
+      }
+
+      // Helper to check if edge exists
+      const hasEdge = (name: string) => dmVertex.outEdges?.some((e: any) => e.name === name);
+
+      // Add ^name edge
+      if (!hasEdge('name')) {
         const nameEnumId = this.generateVertexId(projectContext.project);
         const nameEnum: any = {
           id: nameEnumId,
@@ -724,25 +730,15 @@ export class LayoutOperations {
         };
         projectContext.project.datamap.vertices.push(nameEnum);
         projectContext.datamapIndex.set(nameEnumId, nameEnum);
-
-        if (!dmVertex.outEdges) {
-          dmVertex.outEdges = [];
-        }
-        dmVertex.outEdges.push({
-          name: 'name',
-          toId: nameEnumId,
-        });
+        dmVertex.outEdges.push({ name: 'name', toId: nameEnumId });
       }
 
-      // Add ^type state edge if not present
-      const hasTypeEdge = dmVertex.outEdges?.some((e: any) => e.name === 'type');
-      if (!hasTypeEdge) {
-        // Find or create the 'state' enumeration vertex
+      // Add ^type state
+      if (!hasEdge('type')) {
         let stateEnumVertex = projectContext.project.datamap.vertices.find(
           (v: any) =>
             v.type === 'ENUMERATION' && v.choices?.length === 1 && v.choices[0] === 'state'
         );
-
         if (!stateEnumVertex) {
           const stateEnumId = this.generateVertexId(projectContext.project);
           stateEnumVertex = {
@@ -753,15 +749,23 @@ export class LayoutOperations {
           projectContext.project.datamap.vertices.push(stateEnumVertex);
           projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
         }
+        dmVertex.outEdges.push({ name: 'type', toId: stateEnumVertex.id });
+      }
 
-        dmVertex.outEdges.push({
-          name: 'type',
-          toId: stateEnumVertex.id,
-        });
+      // Add ^superstate pointing to root
+      if (!hasEdge('superstate')) {
+        const rootId = projectContext.project.datamap.rootId;
+        dmVertex.outEdges.push({ name: 'superstate', toId: rootId });
+      }
+
+      // Add ^top-state pointing to root
+      if (!hasEdge('top-state')) {
+        const rootId = projectContext.project.datamap.rootId;
+        dmVertex.outEdges.push({ name: 'top-state', toId: rootId });
       }
     }
 
-    // Convert to HIGH_LEVEL_OPERATOR
+    // Convert to HIGH_LEVEL_OPERATOR (matching VisualSoar's structure)
     // All paths are relative to the parent
     const highLevelNode: HighLevelOperatorNode = {
       type: 'HIGH_LEVEL_OPERATOR',
@@ -772,18 +776,10 @@ export class LayoutOperations {
       folder: newFolderRelative, // Relative to parent: operator-name/
       children: [
         {
-          type: 'FOLDER',
+          type: 'FILE_OPERATOR',
           id: this.generateNodeId(projectContext.project),
           name: 'elaborations',
-          folder: 'elaborations', // Relative to this node's folder
-          children: [
-            {
-              type: 'FILE',
-              id: this.generateNodeId(projectContext.project),
-              name: '_all',
-              file: elabFile, // Relative to elaborations folder: _all.soar
-            },
-          ],
+          file: elabFile, // Relative to this node's folder: elaborations.soar
         },
       ],
     };
@@ -860,6 +856,88 @@ export class LayoutOperations {
       }
     }
     return null;
+  }
+
+  /**
+   * Add an operator programmatically (for testing)
+   * Same as addOperator but takes operatorName as parameter instead of prompting
+   */
+  static async addOperatorProgrammatic(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    operatorName: string
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    let parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode) {
+      return { success: false };
+    }
+
+    // If parent is a regular OPERATOR, convert it to HIGH_LEVEL_OPERATOR first
+    if (parentNode.type === 'OPERATOR') {
+      const converted = await this.convertOperatorToHighLevel(projectContext, parentNodeId);
+      if (!converted) {
+        return { success: false };
+      }
+      // Re-fetch the parent node after conversion
+      parentNode = projectContext.layoutIndex.get(parentNodeId);
+      if (!parentNode) {
+        return { success: false };
+      }
+    }
+
+    if (!hasChildren(parentNode)) {
+      return { success: false };
+    }
+
+    // Determine the parent state context (root or substate)
+    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
+
+    // Create operator datamap vertex and add to parent state
+    const operatorDmId = this.addOperatorToDatamap(
+      projectContext,
+      stateContext.datamapId,
+      operatorName
+    );
+
+    // Determine file path
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const operatorFile = `${operatorName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    // Check if file already exists
+    if (fs.existsSync(fullPath)) {
+      return { success: false };
+    }
+
+    // Create the operator node with dmId
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: OperatorNode = {
+      type: 'OPERATOR',
+      id: newNodeId,
+      name: operatorName,
+      file: operatorFile,
+      dmId: operatorDmId,
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Generate file content with proper state name
+    const content = SoarTemplates.generateOperatorFile(operatorName, stateContext.stateName);
+
+    // Create file
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    return { success: true, nodeId: newNodeId };
   }
 
   /**

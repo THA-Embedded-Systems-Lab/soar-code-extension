@@ -1,0 +1,13 @@
+source _firstload.soar
+pushd all
+source all_source.soar
+popd
+pushd elaborations
+source elaborations_source.soar
+popd
+source initialize-substate-operator-agent.soar
+source sub-operator-only.soar
+source sub-operator-with-child.soar
+pushd sub-operator-with-child
+source sub-operator-with-child_source.soar
+popd
