@@ -5,6 +5,7 @@ dist
 *.vsix
 .DS_Store
 extension.vsixmanifest
+*~
 
 # Logs
 logs

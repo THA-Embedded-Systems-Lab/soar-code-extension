@@ -633,6 +633,105 @@ suite('Project Creation Test Suite', () => {
     }
   });
 
+  test('Should validate created project without datamap errors', async function () {
+    this.timeout(15000); // Increase timeout for validation
+
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const { ProjectLoader } = await import('../../server/projectLoader');
+    const { DatamapValidator } = await import('../../datamap/datamapValidator');
+    const { SoarParser } = await import('../../server/soarParser');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-test-'));
+    const agentName = 'ValidationTestAgent';
+
+    try {
+      // Create project
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      // Load the project
+      const projectLoader = new ProjectLoader();
+      const projectContext = await projectLoader.loadProject(projectFilePath);
+
+      assert.ok(projectContext, 'Project context should be loaded');
+      assert.ok(projectContext.project, 'Project should exist');
+      assert.ok(projectContext.datamapIndex, 'Datamap index should exist');
+
+      // Validate all Soar files in the project
+      const validator = new DatamapValidator();
+      const parser = new SoarParser();
+      const allErrors: any[] = [];
+
+      const projectPath = path.join(tempDir, agentName);
+
+      // Get all .soar files recursively
+      const getAllSoarFiles = (dir: string): string[] => {
+        const files: string[] = [];
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            files.push(...getAllSoarFiles(fullPath));
+          } else if (entry.isFile() && entry.name.endsWith('.soar')) {
+            files.push(fullPath);
+          }
+        }
+
+        return files;
+      };
+
+      const soarFiles = getAllSoarFiles(projectPath);
+      assert.ok(soarFiles.length > 0, 'Should have Soar files to validate');
+
+      console.log(`\nValidating ${soarFiles.length} Soar files:`);
+
+      for (const filePath of soarFiles) {
+        const relativePath = path.relative(tempDir, filePath);
+        const content = fs.readFileSync(filePath, 'utf-8');
+
+        // Parse the file (using file URI and version)
+        const fileUri = vscode.Uri.file(filePath).toString();
+        const document = parser.parse(fileUri, content, 1);
+
+        // Validate against datamap
+        const errors = validator.validateDocument(document, projectContext);
+
+        if (errors.length > 0) {
+          console.log(`\nErrors in ${relativePath}:`);
+          errors.forEach(err => {
+            console.log(`  - Line ${err.line}: ${err.message}`);
+            allErrors.push({ file: relativePath, ...err });
+          });
+        }
+      }
+
+      // Assert no validation errors
+      if (allErrors.length > 0) {
+        console.log(`\n=== All Validation Errors (${allErrors.length}) ===`);
+        allErrors.forEach(err => {
+          console.log(`${err.file}:${err.line} - ${err.message}`);
+        });
+      }
+
+      assert.strictEqual(
+        allErrors.length,
+        0,
+        `Created project should have no datamap validation errors. Found: ${allErrors
+          .map(e => `${e.file}:${e.line} - ${e.message}`)
+          .join(', ')}`
+      );
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
   test('Should reject invalid agent names', async () => {
     const { ProjectCreator } = await import('../../layout/projectCreator');
     const fs = await import('fs');

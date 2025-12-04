@@ -185,6 +185,12 @@ export class DatamapValidator {
    * For dotted paths (parent.child):
    * - Find all vertices that have an attribute named "parent"
    * - Check if the target vertex of "parent" has an attribute named "child"
+   *
+   * Special handling for ^superstate paths:
+   * In the top state, ^superstate points to an ENUMERATION ("nil"), but in substates,
+   * ^superstate points to the parent state (a SOAR_ID with the same structure as the root).
+   * Generic substate elaborations like "^superstate.operator.name" are valid even though
+   * they don't apply to the top state. We validate such paths against the root state structure.
    */
   private attributeExistsInDatamap(attributeName: string, projectContext: ProjectContext): boolean {
     const pathSegments = attributeName.split('.');
@@ -209,6 +215,16 @@ export class DatamapValidator {
 
     const firstSegment = pathSegments[0];
     const remainingSegments = pathSegments.slice(1);
+
+    // Special case: ^superstate.* paths
+    // These are meant for substates where ^superstate points to a parent state.
+    // Validate the remaining path against the root state structure.
+    if (firstSegment === 'superstate') {
+      const rootId = projectContext.project.datamap.rootId;
+      if (this.canNavigatePath(rootId, remainingSegments, projectContext)) {
+        return true;
+      }
+    }
 
     // Search for all vertices that have an attribute named firstSegment
     for (const vertex of projectContext.project.datamap.vertices) {
