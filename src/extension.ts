@@ -385,6 +385,9 @@ export function activate(context: vscode.ExtensionContext) {
       // Switch datamap view to this node's datamap
       datamapProvider.setDatamapRoot(treeItem.node.dmId);
 
+      // Update layout view to highlight this node
+      layoutProvider.setCurrentDatamap(treeItem.node.dmId);
+
       // Show success message
       vscode.window.showInformationMessage(`Viewing datamap for: ${treeItem.node.name}`);
     })
@@ -401,6 +404,10 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Switch back to root datamap
       datamapProvider.setDatamapRoot(null);
+
+      // Update layout view to highlight the root
+      layoutProvider.setCurrentDatamap(null);
+
       vscode.window.showInformationMessage('Viewing root datamap');
     })
   );

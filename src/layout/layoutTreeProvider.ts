@@ -16,12 +16,21 @@ import {
 
 export class LayoutTreeItem extends vscode.TreeItem {
   constructor(
-    public readonly label: string,
+    labelText: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly node: LayoutNode,
     public readonly projectContext: ProjectContext,
-    private readonly parentPath: string = ''
+    private readonly parentPath: string = '',
+    private readonly currentDatamapId: string | null = null
   ) {
+    // Check if this node's datamap is currently being viewed
+    const isCurrentDatamap =
+      ('dmId' in node && node.dmId && node.dmId === currentDatamapId) ||
+      (currentDatamapId === null && node.type === 'OPERATOR_ROOT');
+
+    // Add arrow prefix to indicate currently viewed datamap
+    const label = isCurrentDatamap ? `→ ${labelText}` : labelText;
+
     super(label, collapsibleState);
 
     this.tooltip = this.buildTooltip();
@@ -116,6 +125,7 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
     this._onDidChangeTreeData.event;
 
   private projectContext: ProjectContext | null = null;
+  private currentDatamapId: string | null = null; // Track which datamap is currently being viewed
 
   constructor() {}
 
@@ -125,6 +135,15 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
 
   getProjectContext(): ProjectContext | null {
     return this.projectContext;
+  }
+
+  /**
+   * Set which datamap is currently being viewed (to highlight the corresponding node)
+   * @param datamapId The datamap vertex ID being viewed, or null for root
+   */
+  setCurrentDatamap(datamapId: string | null): void {
+    this.currentDatamapId = datamapId;
+    this.refresh();
   }
 
   /**
@@ -232,7 +251,8 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
           vscode.TreeItemCollapsibleState.Expanded,
           rootNode,
           this.projectContext,
-          '' // Root element has no parent path
+          '', // Root element has no parent path
+          this.currentDatamapId
         ),
       ]);
     }
@@ -268,7 +288,8 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
           collapsibleState,
           childNode,
           this.projectContext,
-          childParentPath
+          childParentPath,
+          this.currentDatamapId
         )
       );
     }
