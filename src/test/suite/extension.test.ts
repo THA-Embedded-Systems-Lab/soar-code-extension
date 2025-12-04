@@ -1053,9 +1053,6 @@ suite('Operator Creation Test Suite', () => {
       };
 
       const initialFiles = getFilesRecursive(projectPath);
-      console.log(
-        `\nInitial state: ${initialChildCount} children, ${initialVertexCount} vertices, ${initialFiles.length} files`
-      );
 
       // Capture initial datamap structure (deep copy)
       const initialDatamapJSON = JSON.stringify(projectContext.project.datamap, null, 2);
@@ -1129,10 +1126,6 @@ suite('Operator Creation Test Suite', () => {
       const finalChildCount = projectContext.project.layout.children?.length || 0;
       const finalVertexCount = projectContext.project.datamap.vertices.length;
       const finalFiles = getFilesRecursive(projectPath);
-
-      console.log(
-        `\nFinal state: ${finalChildCount} children, ${finalVertexCount} vertices, ${finalFiles.length} files`
-      );
 
       // Verify counts match initial state
       assert.strictEqual(
@@ -1221,9 +1214,6 @@ suite('Operator Creation Test Suite', () => {
       };
 
       const initialStructure = getStructure(projectPath);
-      console.log(
-        `\nInitial: ${initialChildCount} children, ${initialVertexCount} vertices, ${initialStructure.files.length} files, ${initialStructure.folders.length} folders`
-      );
 
       // Capture initial datamap
       const initialDatamapJSON = JSON.stringify(projectContext.project.datamap, null, 2);
@@ -1262,10 +1252,6 @@ suite('Operator Creation Test Suite', () => {
       const afterAddStructure = getStructure(projectPath);
       const afterAddChildCount = projectContext.project.layout.children?.length || 0;
       const afterAddVertexCount = projectContext.project.datamap.vertices.length;
-
-      console.log(
-        `\nAfter add: ${afterAddChildCount} children, ${afterAddVertexCount} vertices, ${afterAddStructure.files.length} files, ${afterAddStructure.folders.length} folders`
-      );
 
       assert.strictEqual(
         afterAddChildCount,
@@ -1343,12 +1329,6 @@ suite('Operator Creation Test Suite', () => {
         'Should delete parent folder'
       );
 
-      if (typeof deleteResult === 'object') {
-        console.log(
-          `\nDeleted ${deleteResult.filesDeleted?.length} files and ${deleteResult.foldersDeleted?.length} folders`
-        );
-      }
-
       // Reload after deletion
       projectContext = await projectLoader.loadProject(projectFilePath);
 
@@ -1356,10 +1336,6 @@ suite('Operator Creation Test Suite', () => {
       const finalStructure = getStructure(projectPath);
       const finalChildCount = projectContext.project.layout.children?.length || 0;
       const finalVertexCount = projectContext.project.datamap.vertices.length;
-
-      console.log(
-        `\nFinal: ${finalChildCount} children, ${finalVertexCount} vertices, ${finalStructure.files.length} files, ${finalStructure.folders.length} folders`
-      );
 
       // Verify counts
       assert.strictEqual(finalChildCount, initialChildCount, 'Should restore child count');

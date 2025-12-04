@@ -117,19 +117,14 @@ suite('Completion Test Suite', () => {
     const completions = await getCompletionsAt(testDocUri, position);
     const labels = getCompletionLabels(completions);
 
-    // Log for debugging
-    console.log('Completions for ^io.:', labels);
-
     // Should suggest children of io vertex
     // Note: Completions may include text-based suggestions from VS Code's default provider
     // We just need to verify our datamap completions are present
-    console.log(`Total completions: ${labels.length}`);
 
     if (!labels.includes('input-link') && !labels.includes('output-link')) {
-      console.warn('No datamap completions found - LSP may not be ready or project not loaded');
-      console.warn(`Completions received: ${labels.slice(0, 10).join(', ')}...`);
-      this.skip(); // Skip if LSP not ready instead of failing
-      return;
+      assert.fail(
+        `No datamap completions found. Completions received: ${labels.slice(0, 10).join(', ')}...`
+      );
     }
 
     assert.ok(labels.includes('input-link'), 'Should suggest "input-link"');
@@ -200,13 +195,10 @@ suite('Completion Test Suite', () => {
     const completions = await getCompletionsAt(testDocUri, position);
     const labels = getCompletionLabels(completions);
 
-    console.log('Completions for output-link:', labels);
-
-    if (labels.length === 0) {
-      console.warn('No completions returned - LSP may not be ready');
-      this.skip();
-      return;
-    }
+    assert.ok(
+      labels.length > 0,
+      'No completions returned - LSP may not be ready or project not loaded'
+    );
 
     assert.ok(labels.includes('command'), 'Should suggest "command"');
     assert.ok(labels.includes('status'), 'Should suggest "status"');
@@ -245,13 +237,10 @@ suite('Completion Test Suite', () => {
     const completions = await getCompletionsAt(testDocUri, position);
     const labels = getCompletionLabels(completions);
 
-    console.log('Completions for <il> binding:', labels);
-
-    if (labels.length === 0) {
-      console.warn('No completions returned - LSP may not be ready');
-      this.skip();
-      return;
-    }
+    assert.ok(
+      labels.length > 0,
+      'No completions returned - LSP may not be ready or project not loaded'
+    );
 
     // <il> is bound to input-link vertex, so should suggest its attributes
     assert.ok(labels.includes('data'), 'Should suggest "data" from bound variable');
@@ -337,9 +326,6 @@ suite('Completion Test Suite', () => {
     const completions = await getCompletionsAt(testDocUri, position);
     const datamapCompletions = getDatamapCompletions(completions);
 
-    console.log(`Datamap completions for ^io.inp: ${datamapCompletions.length} items`);
-    console.log(`Datamap completions: ${datamapCompletions.join(', ')}`);
-
     // Should suggest children of io (including input-link)
     assert.ok(
       datamapCompletions.includes('input-link') || datamapCompletions.includes('output-link'),
@@ -420,14 +406,10 @@ suite('Completion Test Suite', () => {
     const completions = await getCompletionsAt(testDocUri, position);
     const datamapCompletions = getDatamapCompletions(completions);
 
-    console.log(`Datamap completions for <out> binding: ${datamapCompletions.length} items`);
-    console.log(`Datamap completions: ${datamapCompletions.join(', ')}`);
-
-    if (!datamapCompletions.includes('command') && !datamapCompletions.includes('status')) {
-      console.warn('No output-link datamap completions found - LSP may not be ready');
-      this.skip();
-      return;
-    }
+    assert.ok(
+      datamapCompletions.includes('command') || datamapCompletions.includes('status'),
+      'No output-link datamap completions found - LSP may not be ready or variable binding failed'
+    );
 
     // <out> is bound to output-link vertex - should suggest its attributes
     assert.ok(

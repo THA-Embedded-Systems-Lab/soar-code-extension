@@ -26,20 +26,11 @@ export class DatamapValidator {
   validateDocument(document: SoarDocument, projectContext: ProjectContext): ValidationError[] {
     const errors: ValidationError[] = [];
 
-    console.log(`\n=== Validating document with ${document.productions.length} productions ===`);
-    console.log(`Total vertices in datamap: ${projectContext.project.datamap.vertices.length}`);
-
     for (const production of document.productions) {
-      console.log(`\nProduction: ${production.name}, attributes: ${production.attributes.length}`);
-      production.attributes.forEach(attr => {
-        console.log(`  - ^${attr.name} (negated: ${attr.isNegated})`);
-      });
-
       const productionErrors = this.validateProduction(production, projectContext);
       errors.push(...productionErrors);
     }
 
-    console.log(`\nTotal validation errors: ${errors.length}\n`);
     return errors;
   }
 
@@ -60,24 +51,16 @@ export class DatamapValidator {
     variableBindings.set('s', new Set([rootId])); // <s> typically binds to root state
 
     // First pass: build variable bindings by following attribute paths with variable values
-    console.log(`\n=== Building variable bindings for production: ${production.name} ===`);
-    console.log(`Initial binding: <s> -> ${rootId}`);
-
     for (const attr of production.attributes) {
       if (!attr.parentId || !attr.value || !attr.value.startsWith('<')) {
         continue; // Only process variable bindings like (<s> ^operator <o>)
       }
 
-      console.log(`\nProcessing: (<${attr.parentId}> ^${attr.name} ${attr.value})`);
-
       // Get the parent vertex IDs
       const parentVertices = variableBindings.get(attr.parentId);
       if (!parentVertices) {
-        console.log(`  Parent <${attr.parentId}> not bound yet - skipping`);
         continue; // Parent not bound yet
       }
-
-      console.log(`  Parent <${attr.parentId}> bound to: ${Array.from(parentVertices).join(', ')}`);
 
       // Navigate the attribute path from parent vertices to find target vertices
       const targetVertices = this.findTargetVerticesForPath(
@@ -86,27 +69,12 @@ export class DatamapValidator {
         projectContext
       );
 
-      console.log(
-        `  Navigating ^${attr.name} -> found ${
-          targetVertices.length
-        } target vertices: ${targetVertices.join(', ')}`
-      );
-
       // Bind the variable to these target vertices
       const varName = attr.value.substring(1, attr.value.length - 1); // Remove < >
       if (!variableBindings.has(varName)) {
         variableBindings.set(varName, new Set());
       }
       targetVertices.forEach(v => variableBindings.get(varName)!.add(v));
-
-      console.log(
-        `  Bound ${attr.value} to: ${Array.from(variableBindings.get(varName)!).join(', ')}`
-      );
-    }
-
-    console.log(`\n=== Final variable bindings: ===`);
-    for (const [varName, vertices] of variableBindings.entries()) {
-      console.log(`  <${varName}> -> ${Array.from(vertices).join(', ')}`);
     }
 
     // Check for unbound variables (except <s> which is always bound to root)
