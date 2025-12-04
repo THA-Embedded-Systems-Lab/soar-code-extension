@@ -109,6 +109,22 @@ export class DatamapValidator {
       console.log(`  <${varName}> -> ${Array.from(vertices).join(', ')}`);
     }
 
+    // Check for unbound variables (except <s> which is always bound to root)
+    for (const attr of production.attributes) {
+      if (attr.parentId && attr.parentId !== 's' && !variableBindings.has(attr.parentId)) {
+        errors.push({
+          production: production.name,
+          attribute: attr.name,
+          attributePath: `<${attr.parentId}> ^${attr.name}`,
+          line: attr.range.start.line,
+          column: attr.range.start.character,
+          range: attr.range,
+          message: `Variable <${attr.parentId}> is not bound. Variables must be connected to the state through attribute paths.`,
+          severity: 'error',
+        });
+      }
+    }
+
     // Second pass: validate attributes
     for (const attr of production.attributes) {
       // Try to validate this attribute
