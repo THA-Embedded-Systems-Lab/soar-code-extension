@@ -516,10 +516,6 @@ connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] =
         }
       }
     }
-
-    if (completions.length > 0) {
-      return completions;
-    }
   }
 
   // Detect if we're completing after "^" (root attribute)
@@ -556,10 +552,6 @@ connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] =
     }
 
     connection.console.log(`Added ${completions.length} attribute completions`);
-
-    if (completions.length > 0) {
-      return completions;
-    }
   }
 
   // Add production names

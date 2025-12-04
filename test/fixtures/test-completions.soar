@@ -23,16 +23,5 @@ sp {state*propose*test_operator
    (<s> ^operator <o> +)
    (<o> ^name test_operator)
 }
-
-sp {state*apply*test_operator
-   (state <s> ^operator <o>)
-   (<o> ^name test_operator)
--->
-   
-}
-
-# Test: Place cursor after the dot and press Ctrl+Space:
-# ^io.
-# ^io.input-link.
-# ^io.output-link.
-# ^operator.
+   (<s> ^io.output-link <out>)
+   (<out> ^
