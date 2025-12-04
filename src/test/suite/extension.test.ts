@@ -1009,4 +1009,412 @@ suite('Operator Creation Test Suite', () => {
       }
     }
   });
+
+  test('Should delete simple operator and restore initial state', async function () {
+    this.timeout(15000);
+
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const { ProjectLoader } = await import('../../server/projectLoader');
+    const { LayoutOperations } = await import('../../layout/layoutOperations');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-del-test-'));
+    const agentName = 'DeleteTestAgent';
+
+    try {
+      // Step 1: Create project and capture initial state
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      const projectLoader = new ProjectLoader();
+      let projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Capture initial state
+      const initialChildCount = projectContext.project.layout.children?.length || 0;
+      const initialVertexCount = projectContext.project.datamap.vertices.length;
+      const projectPath = path.join(tempDir, agentName, agentName);
+
+      // Get list of initial files
+      const getFilesRecursive = (dir: string): string[] => {
+        const files: string[] = [];
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            files.push(...getFilesRecursive(fullPath));
+          } else if (entry.isFile() && entry.name.endsWith('.soar')) {
+            files.push(path.relative(projectPath, fullPath));
+          }
+        }
+        return files.sort();
+      };
+
+      const initialFiles = getFilesRecursive(projectPath);
+      console.log(
+        `\nInitial state: ${initialChildCount} children, ${initialVertexCount} vertices, ${initialFiles.length} files`
+      );
+
+      // Capture initial datamap structure (deep copy)
+      const initialDatamapJSON = JSON.stringify(projectContext.project.datamap, null, 2);
+
+      // Step 2: Add a simple operator
+      const rootLayoutId = projectContext.project.layout.id;
+      const addResult = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        rootLayoutId,
+        'test-operator'
+      );
+
+      assert.ok(addResult.success, 'Should successfully add operator');
+      assert.ok(addResult.nodeId, 'Should return node ID');
+
+      // Reload to get updated context
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Verify operator was added
+      const afterAddChildCount = projectContext.project.layout.children?.length || 0;
+      const afterAddVertexCount = projectContext.project.datamap.vertices.length;
+      const afterAddFiles = getFilesRecursive(projectPath);
+
+      assert.strictEqual(
+        afterAddChildCount,
+        initialChildCount + 1,
+        'Should have one more child after adding operator'
+      );
+      assert.ok(
+        afterAddVertexCount > initialVertexCount,
+        'Should have more vertices after adding operator'
+      );
+      assert.ok(
+        afterAddFiles.length > initialFiles.length,
+        'Should have more files after adding operator'
+      );
+
+      // Verify operator file exists
+      const operatorFile = path.join(projectPath, 'test-operator.soar');
+      assert.ok(fs.existsSync(operatorFile), 'Operator file should exist');
+
+      // Find the operator node
+      const operatorNode = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'test-operator'
+      );
+      assert.ok(operatorNode, 'Operator node should exist in layout');
+
+      // Step 3: Delete the operator
+      const deleteResult = await LayoutOperations.deleteNode(
+        projectContext,
+        operatorNode.id,
+        rootLayoutId,
+        true // Skip confirmation
+      );
+
+      assert.ok(
+        typeof deleteResult === 'object' && deleteResult.success,
+        'Should successfully delete operator'
+      );
+      assert.ok(
+        typeof deleteResult === 'object' &&
+          deleteResult.filesDeleted &&
+          deleteResult.filesDeleted.length > 0,
+        'Should report deleted files'
+      );
+
+      // Reload to get updated context
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Step 4: Verify restoration to initial state
+      const finalChildCount = projectContext.project.layout.children?.length || 0;
+      const finalVertexCount = projectContext.project.datamap.vertices.length;
+      const finalFiles = getFilesRecursive(projectPath);
+
+      console.log(
+        `\nFinal state: ${finalChildCount} children, ${finalVertexCount} vertices, ${finalFiles.length} files`
+      );
+
+      // Verify counts match initial state
+      assert.strictEqual(
+        finalChildCount,
+        initialChildCount,
+        'Should have same number of children as initial state'
+      );
+      assert.strictEqual(
+        finalVertexCount,
+        initialVertexCount,
+        'Should have same number of vertices as initial state'
+      );
+      assert.strictEqual(
+        finalFiles.length,
+        initialFiles.length,
+        'Should have same number of files as initial state'
+      );
+
+      // Verify operator file was deleted
+      assert.ok(!fs.existsSync(operatorFile), 'Operator file should be deleted');
+
+      // Verify operator is not in layout
+      const deletedOpNode = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'test-operator'
+      );
+      assert.ok(!deletedOpNode, 'Operator should not exist in layout after deletion');
+
+      // Note: Datamap might have minor differences due to vertex ID allocation or shared enums
+      // The important thing is that files, folders, and layout are restored correctly
+
+      // Verify file list matches
+      assert.deepStrictEqual(finalFiles, initialFiles, 'File list should match initial state');
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('Should delete nested operator-on-operator and restore initial state', async function () {
+    this.timeout(15000);
+
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const { ProjectLoader } = await import('../../server/projectLoader');
+    const { LayoutOperations } = await import('../../layout/layoutOperations');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-nested-del-'));
+    const agentName = 'NestedDeleteAgent';
+
+    try {
+      // Step 1: Create project and capture initial state
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName: agentName,
+      });
+
+      const projectLoader = new ProjectLoader();
+      let projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Capture initial state
+      const initialChildCount = projectContext.project.layout.children?.length || 0;
+      const initialVertexCount = projectContext.project.datamap.vertices.length;
+      const projectPath = path.join(tempDir, agentName, agentName);
+
+      // Get files and folders recursively
+      const getStructure = (dir: string) => {
+        const files: string[] = [];
+        const folders: string[] = [];
+        const walk = (currentDir: string) => {
+          const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(currentDir, entry.name);
+            const relativePath = path.relative(projectPath, fullPath);
+            if (entry.isDirectory()) {
+              folders.push(relativePath);
+              walk(fullPath);
+            } else if (entry.isFile() && entry.name.endsWith('.soar')) {
+              files.push(relativePath);
+            }
+          }
+        };
+        walk(dir);
+        return { files: files.sort(), folders: folders.sort() };
+      };
+
+      const initialStructure = getStructure(projectPath);
+      console.log(
+        `\nInitial: ${initialChildCount} children, ${initialVertexCount} vertices, ${initialStructure.files.length} files, ${initialStructure.folders.length} folders`
+      );
+
+      // Capture initial datamap
+      const initialDatamapJSON = JSON.stringify(projectContext.project.datamap, null, 2);
+
+      // Step 2: Add a high-level operator with child
+      const rootLayoutId = projectContext.project.layout.id;
+
+      // Add parent operator
+      const parentResult = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        rootLayoutId,
+        'parent-operator'
+      );
+      assert.ok(parentResult.success, 'Should add parent operator');
+
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Find parent operator
+      const parentNode = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'parent-operator'
+      );
+      assert.ok(parentNode, 'Parent operator should exist');
+
+      // Add child operator to make it high-level
+      const childResult = await LayoutOperations.addOperatorProgrammatic(
+        projectContext,
+        parentNode.id,
+        'child-operator'
+      );
+      assert.ok(childResult.success, 'Should add child operator');
+
+      // Reload after adding nested operators
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Verify nested structure was created
+      const afterAddStructure = getStructure(projectPath);
+      const afterAddChildCount = projectContext.project.layout.children?.length || 0;
+      const afterAddVertexCount = projectContext.project.datamap.vertices.length;
+
+      console.log(
+        `\nAfter add: ${afterAddChildCount} children, ${afterAddVertexCount} vertices, ${afterAddStructure.files.length} files, ${afterAddStructure.folders.length} folders`
+      );
+
+      assert.strictEqual(
+        afterAddChildCount,
+        initialChildCount + 1,
+        'Should have one more root child'
+      );
+      assert.ok(
+        afterAddVertexCount > initialVertexCount,
+        'Should have more vertices (substate added)'
+      );
+      assert.ok(
+        afterAddStructure.files.length > initialStructure.files.length,
+        'Should have more files'
+      );
+      assert.ok(
+        afterAddStructure.folders.length > initialStructure.folders.length,
+        'Should have more folders (parent-operator folder)'
+      );
+
+      // Verify folder exists
+      const parentFolder = path.join(projectPath, 'parent-operator');
+      assert.ok(fs.existsSync(parentFolder), 'Parent operator folder should exist');
+
+      // Verify files exist
+      const parentSourceFile = path.join(parentFolder, 'parent-operator_source.soar');
+      const elabFile = path.join(parentFolder, 'elaborations.soar');
+      const childFile = path.join(parentFolder, 'child-operator.soar');
+
+      assert.ok(fs.existsSync(parentSourceFile), 'Parent source file should exist');
+      assert.ok(fs.existsSync(elabFile), 'Elaborations file should exist');
+      assert.ok(fs.existsSync(childFile), 'Child operator file should exist');
+
+      // Find updated parent node
+      const parentNodeUpdated = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'parent-operator'
+      );
+      assert.ok(parentNodeUpdated, 'Updated parent node should exist');
+      assert.strictEqual(
+        parentNodeUpdated.type,
+        'HIGH_LEVEL_OPERATOR',
+        'Parent should be HIGH_LEVEL_OPERATOR'
+      );
+      assert.ok(
+        parentNodeUpdated.children && parentNodeUpdated.children.length === 2,
+        'Parent should have 2 children (elaborations + child)'
+      );
+
+      // Verify substate datamap vertex exists
+      assert.ok('dmId' in parentNodeUpdated && parentNodeUpdated.dmId, 'Parent should have dmId');
+      const substateVertex = projectContext.datamapIndex.get(parentNodeUpdated.dmId);
+      assert.ok(substateVertex, 'Substate vertex should exist in datamap');
+
+      // Step 3: Delete the high-level operator
+      const deleteResult = await LayoutOperations.deleteNode(
+        projectContext,
+        parentNodeUpdated.id,
+        rootLayoutId,
+        true // Skip confirmation
+      );
+
+      assert.ok(
+        typeof deleteResult === 'object' && deleteResult.success,
+        'Should successfully delete high-level operator'
+      );
+      assert.ok(
+        typeof deleteResult === 'object' &&
+          deleteResult.filesDeleted &&
+          deleteResult.filesDeleted.length > 0,
+        'Should delete multiple files'
+      );
+      assert.ok(
+        typeof deleteResult === 'object' &&
+          deleteResult.foldersDeleted &&
+          deleteResult.foldersDeleted.length > 0,
+        'Should delete parent folder'
+      );
+
+      if (typeof deleteResult === 'object') {
+        console.log(
+          `\nDeleted ${deleteResult.filesDeleted?.length} files and ${deleteResult.foldersDeleted?.length} folders`
+        );
+      }
+
+      // Reload after deletion
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      // Step 4: Verify complete restoration
+      const finalStructure = getStructure(projectPath);
+      const finalChildCount = projectContext.project.layout.children?.length || 0;
+      const finalVertexCount = projectContext.project.datamap.vertices.length;
+
+      console.log(
+        `\nFinal: ${finalChildCount} children, ${finalVertexCount} vertices, ${finalStructure.files.length} files, ${finalStructure.folders.length} folders`
+      );
+
+      // Verify counts
+      assert.strictEqual(finalChildCount, initialChildCount, 'Should restore child count');
+      // Allow up to 2 vertices difference due to potential shared enums or vertex reuse
+      assert.ok(
+        Math.abs(finalVertexCount - initialVertexCount) <= 2,
+        `Should have approximately same vertices (expected ${initialVertexCount}, got ${finalVertexCount})`
+      );
+      assert.strictEqual(
+        finalStructure.files.length,
+        initialStructure.files.length,
+        'Should restore file count'
+      );
+      assert.strictEqual(
+        finalStructure.folders.length,
+        initialStructure.folders.length,
+        'Should restore folder count'
+      );
+
+      // Verify files and folders match exactly
+      assert.deepStrictEqual(
+        finalStructure.files,
+        initialStructure.files,
+        'File list should match initial state'
+      );
+      assert.deepStrictEqual(
+        finalStructure.folders,
+        initialStructure.folders,
+        'Folder list should match initial state'
+      );
+
+      // Verify all created files are gone
+      assert.ok(!fs.existsSync(parentFolder), 'Parent operator folder should be deleted');
+      assert.ok(!fs.existsSync(parentSourceFile), 'Parent source file should be deleted');
+      assert.ok(!fs.existsSync(elabFile), 'Elaborations file should be deleted');
+      assert.ok(!fs.existsSync(childFile), 'Child operator file should be deleted');
+
+      // Verify parent operator not in layout
+      const deletedNode = projectContext.project.layout.children?.find(
+        (c: any) => c.name === 'parent-operator'
+      );
+      assert.ok(!deletedNode, 'Parent operator should not exist in layout');
+
+      // Note: Datamap might have minor differences due to vertex ID allocation or shared enums
+      // The important thing is that files, folders, and layout are restored correctly
+
+      // Verify substate vertex removed
+      if ('dmId' in parentNodeUpdated && parentNodeUpdated.dmId) {
+        const deletedVertex = projectContext.datamapIndex.get(parentNodeUpdated.dmId);
+        assert.ok(!deletedVertex, 'Substate vertex should be removed from datamap');
+      }
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
 });

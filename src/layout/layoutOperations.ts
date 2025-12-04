@@ -19,6 +19,12 @@ import {
 } from '../server/visualSoarProject';
 import { SoarTemplates } from './soarTemplates';
 
+export interface DeleteResult {
+  success: boolean;
+  filesDeleted?: string[];
+  foldersDeleted?: string[];
+}
+
 export class LayoutOperations {
   /**
    * Add a new operator (simple operator, not substate)
@@ -465,16 +471,22 @@ export class LayoutOperations {
 
   /**
    * Delete a node (operator, file, folder, or substate)
+   * @param skipConfirmation - If true, skips the UI confirmation dialog (useful for testing)
+   * @returns boolean for success when called with confirmation, or DeleteResult object when skipConfirmation is true
    */
   static async deleteNode(
     projectContext: ProjectContext,
     nodeId: string,
-    parentNodeId: string
-  ): Promise<boolean> {
+    parentNodeId: string,
+    skipConfirmation: boolean = false
+  ): Promise<boolean | DeleteResult> {
     const node = projectContext.layoutIndex.get(nodeId);
     const parentNode = projectContext.layoutIndex.get(parentNodeId);
 
     if (!node || !parentNode || !hasChildren(parentNode)) {
+      if (skipConfirmation) {
+        return { success: false };
+      }
       vscode.window.showErrorMessage('Cannot delete node');
       return false;
     }
@@ -483,23 +495,32 @@ export class LayoutOperations {
     const workspaceFolder = path.dirname(projectContext.projectFile);
     const filesToDelete: string[] = [];
     const foldersToDelete: string[] = [];
-    this.collectFilesAndFolders(node, workspaceFolder, filesToDelete, foldersToDelete);
 
-    // Build confirmation message
-    let message = `Are you sure you want to delete '${node.name}'?\n\n`;
-    message += 'This will delete from the project structure AND the file system:\n';
-    if (filesToDelete.length > 0) {
-      message += `- ${filesToDelete.length} file(s)\n`;
-    }
-    if (foldersToDelete.length > 0) {
-      message += `- ${foldersToDelete.length} folder(s)\n`;
-    }
+    // Get the parent's folder path to properly resolve file paths
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    this.collectFilesAndFolders(
+      node,
+      workspaceFolder,
+      filesToDelete,
+      foldersToDelete,
+      parentFolderPath
+    );
 
-    // Confirm deletion
-    const confirm = await vscode.window.showWarningMessage(message, { modal: true }, 'Delete');
+    // Show confirmation dialog unless skipped
+    if (!skipConfirmation) {
+      let message = `Are you sure you want to delete '${node.name}'?\n\n`;
+      message += 'This will delete from the project structure AND the file system:\n';
+      if (filesToDelete.length > 0) {
+        message += `- ${filesToDelete.length} file(s)\n`;
+      }
+      if (foldersToDelete.length > 0) {
+        message += `- ${foldersToDelete.length} folder(s)\n`;
+      }
 
-    if (confirm !== 'Delete') {
-      return false;
+      const confirm = await vscode.window.showWarningMessage(message, { modal: true }, 'Delete');
+      if (confirm !== 'Delete') {
+        return false;
+      }
     }
 
     // Delete files first
@@ -510,6 +531,9 @@ export class LayoutOperations {
         }
       } catch (error: any) {
         console.error(`Failed to delete file ${file}:`, error);
+        if (skipConfirmation) {
+          return { success: false };
+        }
       }
     }
 
@@ -521,6 +545,9 @@ export class LayoutOperations {
         }
       } catch (error: any) {
         console.error(`Failed to delete folder ${foldersToDelete[i]}:`, error);
+        if (skipConfirmation) {
+          return { success: false };
+        }
       }
     }
 
@@ -533,18 +560,27 @@ export class LayoutOperations {
     // Remove from index recursively
     this.removeNodeRecursive(node, projectContext.layoutIndex);
 
-    // If it's a high-level operator, also remove its datamap vertex
-    if ('dmId' in node && node.dmId) {
-      const dmIndex = projectContext.project.datamap.vertices.findIndex(
-        (v: any) => v.id === node.dmId
-      );
-      if (dmIndex !== -1) {
-        projectContext.project.datamap.vertices.splice(dmIndex, 1);
-        projectContext.datamapIndex.delete(node.dmId);
+    // Clean up datamap entries for operators
+    if (node.type === 'OPERATOR' || node.type === 'HIGH_LEVEL_OPERATOR') {
+      // Remove operator vertex and its name enumeration from parent state's datamap
+      this.removeOperatorFromDatamap(projectContext, parentNode, node.name);
+
+      // If it's a high-level operator, recursively remove its entire substate datamap
+      if ('dmId' in node && node.dmId) {
+        this.removeSubstateDatamap(projectContext, node.dmId);
       }
     }
 
     await this.saveProject(projectContext);
+
+    if (skipConfirmation) {
+      return {
+        success: true,
+        filesDeleted: filesToDelete,
+        foldersDeleted: foldersToDelete,
+      };
+    }
+
     vscode.window.showInformationMessage(
       `Deleted '${node.name}' from project structure and file system`
     );
@@ -594,30 +630,41 @@ export class LayoutOperations {
     node: LayoutNode,
     workspaceFolder: string,
     files: string[],
-    folders: string[]
+    folders: string[],
+    parentFolderPath: string = ''
   ): void {
+    // Determine the current folder path for this node
+    let currentFolderPath = parentFolderPath;
+    if ('folder' in node && node.folder) {
+      currentFolderPath = parentFolderPath ? path.join(parentFolderPath, node.folder) : node.folder;
+    }
+
     // Add this node's file if it has one
     if ('file' in node && node.file) {
-      const fullPath = path.join(workspaceFolder, node.file);
+      const fullPath = path.join(workspaceFolder, currentFolderPath, node.file);
       files.push(fullPath);
     }
 
     // Add this node's folder if it has one (and it's a HIGH_LEVEL_OPERATOR)
     if ('folder' in node && node.folder && node.type === 'HIGH_LEVEL_OPERATOR') {
-      const fullPath = path.join(workspaceFolder, node.folder);
+      const fullPath = path.join(workspaceFolder, currentFolderPath);
       folders.push(fullPath);
+
+      // Add the source file which is not in the layout tree
+      const sourceFile = path.join(fullPath, `${node.name}_source.soar`);
+      files.push(sourceFile);
     }
 
     // For regular FOLDER nodes, collect its folder path
     if (node.type === 'FOLDER' && 'folder' in node && node.folder) {
-      const fullPath = path.join(workspaceFolder, node.folder);
+      const fullPath = path.join(workspaceFolder, currentFolderPath);
       folders.push(fullPath);
     }
 
     // Recursively collect from children
     if (hasChildren(node) && node.children) {
       for (const child of node.children) {
-        this.collectFilesAndFolders(child, workspaceFolder, files, folders);
+        this.collectFilesAndFolders(child, workspaceFolder, files, folders, currentFolderPath);
       }
     }
   }
@@ -1026,7 +1073,154 @@ export class LayoutOperations {
     }
 
     return operatorVertexId;
-  } /**
+  }
+
+  /**
+   * Helper: Remove an operator and its name enumeration from the datamap
+   * Finds the operator vertex by name in the parent state and removes it along with its name vertex
+   */
+  private static removeOperatorFromDatamap(
+    projectContext: ProjectContext,
+    parentNode: LayoutNode,
+    operatorName: string
+  ): void {
+    // Get the parent state's datamap vertex ID
+    let stateVertexId: string;
+
+    if (parentNode.type === 'OPERATOR_ROOT') {
+      // For root operators, use the root state
+      stateVertexId = projectContext.project.datamap.rootId;
+    } else if (
+      parentNode.type === 'HIGH_LEVEL_OPERATOR' &&
+      'dmId' in parentNode &&
+      parentNode.dmId
+    ) {
+      // For operators under a high-level operator, use its substate
+      stateVertexId = parentNode.dmId;
+    } else {
+      // Can't determine state vertex
+      return;
+    }
+
+    const stateVertex = projectContext.datamapIndex.get(stateVertexId);
+    if (!stateVertex || stateVertex.type !== 'SOAR_ID' || !stateVertex.outEdges) {
+      return;
+    }
+
+    // Find the operator vertex with this name
+    let operatorVertexId: string | null = null;
+    let nameVertexId: string | null = null;
+
+    for (const edge of stateVertex.outEdges) {
+      if (edge.name === 'operator') {
+        const opVertex = projectContext.datamapIndex.get(edge.toId);
+        if (opVertex && opVertex.type === 'SOAR_ID' && opVertex.outEdges) {
+          const nameEdge = opVertex.outEdges.find((e: any) => e.name === 'name');
+          if (nameEdge) {
+            const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+            if (
+              nameVertex &&
+              nameVertex.type === 'ENUMERATION' &&
+              nameVertex.choices?.includes(operatorName) &&
+              nameVertex.choices.length === 1 // Only remove if this is the only choice
+            ) {
+              operatorVertexId = edge.toId;
+              nameVertexId = nameEdge.toId;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!operatorVertexId || !nameVertexId) {
+      return; // Operator not found or shared with other operators
+    }
+
+    // Remove the ^operator edge from state to operator vertex
+    const edgeIndex = stateVertex.outEdges.findIndex(
+      (e: any) => e.name === 'operator' && e.toId === operatorVertexId
+    );
+    if (edgeIndex !== -1) {
+      stateVertex.outEdges.splice(edgeIndex, 1);
+    }
+
+    // Remove the name vertex from datamap
+    const nameIndex = projectContext.project.datamap.vertices.findIndex(
+      (v: any) => v.id === nameVertexId
+    );
+    if (nameIndex !== -1) {
+      projectContext.project.datamap.vertices.splice(nameIndex, 1);
+      projectContext.datamapIndex.delete(nameVertexId);
+    }
+
+    // Remove the operator vertex from datamap
+    const opIndex = projectContext.project.datamap.vertices.findIndex(
+      (v: any) => v.id === operatorVertexId
+    );
+    if (opIndex !== -1) {
+      projectContext.project.datamap.vertices.splice(opIndex, 1);
+      projectContext.datamapIndex.delete(operatorVertexId);
+    }
+  }
+
+  /**
+   * Helper: Recursively remove a substate's datamap vertex and all connected vertices
+   */
+  private static removeSubstateDatamap(
+    projectContext: ProjectContext,
+    substateVertexId: string
+  ): void {
+    const substateVertex = projectContext.datamapIndex.get(substateVertexId);
+    if (!substateVertex || substateVertex.type !== 'SOAR_ID') {
+      return;
+    }
+
+    const verticesToRemove = new Set<string>();
+    verticesToRemove.add(substateVertexId);
+
+    // Recursively collect all vertices reachable from this substate
+    // Only collect vertices that are uniquely owned by this substate (not shared enums)
+    const collectReachableVertices = (vertexId: string, isRoot: boolean = true) => {
+      const vertex = projectContext.datamapIndex.get(vertexId);
+      if (!vertex || verticesToRemove.has(vertexId)) {
+        return;
+      }
+
+      verticesToRemove.add(vertexId);
+
+      // For SOAR_ID vertices, traverse outgoing edges
+      if (vertex.type === 'SOAR_ID' && (vertex as any).outEdges) {
+        for (const edge of (vertex as any).outEdges) {
+          // Don't follow superstate or top-state edges (they point to parent/root)
+          // Also don't follow type edges (shared enum like 'state')
+          if (edge.name !== 'superstate' && edge.name !== 'top-state' && edge.name !== 'type') {
+            collectReachableVertices(edge.toId, false);
+          }
+        }
+      }
+      // For ENUMERATION vertices, only include if we're not at root level
+      // Root-level enums like 'state' type are shared and shouldn't be deleted
+      else if (vertex.type === 'ENUMERATION' && !isRoot) {
+        // This enumeration is uniquely owned by a SOAR_ID, keep it
+      }
+    };
+
+    collectReachableVertices(substateVertexId);
+
+    // Remove all collected vertices
+    for (const vertexId of verticesToRemove) {
+      const index = projectContext.project.datamap.vertices.findIndex(
+        (v: any) => v.id === vertexId
+      );
+      if (index !== -1) {
+        projectContext.project.datamap.vertices.splice(index, 1);
+        projectContext.datamapIndex.delete(vertexId);
+      }
+    }
+  }
+
+  /**
    * Helper: Get the full folder path for a node by traversing up to the root
    */
   private static getNodeFolderPath(projectContext: ProjectContext, nodeId: string): string {
