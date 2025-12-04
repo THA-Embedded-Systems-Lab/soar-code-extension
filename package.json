@@ -332,7 +332,7 @@
     "test": "npm run compile && node ./out/test/runTest.js",
     "test:ci": "npm run compile && xvfb-run -a node ./out/test/runTest.js",
     "vsce:package": "vsce package",
-    "precommit": "npm run lint && npm run format:check && npm run lint:md"
+    "precommit": "npm run format && npm run lint && npm run lint:md"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.0",
