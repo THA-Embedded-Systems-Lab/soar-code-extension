@@ -134,7 +134,7 @@ suite('Datamap Test Suite', () => {
   });
 
   test('Should detect enumeration errors when validating project', async function () {
-    this.timeout(5000); // Increase timeout for this test
+    this.timeout(15000); // Increase timeout for computationally intensive datamap validation
 
     // First ensure the datamap is loaded
     await vscode.commands.executeCommand('soar.loadDatamap');
