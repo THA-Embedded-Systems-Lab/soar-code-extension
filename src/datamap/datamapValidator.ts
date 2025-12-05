@@ -23,11 +23,15 @@ export class DatamapValidator {
   /**
    * Validate a parsed Soar document against the project datamap
    */
-  validateDocument(document: SoarDocument, projectContext: ProjectContext): ValidationError[] {
+  validateDocument(
+    document: SoarDocument,
+    projectContext: ProjectContext,
+    documentText?: string
+  ): ValidationError[] {
     const errors: ValidationError[] = [];
 
     for (const production of document.productions) {
-      const productionErrors = this.validateProduction(production, projectContext);
+      const productionErrors = this.validateProduction(production, projectContext, documentText);
       errors.push(...productionErrors);
     }
 
@@ -39,7 +43,8 @@ export class DatamapValidator {
    */
   private validateProduction(
     production: SoarProduction,
-    projectContext: ProjectContext
+    projectContext: ProjectContext,
+    documentText?: string
   ): ValidationError[] {
     const errors: ValidationError[] = [];
 
@@ -80,13 +85,35 @@ export class DatamapValidator {
     // Check for unbound variables (except <s> which is always bound to root)
     for (const attr of production.attributes) {
       if (attr.parentId && attr.parentId !== 's' && !variableBindings.has(attr.parentId)) {
+        // Calculate precise range for the variable identifier
+        const line = attr.range.start.line;
+        const variableText = `<${attr.parentId}>`;
+        const variableLength = variableText.length;
+
+        let varStartCol = attr.range.start.character - variableLength - 2; // Default estimate
+
+        // If we have document text, find the exact position
+        if (documentText) {
+          const lines = documentText.split('\n');
+          if (line < lines.length) {
+            const lineText = lines[line];
+            const varIndex = lineText.indexOf(variableText);
+            if (varIndex !== -1) {
+              varStartCol = varIndex;
+            }
+          }
+        }
+
         errors.push({
           production: production.name,
           attribute: attr.name,
           attributePath: `<${attr.parentId}> ^${attr.name}`,
-          line: attr.range.start.line,
-          column: attr.range.start.character,
-          range: attr.range,
+          line: line,
+          column: varStartCol,
+          range: {
+            start: { line: line, character: varStartCol },
+            end: { line: line, character: varStartCol + variableLength },
+          },
           message: `Variable <${attr.parentId}> is not bound. Variables must be connected to the state through attribute paths.`,
           severity: 'error',
         });
@@ -96,7 +123,13 @@ export class DatamapValidator {
     // Second pass: validate attributes
     for (const attr of production.attributes) {
       // Try to validate this attribute
-      const error = this.validateAttribute(attr, production, projectContext, variableBindings);
+      const error = this.validateAttribute(
+        attr,
+        production,
+        projectContext,
+        variableBindings,
+        documentText
+      );
 
       if (error) {
         errors.push(error);
@@ -117,7 +150,8 @@ export class DatamapValidator {
     attr: SoarAttribute,
     production: SoarProduction,
     projectContext: ProjectContext,
-    variableBindings: Map<string, Set<string>>
+    variableBindings: Map<string, Set<string>>,
+    documentText?: string
   ): ValidationError | null {
     // Skip negated attributes for now (they test for absence)
     if (attr.isNegated) {

@@ -594,10 +594,11 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
 
   try {
     // Parse the document
-    const soarDoc = parser.parse(document.uri.toString(), document.getText(), document.version);
+    const documentText = document.getText();
+    const soarDoc = parser.parse(document.uri.toString(), documentText, document.version);
 
     // Validate against datamap
-    const errors = validator.validateDocument(soarDoc, projectContext);
+    const errors = validator.validateDocument(soarDoc, projectContext, documentText);
 
     // Create diagnostics
     const diagnostics = validator.createDiagnostics(errors, document);

@@ -46,6 +46,57 @@ suite('Diagnostics Test Suite', () => {
     assert.ok(hasUnboundDiagnostic, 'Should have diagnostic about unbound variables');
   });
 
+  test('Should highlight unbound variable at correct position', async function () {
+    this.timeout(10000);
+
+    const testUri = vscode.Uri.file(path.join(testProjectPath, 'test-unbound-variable-fail.soar'));
+
+    // Wait for diagnostics to be computed
+    const diagnostics = await TestHelper.waitForDiagnostics(testUri, 5000);
+
+    // Find the diagnostic for the unbound variable <il>
+    const unboundDiagnostic = diagnostics.find(d => d.message.includes('Variable <il>'));
+
+    assert.ok(unboundDiagnostic, 'Should find diagnostic for <il>');
+
+    // The file has: "   (<il> ^hello.world <hw>)" on line 5 (0-indexed: line 4)
+    // The variable <il> starts at column 3 (0-indexed) and is 4 characters long
+    assert.strictEqual(
+      unboundDiagnostic!.range.start.line,
+      4,
+      'Diagnostic should be on line 4 (0-indexed)'
+    );
+
+    // Open the document to verify the actual text
+    const document = await vscode.workspace.openTextDocument(testUri);
+    const line = document.lineAt(4);
+    const lineText = line.text;
+
+    // Find where <il> actually appears in the line
+    const varIndex = lineText.indexOf('<il>');
+    assert.ok(varIndex !== -1, 'Variable <il> should be found in the line');
+
+    // The diagnostic range should match the actual position of <il>
+    assert.strictEqual(
+      unboundDiagnostic!.range.start.character,
+      varIndex,
+      `Diagnostic should start at column ${varIndex} where <il> begins`
+    );
+
+    assert.strictEqual(
+      unboundDiagnostic!.range.end.character,
+      varIndex + 4,
+      `Diagnostic should end at column ${varIndex + 4} (length of '<il>')`
+    );
+
+    // Verify the range highlights exactly '<il>'
+    const highlightedText = lineText.substring(
+      unboundDiagnostic!.range.start.character,
+      unboundDiagnostic!.range.end.character
+    );
+    assert.strictEqual(highlightedText, '<il>', 'Diagnostic should highlight exactly "<il>"');
+  });
+
   test('Should not report unbound variable diagnostics for properly bound variables', async function () {
     this.timeout(10000);
 
