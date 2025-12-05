@@ -201,7 +201,12 @@ export class DatamapValidator {
     // If attribute has a value, check if it's valid for enumeration types
     if (attr.value && !attr.value.startsWith('<')) {
       // Skip if value is a variable (starts with '<')
-      const enumError = this.validateEnumerationValue(attr, production, projectContext);
+      const enumError = this.validateEnumerationValue(
+        attr,
+        production,
+        projectContext,
+        variableBindings
+      );
       if (enumError) {
         return enumError;
       }
@@ -432,13 +437,14 @@ export class DatamapValidator {
   }
 
   /**
-   * Simplified enumeration validation
-   * Checks if the attribute value is valid in ANY enumeration for that attribute anywhere in the datamap
+   * Validate enumeration values using variable bindings for context
+   * Only checks enumerations that the attribute actually points to based on variable bindings
    */
   private validateEnumerationValue(
     attr: SoarAttribute,
     production: SoarProduction,
-    projectContext: ProjectContext
+    projectContext: ProjectContext,
+    variableBindings: Map<string, Set<string>>
   ): ValidationError | null {
     if (!attr.value) {
       return null;
@@ -453,16 +459,40 @@ export class DatamapValidator {
     const pathSegments = attr.name.split('.');
     const lastSegment = pathSegments[pathSegments.length - 1];
 
-    // Find all enumerations for this attribute path anywhere in the datamap
-    const allEnumerations = this.findAllEnumerationsForAttribute(pathSegments, projectContext);
+    // Try to find the specific vertices this attribute refers to based on variable bindings
+    let enumerations: Array<{ vertexId: string; choices: string[] }> = [];
 
-    // If no enumerations found, it's not an enumeration attribute - no error
-    if (allEnumerations.length === 0) {
+    if (attr.parentId && variableBindings.has(attr.parentId)) {
+      // We know which vertices the parent variable is bound to - use specific context
+      const parentVertices = Array.from(variableBindings.get(attr.parentId)!);
+      const targetVertices = this.findTargetVerticesForPath(
+        parentVertices,
+        pathSegments,
+        projectContext
+      );
+
+      // Check if any target vertices are enumerations
+      for (const vertexId of targetVertices) {
+        const vertex = projectContext.datamapIndex.get(vertexId);
+        if (vertex && vertex.type === 'ENUMERATION') {
+          enumerations.push({
+            vertexId: vertexId,
+            choices: vertex.choices,
+          });
+        }
+      }
+    } else {
+      // No binding information - fall back to global search (for RHS or unbound variables)
+      enumerations = this.findAllEnumerationsForAttribute(pathSegments, projectContext);
+    }
+
+    // If no enumerations found, the attribute doesn't point to an enum - no error
+    if (enumerations.length === 0) {
       return null;
     }
 
-    // Check if value is valid in ANY enumeration
-    const isValid = allEnumerations.some(enumInfo => enumInfo.choices.includes(attrValue));
+    // Check if value is valid in any of the enumerations
+    const isValid = enumerations.some(enumInfo => enumInfo.choices.includes(attrValue));
 
     if (isValid) {
       return null;
@@ -470,7 +500,7 @@ export class DatamapValidator {
 
     // Collect all valid choices
     const allValidChoices = new Set<string>();
-    for (const enumInfo of allEnumerations) {
+    for (const enumInfo of enumerations) {
       enumInfo.choices.forEach(choice => allValidChoices.add(choice));
     }
 
