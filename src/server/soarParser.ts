@@ -192,20 +192,40 @@ export class SoarParser {
     }
   }
 
+  /**
+   * Strip comments from code while preserving line structure
+   * Replaces comment text with spaces to maintain positions
+   */
+  private stripComments(text: string): string {
+    const lines = text.split('\n');
+    const strippedLines = lines.map(line => {
+      const commentIndex = line.indexOf('#');
+      if (commentIndex !== -1) {
+        // Replace comment with spaces to preserve positions
+        return line.substring(0, commentIndex) + ' '.repeat(line.length - commentIndex);
+      }
+      return line;
+    });
+    return strippedLines.join('\n');
+  }
+
   private parseProductionBody(
     body: string,
     production: SoarProduction,
     basePosition: Position,
     document: SoarDocument
   ): void {
-    // Check for unmatched parentheses
+    // Strip comments while preserving positions
+    const cleanBody = this.stripComments(body);
+
+    // Check for unmatched parentheses (use original body for error messages)
     this.validateParentheses(body, production, basePosition, document);
 
-    // Parse variables
+    // Parse variables (use clean body without comments)
     const variableRegex = /<([a-zA-Z][a-zA-Z0-9_-]*)>/g;
     let match;
 
-    while ((match = variableRegex.exec(body)) !== null) {
+    while ((match = variableRegex.exec(cleanBody)) !== null) {
       const varName = match[1];
       const startPos = this.getPositionInBody(body, match.index, basePosition);
       const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
@@ -229,7 +249,7 @@ export class SoarParser {
     // Capture everything from the variable to the closing paren
     const contextAttributeRegex =
       /\((?:[a-zA-Z][a-zA-Z0-9_-]*\s+)?<([a-zA-Z][a-zA-Z0-9_-]*)>\s+([^)]+)\)/g;
-    while ((match = contextAttributeRegex.exec(body)) !== null) {
+    while ((match = contextAttributeRegex.exec(cleanBody)) !== null) {
       const parentId = match[1]; // The identifier (without < >)
       const attributesBlock = match[2];
       const blockStartOffset = match.index + match[1].length + 1; // Position after "(<id> "
