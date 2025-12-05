@@ -143,12 +143,60 @@
       {
         "id": "2",
         "type": "SOAR_ID",
-        "outEdges": []
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "2-name"
+          },
+          {
+            "name": "io",
+            "toId": "io-vertex"
+          },
+          {
+            "name": "superstate",
+            "toId": "root-state"
+          },
+          {
+            "name": "top-state",
+            "toId": "root-state"
+          },
+          {
+            "name": "operator",
+            "toId": "3"
+          }
+        ]
+      },
+      {
+        "id": "2-name",
+        "type": "ENUMERATION",
+        "choices": ["sub-test-state"]
       },
       {
         "id": "3",
         "type": "SOAR_ID",
-        "outEdges": []
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "3-name"
+          },
+          {
+            "name": "io",
+            "toId": "io-vertex"
+          },
+          {
+            "name": "superstate",
+            "toId": "2"
+          },
+          {
+            "name": "top-state",
+            "toId": "root-state"
+          }
+        ]
+      },
+      {
+        "id": "3-name",
+        "type": "ENUMERATION",
+        "choices": ["sub-sub-test-state"]
       },
       {
         "id": "4",
@@ -216,21 +264,27 @@
         "type": "HIGH_LEVEL_OPERATOR",
         "id": "3",
         "name": "sub-test-state",
-        "file": "sub-test-state/propose.soar",
+        "file": "sub-test-state.soar",
         "dmId": "2",
         "folder": "sub-test-state",
         "children": [
           {
+            "type": "FILE",
+            "id": "100a",
+            "name": "propose",
+            "file": "propose.soar"
+          },
+          {
             "type": "FOLDER",
             "id": "3",
             "name": "elaborations",
-            "folder": "sub-test-state/elaborations",
+            "folder": "elaborations",
             "children": [
               {
                 "type": "FILE",
                 "id": "3",
                 "name": "_all",
-                "file": "sub-test-state/elaborations/_all.soar"
+                "file": "_all.soar"
               }
             ]
           },
@@ -238,23 +292,29 @@
             "type": "HIGH_LEVEL_OPERATOR",
             "id": "4",
             "name": "sub-sub-test-state",
-            "file": "sub-test-state/sub-sub-test-state/propose.soar",
+            "file": "propose.soar",
             "dmId": "3",
-            "folder": "sub-test-state/sub-sub-test-state",
+            "folder": "sub-sub-test-state",
             "children": [
               {
                 "type": "FOLDER",
                 "id": "4",
                 "name": "elaborations",
-                "folder": "sub-test-state/sub-sub-test-state/elaborations",
+                "folder": "elaborations",
                 "children": [
                   {
                     "type": "FILE",
                     "id": "4",
                     "name": "_all",
-                    "file": "sub-test-state/sub-sub-test-state/elaborations/_all.soar"
+                    "file": "_all.soar"
                   }
                 ]
+              },
+              {
+                "type": "FILE",
+                "id": "9",
+                "name": "propose",
+                "file": "propose.soar"
               }
             ]
           }
@@ -284,6 +344,42 @@
         "id": "8",
         "name": "test-unbound-variable-success",
         "file": "test-unbound-variable-success.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "12",
+        "name": "test-definition-attribute",
+        "file": "test-definition-attribute.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "13",
+        "name": "test-definition-operator",
+        "file": "test-definition-operator.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "14",
+        "name": "test-enum-context",
+        "file": "test-enum-context.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "15",
+        "name": "test-enum-validation",
+        "file": "test-enum-validation.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "16",
+        "name": "test-hover-operator",
+        "file": "test-hover-operator.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "10",
+        "name": "missing-closing-parenthesis",
+        "file": "missing-closing-parenthesis.soar"
       }
     ]
   }

@@ -161,6 +161,12 @@
         "icon": "$(search)"
       },
       {
+        "command": "soar.findMissingFiles",
+        "title": "Find Missing Files",
+        "category": "Soar",
+        "icon": "$(warning)"
+      },
+      {
         "command": "soar.syncProjectFiles",
         "title": "Sync Project Files",
         "category": "Soar",
@@ -225,6 +231,11 @@
           "command": "soar.findOrphanedFiles",
           "when": "view == soarLayout",
           "group": "navigation@2"
+        },
+        {
+          "command": "soar.findMissingFiles",
+          "when": "view == soarLayout",
+          "group": "navigation@3"
         },
         {
           "command": "soar.syncProjectFiles",

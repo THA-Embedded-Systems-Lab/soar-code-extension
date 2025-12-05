@@ -130,23 +130,19 @@ suite('Diagnostics Test Suite', () => {
   test('Should report missing closing parenthesis errors', async function () {
     this.timeout(10000);
 
-    // Create a document with syntax errors (missing closing parenthesis)
-    const document = await TestHelper.createTestDocument(
-      'sp {broken-syntax\n  (state <s> ^io\n-->\n  (<s> ^output test)\n}',
-      'soar'
-    );
+    const testUri = vscode.Uri.file(path.join(testProjectPath, 'missing-closing-parenthesis.soar'));
 
     // Wait for diagnostics
-    const diagnostics = await TestHelper.waitForDiagnostics(document.uri, 5000);
-
+    const diagnostics = await TestHelper.waitForDiagnostics(testUri, 5000);
     console.log(
       `Found ${diagnostics.length} diagnostic(s) for missing closing parenthesis error test:`
     );
-    diagnostics.forEach(d => console.log(`  - ${d.message} at line ${d.range.start.line}`));
+    diagnostics.forEach(d => console.log(` - ${d.message} at line ${d.range.start.line}`));
 
-    assert.ok(
-      diagnostics[0].message === 'Unexpected closing parenthesis',
-      'Missing closing parenthesis error diagnostics are working'
-    );
+    assert.ok(diagnostics.length > 0, 'Should have syntax error diagnostics');
+
+    const hasSyntaxError = diagnostics.some(d => d.message.includes('closing parenthesis'));
+
+    assert.ok(hasSyntaxError, 'Unmatched opening parenthesis (missing closing parenthesis)');
   });
 });

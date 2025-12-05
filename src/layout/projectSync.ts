@@ -15,6 +15,12 @@ export interface OrphanedFile {
   fileName: string;
 }
 
+export interface MissingFile {
+  relativePath: string;
+  fileName: string;
+  referencedIn: string; // Which node references this file
+}
+
 export class ProjectSync {
   /**
    * Find all .soar files that exist in the file system but are not in the project
@@ -48,6 +54,82 @@ export class ProjectSync {
     }
 
     return orphaned;
+  }
+
+  /**
+   * Find all files referenced in the project that don't exist on disk
+   */
+  static async findMissingFiles(projectContext: ProjectContext): Promise<MissingFile[]> {
+    const projectDir = path.dirname(projectContext.projectFile);
+    const missing: MissingFile[] = [];
+
+    // Collect all files with their context (which node references them)
+    const referencedFiles = this.collectProjectFilesWithContext(projectContext.project.layout);
+
+    for (const fileRef of referencedFiles) {
+      const absolutePath = path.resolve(projectDir, fileRef.relativePath);
+
+      try {
+        await fs.promises.access(absolutePath, fs.constants.F_OK);
+        // File exists, continue
+      } catch {
+        // File doesn't exist
+        missing.push({
+          relativePath: fileRef.relativePath,
+          fileName: path.basename(fileRef.relativePath),
+          referencedIn: fileRef.nodeName,
+        });
+      }
+    }
+
+    return missing;
+  }
+
+  /**
+   * Collect all file paths with context about which node references them
+   */
+  private static collectProjectFilesWithContext(
+    node: LayoutNode,
+    parentFolder: string = '',
+    nodePath: string = 'root'
+  ): Array<{ relativePath: string; nodeName: string }> {
+    const files: Array<{ relativePath: string; nodeName: string }> = [];
+
+    // Determine the current folder path
+    let currentFolder = parentFolder;
+
+    if ('folder' in node && node.folder) {
+      currentFolder = parentFolder ? path.join(parentFolder, node.folder) : node.folder;
+    }
+
+    // Build node name for context
+    const currentNodePath = 'name' in node && node.name ? `${nodePath}/${node.name}` : nodePath;
+
+    // If this node has a file, add it with full path and context
+    if ('file' in node && node.file) {
+      let filePath: string;
+
+      // For HIGH_LEVEL_OPERATOR and HIGH_LEVEL_FILE_OPERATOR, the file is in the parent folder
+      if (node.type === 'HIGH_LEVEL_OPERATOR' || node.type === 'HIGH_LEVEL_FILE_OPERATOR') {
+        filePath = parentFolder ? path.join(parentFolder, node.file) : node.file;
+      } else {
+        filePath = currentFolder ? path.join(currentFolder, node.file) : node.file;
+      }
+
+      files.push({
+        relativePath: filePath,
+        nodeName: currentNodePath,
+      });
+    }
+
+    // Recursively collect from children
+    if (hasChildren(node) && node.children) {
+      for (const child of node.children) {
+        files.push(...this.collectProjectFilesWithContext(child, currentFolder, currentNodePath));
+      }
+    }
+
+    return files;
   }
 
   /**
@@ -116,6 +198,50 @@ export class ProjectSync {
     }
 
     return files;
+  }
+
+  /**
+   * Show missing files to the user
+   */
+  static async showMissingFilesDialog(
+    projectContext: ProjectContext,
+    missingFiles: MissingFile[]
+  ): Promise<void> {
+    if (missingFiles.length === 0) {
+      vscode.window.showInformationMessage(
+        'No missing files found. All files referenced in the project exist on disk!'
+      );
+      return;
+    }
+
+    // Create quick pick items for information display
+    const items = missingFiles.map(file => ({
+      label: `$(warning) ${file.fileName}`,
+      description: file.relativePath,
+      detail: `Referenced in: ${file.referencedIn}`,
+    }));
+
+    const message = `Found ${missingFiles.length} missing file(s) referenced in ${path.basename(
+      projectContext.projectFile
+    )}`;
+
+    const choice = await vscode.window.showWarningMessage(
+      message,
+      'View Details',
+      'Open Project File',
+      'Dismiss'
+    );
+
+    if (choice === 'View Details') {
+      await vscode.window.showQuickPick(items, {
+        canPickMany: false,
+        placeHolder: 'Missing files referenced in project but not found on disk:',
+        title: 'Missing Project Files',
+      });
+    } else if (choice === 'Open Project File') {
+      const doc = await vscode.workspace.openTextDocument(projectContext.projectFile);
+      await vscode.window.showTextDocument(doc);
+    }
   }
 
   /**

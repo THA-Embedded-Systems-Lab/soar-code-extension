@@ -25,12 +25,18 @@ export class ProjectManager {
   private discoveredProjects: SoarProjectInfo[] = [];
   private statusBarItem: vscode.StatusBarItem;
   private readonly ACTIVE_PROJECT_KEY = 'soar.activeProject';
+  private diagnosticCollection: vscode.DiagnosticCollection;
 
   private constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBarItem.command = 'soar.selectProject';
     this.statusBarItem.tooltip = 'Click to select active Soar project';
     this.context.subscriptions.push(this.statusBarItem);
+
+    // Create diagnostic collection for project validation issues
+    this.diagnosticCollection =
+      vscode.languages.createDiagnosticCollection('soar-project-validation');
+    this.context.subscriptions.push(this.diagnosticCollection);
   }
 
   static getInstance(context: vscode.ExtensionContext): ProjectManager {
@@ -136,6 +142,133 @@ export class ProjectManager {
     // Notify LSP server of project change
     const lspClient = await import('./client/lspClient');
     await lspClient.notifyProjectChanged(project.projectFile);
+
+    // Validate project files and report issues
+    await this.validateProjectFiles(project);
+  }
+
+  /**
+   * Find the line number in the project file where a specific file path is referenced
+   */
+  private async findFileReferenceLine(projectFile: string, filePath: string): Promise<number> {
+    try {
+      const content = await fs.promises.readFile(projectFile, 'utf-8');
+      const lines = content.split('\n');
+
+      // Search for the file reference in the JSON
+      // Look for "file": "path" pattern
+      const searchPattern = `"file": "${filePath.replace(/\\/g, '/')}"`; // Normalize path separators
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(searchPattern) || lines[i].includes(`"file": "${filePath}"`)) {
+          return i;
+        }
+      }
+
+      // If exact match not found, try to find just the filename
+      const fileName = path.basename(filePath);
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(`"file"`) && lines[i].includes(fileName)) {
+          return i;
+        }
+      }
+    } catch (error) {
+      console.error('Error finding file reference line:', error);
+    }
+
+    return 0; // Default to first line if not found
+  }
+
+  /**
+   * Validate project files and report orphaned/missing files as warnings
+   */
+  private async validateProjectFiles(project: SoarProjectInfo): Promise<void> {
+    try {
+      // Load the project using ProjectLoader to get full context
+      const { ProjectLoader } = await import('./server/projectLoader');
+      const projectLoader = new ProjectLoader();
+      const projectContext = await projectLoader.loadProject(project.projectFile);
+
+      // Import ProjectSync
+      const { ProjectSync } = await import('./layout/projectSync');
+
+      // Check for orphaned and missing files in parallel
+      const [orphanedFiles, missingFiles] = await Promise.all([
+        ProjectSync.findOrphanedFiles(projectContext),
+        ProjectSync.findMissingFiles(projectContext),
+      ]);
+
+      // Create diagnostics for the Problems window
+      const diagnostics: vscode.Diagnostic[] = [];
+      const projectUri = vscode.Uri.file(project.projectFile);
+
+      // Add diagnostics for orphaned files
+      for (const orphaned of orphanedFiles) {
+        const diagnostic = new vscode.Diagnostic(
+          new vscode.Range(0, 0, 0, 0),
+          `Orphaned file not in project: ${orphaned.relativePath}`,
+          vscode.DiagnosticSeverity.Warning
+        );
+        diagnostic.source = 'Soar Project Validation';
+        diagnostic.code = 'orphaned-file';
+        diagnostics.push(diagnostic);
+      }
+
+      // Add diagnostics for missing files with actual line numbers
+      for (const missing of missingFiles) {
+        const lineNumber = await this.findFileReferenceLine(
+          project.projectFile,
+          missing.relativePath
+        );
+        const diagnostic = new vscode.Diagnostic(
+          new vscode.Range(lineNumber, 0, lineNumber, 1000),
+          `Missing file referenced in project: ${missing.relativePath} (referenced in ${missing.referencedIn})`,
+          vscode.DiagnosticSeverity.Error
+        );
+        diagnostic.source = 'Soar Project Validation';
+        diagnostic.code = 'missing-file';
+        diagnostics.push(diagnostic);
+      }
+
+      // Update diagnostics in Problems window
+      this.diagnosticCollection.set(projectUri, diagnostics);
+
+      // Report warnings
+      const warnings: string[] = [];
+
+      if (orphanedFiles.length > 0) {
+        warnings.push(`${orphanedFiles.length} orphaned file(s) not in project`);
+      }
+
+      if (missingFiles.length > 0) {
+        warnings.push(`${missingFiles.length} missing file(s) referenced but not found`);
+      }
+
+      // Show warning message if there are any issues
+      if (warnings.length > 0) {
+        const message = `Project validation: ${warnings.join(', ')}`;
+        const actions: string[] = [];
+
+        if (orphanedFiles.length > 0) {
+          actions.push('View Orphaned Files');
+        }
+        if (missingFiles.length > 0) {
+          actions.push('View Missing Files');
+        }
+        actions.push('Dismiss');
+
+        const choice = await vscode.window.showWarningMessage(message, ...actions);
+
+        if (choice === 'View Orphaned Files') {
+          await vscode.commands.executeCommand('soar.findOrphanedFiles');
+        } else if (choice === 'View Missing Files') {
+          await vscode.commands.executeCommand('soar.findMissingFiles');
+        }
+      }
+    } catch (error) {
+      console.error('Error validating project files:', error);
+      // Don't show error to user - this is a background validation
+    }
   }
 
   /**
@@ -145,6 +278,9 @@ export class ProjectManager {
     this.activeProject = null;
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, undefined);
     this.updateStatusBar();
+
+    // Clear project validation diagnostics
+    this.diagnosticCollection.clear();
   }
 
   /**
@@ -172,6 +308,9 @@ export class ProjectManager {
         // Notify LSP server of restored project
         const lspClient = await import('./client/lspClient');
         await lspClient.notifyProjectChanged(project.projectFile);
+
+        // Validate project files
+        await this.validateProjectFiles(project);
       } else {
         // Project file exists but not in discovered projects, create minimal info
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(
@@ -193,6 +332,9 @@ export class ProjectManager {
           // Notify LSP server of restored project
           const lspClient = await import('./client/lspClient');
           await lspClient.notifyProjectChanged(savedProjectFile);
+
+          // Validate project files
+          await this.validateProjectFiles(this.activeProject);
         }
       }
     } catch {

@@ -464,6 +464,41 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('soar.findMissingFiles', async () => {
+      const projectContext = layoutProvider.getProjectContext();
+      if (!projectContext) {
+        vscode.window.showWarningMessage('No project loaded');
+        return;
+      }
+
+      vscode.window.showInformationMessage('Checking for missing files referenced in project...');
+
+      const missingFiles = await ProjectSync.findMissingFiles(projectContext);
+
+      // Show report in output channel
+      const outputChannel = vscode.window.createOutputChannel('Soar Project Validation');
+      outputChannel.clear();
+      outputChannel.appendLine('=== Missing Files Report ===\n');
+      outputChannel.appendLine(`Project: ${path.basename(projectContext.projectFile)}\n`);
+
+      if (missingFiles.length === 0) {
+        outputChannel.appendLine('✓ All files referenced in the project exist on disk.');
+      } else {
+        outputChannel.appendLine(`✗ Found ${missingFiles.length} missing file(s):\n`);
+        for (const file of missingFiles) {
+          outputChannel.appendLine(`  • ${file.relativePath}`);
+          outputChannel.appendLine(`    Referenced in: ${file.referencedIn}\n`);
+        }
+      }
+
+      outputChannel.show();
+
+      // Show interactive dialog
+      await ProjectSync.showMissingFilesDialog(projectContext, missingFiles);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('soar.syncProjectFiles', async () => {
       const projectContext = layoutProvider.getProjectContext();
       if (!projectContext) {
