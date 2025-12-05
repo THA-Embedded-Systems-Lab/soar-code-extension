@@ -51,7 +51,7 @@ export class SoarParser {
     let match;
     while ((match = productionStartRegex.exec(content)) !== null) {
       try {
-        const production = this.parseProduction(content, match.index, lines);
+        const production = this.parseProduction(content, match.index, lines, document);
         if (production) {
           document.productions.push(production);
         }
@@ -70,7 +70,8 @@ export class SoarParser {
   private parseProduction(
     content: string,
     startOffset: number,
-    lines: string[]
+    lines: string[],
+    document: SoarDocument
   ): SoarProduction | null {
     // Extract production type
     const typeMatch = content.substring(startOffset).match(/^(sp|gp)\s*\{/);
@@ -118,7 +119,7 @@ export class SoarParser {
     const bodyStartOffset = startOffset + typeMatch[0].length;
     const bodyBasePosition = this.offsetToPosition(content, bodyStartOffset, lines);
     const body = content.substring(bodyStartOffset, endOffset);
-    this.parseProductionBody(body, production, bodyBasePosition);
+    this.parseProductionBody(body, production, bodyBasePosition, document);
 
     return production;
   }
@@ -147,11 +148,59 @@ export class SoarParser {
     return { endOffset: content.length, hasError: true };
   }
 
+  private validateParentheses(
+    body: string,
+    production: SoarProduction,
+    basePosition: Position,
+    document: SoarDocument
+  ): void {
+    let parenCount = 0;
+    const unmatchedOpens: number[] = [];
+
+    for (let i = 0; i < body.length; i++) {
+      const char = body[i];
+      if (char === '(') {
+        parenCount++;
+        unmatchedOpens.push(i);
+      } else if (char === ')') {
+        parenCount--;
+        if (parenCount < 0) {
+          // Extra closing paren
+          const pos = this.getPositionInBody(body, i, basePosition);
+          document.errors.push({
+            range: { start: pos, end: { line: pos.line, character: pos.character + 1 } },
+            message: `Unexpected closing parenthesis`,
+            severity: DiagnosticSeverity.error,
+            source: 'soar-parser',
+          });
+          return;
+        }
+        unmatchedOpens.pop();
+      }
+    }
+
+    if (parenCount > 0) {
+      // Missing closing paren - report error at the last unmatched opening paren
+      const errorPos = unmatchedOpens[unmatchedOpens.length - 1];
+      const pos = this.getPositionInBody(body, errorPos, basePosition);
+      document.errors.push({
+        range: { start: pos, end: { line: pos.line, character: pos.character + 1 } },
+        message: `Unmatched opening parenthesis (missing closing parenthesis)`,
+        severity: DiagnosticSeverity.error,
+        source: 'soar-parser',
+      });
+    }
+  }
+
   private parseProductionBody(
     body: string,
     production: SoarProduction,
-    basePosition: Position
+    basePosition: Position,
+    document: SoarDocument
   ): void {
+    // Check for unmatched parentheses
+    this.validateParentheses(body, production, basePosition, document);
+
     // Parse variables
     const variableRegex = /<([a-zA-Z][a-zA-Z0-9_-]*)>/g;
     let match;

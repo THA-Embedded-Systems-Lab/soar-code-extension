@@ -1,31 +1,15 @@
-# Example Soar Production File
-# This file demonstrates comprehensive Soar syntax for testing
-
-# Basic production with operator proposal
-sp {propose*operator*hello-world
-   (state <s> ^type state
-              ^superstate nil)
+sp {TestProject*propose*hello-world
+   (state <s> ^name TestProject)
 -->
-   (<s> ^operator <o> +)
-   (<o> ^name hello-world)
+   (<s> ^operator <op> + =)
+   (<op> ^name hello-world)
 }
 
-# Operator application with I/O and functions
 sp {apply*hello-world
-   (state <s> ^operator <o>
-              ^io.output <out>)
-   (<o> ^name hello-world)
+   (state <s> ^operator <op>)
+   (<op> ^name hello-world)
 -->
-   (write |Hello, World!|)
-   (write (crlf))
-   (halt)
-}
-
-# Elaborate state name from superstate
-sp {elaborate*state*name
-   (state <s> ^superstate.operator.name <name>)
--->
-   (<s> ^name <name>)
+   (<s>)
 }
 
 # More complex example with math functions

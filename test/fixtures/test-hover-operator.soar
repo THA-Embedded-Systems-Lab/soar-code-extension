@@ -1,0 +1,7 @@
+sp {test*hover*operator
+   (state <s> ^io <io>)
+   (<s> ^operator <o>)
+   (<o> ^name test-op)
+-->
+   (<s> ^result done)
+}

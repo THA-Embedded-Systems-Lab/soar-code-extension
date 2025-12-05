@@ -1,0 +1,8 @@
+# Test file for unbound variable validation
+
+sp {valid*production*with*proper*bindings
+   (state <s> ^io <io>)
+   (<io> ^input-link <il>)
+   (<il> ^hello.world <hw>)
+-->
+}

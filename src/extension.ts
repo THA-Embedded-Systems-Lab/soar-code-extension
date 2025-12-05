@@ -20,6 +20,13 @@ let parser: SoarParser;
 let projectManager: ProjectManager;
 
 /**
+ * Get the project manager instance (for testing)
+ */
+export function getProjectManager(): ProjectManager {
+  return projectManager;
+}
+
+/**
  * Extension activation function
  * Called when the extension is activated (when a .soar file is opened)
  */
@@ -531,6 +538,11 @@ export function activate(context: vscode.ExtensionContext) {
       validateDocument(doc);
     }
   });
+
+  // Return API for testing
+  return {
+    getProjectManager: () => projectManager,
+  };
 }
 
 /**

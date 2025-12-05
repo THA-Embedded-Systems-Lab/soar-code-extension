@@ -1,0 +1,7 @@
+# Test file for unbound variable validation
+
+sp {apply*initialize-Invalid-attributes-separated-by-identifier
+   (state <s> ^operator <op>)
+   (<il> ^hello.world <hw>)
+-->
+}

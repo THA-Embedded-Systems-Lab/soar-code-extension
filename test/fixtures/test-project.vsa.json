@@ -36,6 +36,10 @@
             "name": "state",
             "toId": "1",
             "comment": "new state"
+          },
+          {
+            "name": "operator",
+            "toId": "4"
           }
         ]
       },
@@ -66,6 +70,10 @@
           {
             "name": "value",
             "toId": "value-int"
+          },
+          {
+            "name": "hello",
+            "toId": "6"
           }
         ]
       },
@@ -96,10 +104,7 @@
       {
         "id": "type-enum",
         "type": "ENUMERATION",
-        "choices": [
-          "state",
-          "operator"
-        ]
+        "choices": ["state", "operator"]
       },
       {
         "id": "name-string",
@@ -118,30 +123,17 @@
       {
         "id": "command-enum",
         "type": "ENUMERATION",
-        "choices": [
-          "move",
-          "stop",
-          "turn"
-        ]
+        "choices": ["move", "stop", "turn"]
       },
       {
         "id": "status-enum",
         "type": "ENUMERATION",
-        "choices": [
-          "pending",
-          "complete",
-          "error"
-        ]
+        "choices": ["pending", "complete", "error"]
       },
       {
         "id": "operator-name-enum",
         "type": "ENUMERATION",
-        "choices": [
-          "initialize",
-          "process-input",
-          "generate-output",
-          "cleanup"
-        ]
+        "choices": ["initialize", "process-input", "generate-output", "cleanup"]
       },
       {
         "id": "1",
@@ -157,6 +149,36 @@
         "id": "3",
         "type": "SOAR_ID",
         "outEdges": []
+      },
+      {
+        "id": "4",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "5"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "type": "ENUMERATION",
+        "choices": ["hello-world"]
+      },
+      {
+        "id": "6",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "world",
+            "toId": "7"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "type": "SOAR_ID",
+        "outEdges": []
       }
     ]
   },
@@ -166,12 +188,6 @@
     "name": "TestProject",
     "folder": ".",
     "children": [
-      {
-        "type": "FILE",
-        "id": "file-1",
-        "name": "example",
-        "file": "example.soar"
-      },
       {
         "type": "FILE",
         "id": "file-2",
@@ -243,6 +259,31 @@
             ]
           }
         ]
+      },
+      {
+        "type": "OPERATOR",
+        "id": "5",
+        "name": "hello-world",
+        "file": "hello-world.soar",
+        "dmId": "4"
+      },
+      {
+        "type": "FILE",
+        "id": "6",
+        "name": "elaborations",
+        "file": "elaborations.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "7",
+        "name": "test-unbound-variable-fail",
+        "file": "test-unbound-variable-fail.soar"
+      },
+      {
+        "type": "FILE",
+        "id": "8",
+        "name": "test-unbound-variable-success",
+        "file": "test-unbound-variable-success.soar"
       }
     ]
   }
