@@ -186,13 +186,16 @@ export class DatamapValidator {
         message = `Attribute '^${attr.name}' not found in project datamap`;
       }
 
+      // Get precise range for the attribute
+      const preciseRange = this.findAttributeRange(attr, documentText);
+
       return {
         production: production.name,
         attribute: attr.name,
         attributePath: `^${attr.name}`,
-        line: attr.range.start.line,
-        column: attr.range.start.character,
-        range: attr.range,
+        line: preciseRange.start.line,
+        column: preciseRange.start.character,
+        range: preciseRange,
         message,
         severity: 'error',
       };
@@ -205,7 +208,8 @@ export class DatamapValidator {
         attr,
         production,
         projectContext,
-        variableBindings
+        variableBindings,
+        documentText
       );
       if (enumError) {
         return enumError;
@@ -444,7 +448,8 @@ export class DatamapValidator {
     attr: SoarAttribute,
     production: SoarProduction,
     projectContext: ProjectContext,
-    variableBindings: Map<string, Set<string>>
+    variableBindings: Map<string, Set<string>>,
+    documentText?: string
   ): ValidationError | null {
     if (!attr.value) {
       return null;
@@ -506,13 +511,16 @@ export class DatamapValidator {
 
     const validChoices = Array.from(allValidChoices).sort().join(', ');
 
+    // Get precise range for the attribute
+    const preciseRange = this.findAttributeRange(attr, documentText);
+
     return {
       production: production.name,
       attribute: attr.name,
       attributePath: `^${attr.name}`,
-      line: attr.range.start.line,
-      column: attr.range.start.character,
-      range: attr.range,
+      line: preciseRange.start.line,
+      column: preciseRange.start.character,
+      range: preciseRange,
       message: `Invalid enumeration value '${attrValue}' for attribute '^${lastSegment}'. Valid choices: ${validChoices}`,
       severity: 'error',
     };
@@ -715,6 +723,36 @@ export class DatamapValidator {
       .map(item => item.name);
 
     return suggestions;
+  }
+
+  /**
+   * Find the precise range for an attribute name in the document
+   * Searches for ^attributeName in the line to get exact position
+   */
+  private findAttributeRange(
+    attr: SoarAttribute,
+    documentText?: string
+  ): { start: { line: number; character: number }; end: { line: number; character: number } } {
+    const line = attr.range.start.line;
+    const attributeText = `^${attr.name}`;
+
+    // If we have document text, search for the exact position
+    if (documentText) {
+      const lines = documentText.split('\n');
+      if (line < lines.length) {
+        const lineText = lines[line];
+        const attrIndex = lineText.indexOf(attributeText);
+        if (attrIndex !== -1) {
+          return {
+            start: { line: line, character: attrIndex },
+            end: { line: line, character: attrIndex + attributeText.length },
+          };
+        }
+      }
+    }
+
+    // Fallback to original range if we can't find it
+    return attr.range;
   }
 
   /**
