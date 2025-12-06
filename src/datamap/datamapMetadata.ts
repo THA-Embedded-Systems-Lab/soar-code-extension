@@ -11,6 +11,7 @@ export interface DatamapEdgeMetadata extends InboundEdgeInfo {
   inboundCount: number;
   isLink: boolean;
   isCycle: boolean;
+  hasLinkedSiblings: boolean;
 }
 
 export interface DatamapProjectContext extends ProjectContext {
@@ -28,9 +29,7 @@ export class DatamapMetadataCache {
     project: VisualSoarProject,
     datamapIndex: Map<string, DMVertex>
   ): DatamapMetadataCache {
-    const vertexOwners = new Map<string, string | null>();
     const inboundMap = new Map<string, InboundEdgeInfo[]>();
-    const edgeIndex = new Map<string, DatamapEdgeMetadata>();
 
     for (const vertex of project.datamap.vertices) {
       if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
@@ -47,12 +46,11 @@ export class DatamapMetadataCache {
         const inboundEdges = inboundMap.get(edge.toId) || [];
         inboundEdges.push(entry);
         inboundMap.set(edge.toId, inboundEdges);
-
-        if (!vertexOwners.has(edge.toId)) {
-          vertexOwners.set(edge.toId, vertex.id);
-        }
       }
     }
+
+    const vertexOwners = DatamapMetadataCache.buildOwnershipMap(project, datamapIndex, inboundMap);
+    const edgeIndex = new Map<string, DatamapEdgeMetadata>();
 
     for (const [targetId, inboundEdges] of inboundMap.entries()) {
       const ownerParentId = vertexOwners.get(targetId) ?? null;
@@ -64,11 +62,9 @@ export class DatamapMetadataCache {
           targetId,
           datamapIndex
         );
-        const isLink =
-          inboundCount > 1 &&
-          ownerParentId !== null &&
-          inboundEdge.parentId !== ownerParentId &&
-          !isCycle;
+        const hasLinkedSiblings = inboundCount > 1 && !isCycle;
+        const isOwnerEdge = ownerParentId !== null && inboundEdge.parentId === ownerParentId;
+        const isLink = hasLinkedSiblings && !isOwnerEdge;
 
         edgeIndex.set(DatamapMetadataCache.makeEdgeKey(inboundEdge), {
           ...inboundEdge,
@@ -76,11 +72,51 @@ export class DatamapMetadataCache {
           inboundCount,
           isLink,
           isCycle,
+          hasLinkedSiblings,
         });
       }
     }
 
     return new DatamapMetadataCache(vertexOwners, inboundMap, edgeIndex);
+  }
+
+  private static buildOwnershipMap(
+    project: VisualSoarProject,
+    datamapIndex: Map<string, DMVertex>,
+    inboundMap: Map<string, InboundEdgeInfo[]>
+  ): Map<string, string | null> {
+    const owners = new Map<string, string | null>();
+    const rootId = project.datamap.rootId;
+    owners.set(rootId, null);
+
+    const stack: string[] = [rootId];
+    const visited = new Set<string>([rootId]);
+
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      const vertex = datamapIndex.get(currentId);
+      if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+
+      for (const edge of vertex.outEdges) {
+        if (!owners.has(edge.toId)) {
+          owners.set(edge.toId, currentId);
+        }
+        if (!visited.has(edge.toId)) {
+          stack.push(edge.toId);
+          visited.add(edge.toId);
+        }
+      }
+    }
+
+    for (const [targetId, inboundEdges] of inboundMap.entries()) {
+      if (!owners.has(targetId)) {
+        owners.set(targetId, inboundEdges[0]?.parentId ?? null);
+      }
+    }
+
+    return owners;
   }
 
   getEdgeMetadata(

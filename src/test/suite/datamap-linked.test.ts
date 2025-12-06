@@ -12,7 +12,7 @@ import { ProjectLoader } from '../../server/projectLoader';
 import { DatamapTreeProvider } from '../../datamap/datamapTreeProvider';
 import { DatamapOperations } from '../../datamap/datamapOperations';
 import { DatamapMetadataCache, DatamapProjectContext } from '../../datamap/datamapMetadata';
-import { DMVertex, SoarIdVertex } from '../../server/visualSoarProject';
+import { DMVertex, SoarIdVertex, VisualSoarProject } from '../../server/visualSoarProject';
 
 suite('Datamap Linked Attribute Tests', () => {
   let projectLoader: ProjectLoader;
@@ -334,13 +334,61 @@ suite('Datamap Linked Attribute Tests', () => {
       3,
       'Linked vertex should report all inbound references'
     );
+    assert.strictEqual(
+      linkedEdge.hasLinkedSiblings,
+      true,
+      'Linked edge should report shared state'
+    );
 
     const ownerEdge = metadata.getEdgeMetadata('root-state', 'io', 'io-vertex');
     assert.ok(ownerEdge, 'Owner edge metadata should exist');
     assert.strictEqual(ownerEdge.isLink, false, 'Owner edge should not be marked as linked');
+    assert.strictEqual(
+      ownerEdge.hasLinkedSiblings,
+      true,
+      'Owner edge should still be aware of linked siblings'
+    );
 
     const inbound = metadata.getInboundReferences('io-vertex');
     assert.strictEqual(inbound.length, 3, 'Inbound reference list should include all parents');
+  });
+
+  test('Metadata ownership is stable regardless of vertex ordering', () => {
+    const context = treeProvider.getProjectContext();
+    assert.ok(context, 'Project context should be available');
+
+    const clonedProject = JSON.parse(JSON.stringify(context.project)) as VisualSoarProject;
+    clonedProject.datamap.vertices.sort((a, b) => {
+      if (a.id === '2') {
+        return -1;
+      }
+      if (b.id === '2') {
+        return 1;
+      }
+      if (a.id === 'root-state') {
+        return 1;
+      }
+      if (b.id === 'root-state') {
+        return -1;
+      }
+      return 0;
+    });
+
+    const clonedIndex = new Map<string, DMVertex>();
+    for (const vertex of clonedProject.datamap.vertices) {
+      clonedIndex.set(vertex.id, vertex);
+    }
+
+    const metadata = DatamapMetadataCache.build(clonedProject, clonedIndex);
+    const ownerEdge = metadata.getEdgeMetadata('root-state', 'io', 'io-vertex');
+    assert.ok(ownerEdge, 'Owner edge should still be tracked');
+    assert.strictEqual(ownerEdge.ownerParentId, 'root-state');
+    assert.strictEqual(ownerEdge.isLink, false, 'Owner edge must remain editable');
+
+    const linkedEdge = metadata.getEdgeMetadata('2', 'io', 'io-vertex');
+    assert.ok(linkedEdge, 'Linked edge should exist even after reordering');
+    assert.strictEqual(linkedEdge.ownerParentId, 'root-state');
+    assert.strictEqual(linkedEdge.isLink, true, 'Linked edge should remain read-only');
   });
 
   test('Tree view items mark linked attributes as immutable', async () => {

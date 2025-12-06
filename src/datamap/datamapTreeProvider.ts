@@ -35,6 +35,7 @@ export class DatamapTreeItem extends vscode.TreeItem {
       this.description = this.buildDescription();
 
       const isLinkedEdge = this.edgeMetadata?.isLink ?? false;
+      const showLinkGlyph = this.edgeMetadata?.hasLinkedSiblings ?? false;
 
       if (edgeName) {
         const baseContext = `datamap-attribute-${vertex.type.toLowerCase()}`;
@@ -43,7 +44,7 @@ export class DatamapTreeItem extends vscode.TreeItem {
         this.contextValue = 'datamap-root';
       }
 
-      if (isLinkedEdge && vertex.type === 'SOAR_ID') {
+      if (showLinkGlyph) {
         this.iconPath = new vscode.ThemeIcon('link', new vscode.ThemeColor('charts.blue'));
       } else {
         this.iconPath = this.getIconForVertexType(vertex.type);
@@ -64,10 +65,16 @@ export class DatamapTreeItem extends vscode.TreeItem {
       lines.push(`Comment: ${this.comment}`);
     }
 
-    if (this.edgeMetadata?.isLink) {
-      lines.push('🔗 Linked attribute');
-      if (this.edgeMetadata.ownerParentId) {
-        lines.push(`Owner: ${this.edgeMetadata.ownerParentId}`);
+    if (this.edgeMetadata?.hasLinkedSiblings) {
+      if (this.edgeMetadata.isLink) {
+        lines.push('🔗 Linked attribute');
+        if (this.edgeMetadata.ownerParentId) {
+          lines.push(`Owner: ${this.edgeMetadata.ownerParentId}`);
+        }
+      } else {
+        lines.push('🔗 Shared attribute owner');
+        const linkedPartners = Math.max(this.edgeMetadata.inboundCount - 1, 0);
+        lines.push(`Linked parents: ${linkedPartners}`);
       }
       lines.push(`Inbound references: ${this.edgeMetadata.inboundCount}`);
     }
