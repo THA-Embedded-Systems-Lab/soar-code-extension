@@ -120,7 +120,7 @@ export class DatamapTreeItem extends vscode.TreeItem {
   private getIconForVertexType(type: string): vscode.ThemeIcon {
     switch (type) {
       case 'SOAR_ID':
-        return new vscode.ThemeIcon('symbol-object');
+        return new vscode.ThemeIcon('link');
       case 'INTEGER':
       case 'FLOAT':
         return new vscode.ThemeIcon('symbol-number');
