@@ -26,6 +26,8 @@ export class ProjectManager {
   private statusBarItem: vscode.StatusBarItem;
   private readonly ACTIVE_PROJECT_KEY = 'soar.activeProject';
   private diagnosticCollection: vscode.DiagnosticCollection;
+  private readonly activeProjectEmitter = new vscode.EventEmitter<SoarProjectInfo | null>();
+  readonly onDidChangeActiveProject = this.activeProjectEmitter.event;
 
   private constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -142,6 +144,8 @@ export class ProjectManager {
     // Notify LSP server of project change
     const lspClient = await import('./client/lspClient');
     await lspClient.notifyProjectChanged(project.projectFile);
+
+    this.activeProjectEmitter.fire(project);
 
     // Validate project files and report issues
     await this.validateProjectFiles(project);
@@ -281,6 +285,8 @@ export class ProjectManager {
 
     // Clear project validation diagnostics
     this.diagnosticCollection.clear();
+
+    this.activeProjectEmitter.fire(null);
   }
 
   /**
@@ -302,15 +308,7 @@ export class ProjectManager {
       const project = this.discoveredProjects.find(p => p.projectFile === savedProjectFile);
 
       if (project) {
-        this.activeProject = project;
-        this.updateStatusBar();
-
-        // Notify LSP server of restored project
-        const lspClient = await import('./client/lspClient');
-        await lspClient.notifyProjectChanged(project.projectFile);
-
-        // Validate project files
-        await this.validateProjectFiles(project);
+        await this.setActiveProject(project);
       } else {
         // Project file exists but not in discovered projects, create minimal info
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(
@@ -321,20 +319,12 @@ export class ProjectManager {
           const projectName = path.basename(savedProjectFile, '.vsa.json');
           const parentFolder = path.basename(path.dirname(savedProjectFile));
 
-          this.activeProject = {
+          await this.setActiveProject({
             projectFile: savedProjectFile,
             displayName: `${projectName} (${parentFolder})`,
             relativePath,
             workspaceFolder,
-          };
-          this.updateStatusBar();
-
-          // Notify LSP server of restored project
-          const lspClient = await import('./client/lspClient');
-          await lspClient.notifyProjectChanged(savedProjectFile);
-
-          // Validate project files
-          await this.validateProjectFiles(this.activeProject);
+          });
         }
       }
     } catch {

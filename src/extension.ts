@@ -142,10 +142,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.selectProject', async () => {
       const project = await projectManager.showProjectSelector();
-      if (project) {
-        await datamapProvider.loadProjectFromFile(project.projectFile);
-        await layoutProvider.loadProjectFromFile(project.projectFile);
-      }
     })
   );
 
@@ -339,6 +335,16 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(layoutTreeView);
 
+  const projectChangeDisposable = projectManager.onDidChangeActiveProject(project => {
+    if (project) {
+      void Promise.all([
+        datamapProvider.loadProjectFromFile(project.projectFile),
+        layoutProvider.loadProjectFromFile(project.projectFile),
+      ]);
+    }
+  });
+  context.subscriptions.push(projectChangeDisposable);
+
   // Register commands for layout tree
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshLayout', async () => {
@@ -511,10 +517,7 @@ export function activate(context: vscode.ExtensionContext) {
     await projectManager.restoreActiveProject();
 
     const activeProject = projectManager.getActiveProject();
-    if (activeProject) {
-      await layoutProvider.loadProjectFromFile(activeProject.projectFile);
-      await datamapProvider.loadProjectFromFile(activeProject.projectFile);
-    } else {
+    if (!activeProject) {
       // Try to auto-load from first workspace folder for backward compatibility
       if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         await layoutProvider.loadProject(vscode.workspace.workspaceFolders[0].uri);
