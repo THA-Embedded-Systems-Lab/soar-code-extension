@@ -154,6 +154,7 @@ ProjectContext {
 - Shows node names instead of IDs
 - Removes `^` prefix from attributes
 - Type-specific icons
+- Linked attribute awareness (owner/inbound metadata, link badges, read-only context)
 - Descriptions show:
   - Attribute counts for SOAR_ID
   - Enumeration choices
@@ -166,6 +167,10 @@ ProjectContext {
 - Makes cyclic references non-expandable
 
 **Multiple Datamap Views**:
+
+- **Metadata Cache**: `DatamapMetadataCache` computes owners, inbound counts,
+  and cycle info so the tree, commands, and validators share a single source of
+  truth for linked edges.
 
 - View root datamap by default
 - Switch to substate datamaps via "View Datamap" command
@@ -209,6 +214,9 @@ ProjectContext {
 - Name format checking
 - Duplicate detection
 - Type-specific validation
+- Linked attributes are guarded: edit/delete commands are disabled, and
+  dedicated actions (`Reveal Link Owner`, `Remove Linked Attribute`) keep shared
+  structures safe.
 
 ### 8. Datamap Validation
 
@@ -362,8 +370,11 @@ pick-up.soar: file = "pick-up.soar", parentPath = "BW-Hierarchical/move-block"
 - `soar.loadDatamap`: Load project file
 - `soar.refreshDatamap`: Reload datamap
 - `soar.addAttribute`: Add attribute to SOAR_ID
+- `soar.addLinkedAttribute`: Link an existing SOAR_ID under a new parent
 - `soar.editAttribute`: Edit attribute properties
 - `soar.deleteAttribute`: Delete attribute
+- `soar.revealLinkedOwner`: Jump to the owning vertex for a linked attribute
+- `soar.deleteLinkedAttribute`: Remove a linked edge without touching the shared vertex
 - `soar.viewDatamap`: View substate datamap
 - `soar.viewRootDatamap`: Return to root datamap
 

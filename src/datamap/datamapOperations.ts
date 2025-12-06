@@ -12,15 +12,127 @@ import {
   OutEdge,
   SoarIdVertex,
   EnumerationVertex,
-  ProjectContext,
 } from '../server/visualSoarProject';
+import { DatamapProjectContext, DatamapMetadataCache, InboundEdgeInfo } from './datamapMetadata';
 
 export class DatamapOperations {
+  /**
+   * Add a linked attribute (SOAR_ID reference to existing vertex)
+   */
+  static async addLinkedAttribute(
+    projectContext: DatamapProjectContext,
+    parentVertexId: string
+  ): Promise<boolean> {
+    const parentVertex = projectContext.datamapIndex.get(parentVertexId);
+
+    if (!parentVertex || parentVertex.type !== 'SOAR_ID') {
+      vscode.window.showErrorMessage('Can only add attributes to SOAR_ID vertices');
+      return false;
+    }
+
+    // Get all SOAR_ID vertices that can be linked to
+    const linkableVertices: Array<{ label: string; vertexId: string; description: string }> = [];
+
+    for (const vertex of projectContext.project.datamap.vertices) {
+      if (vertex.type === 'SOAR_ID' && vertex.id !== parentVertexId) {
+        // Find a descriptive name for this vertex by looking for edges pointing to it
+        let name = vertex.id;
+        let description = 'SOAR_ID';
+
+        // Try to find attribute name pointing to this vertex
+        for (const v of projectContext.project.datamap.vertices) {
+          if (v.type === 'SOAR_ID' && v.outEdges) {
+            for (const edge of v.outEdges) {
+              if (edge.toId === vertex.id) {
+                name = edge.name;
+                description = edge.comment || 'SOAR_ID';
+                break;
+              }
+            }
+          }
+        }
+
+        linkableVertices.push({
+          label: name,
+          vertexId: vertex.id,
+          description: description,
+        });
+      }
+    }
+
+    if (linkableVertices.length === 0) {
+      vscode.window.showWarningMessage('No other SOAR_ID vertices available to link to');
+      return false;
+    }
+
+    // Prompt to select target vertex
+    const selectedVertex = await vscode.window.showQuickPick(linkableVertices, {
+      placeHolder: 'Select the SOAR_ID to link to',
+      matchOnDescription: true,
+    });
+
+    if (!selectedVertex) {
+      return false;
+    }
+
+    // Use the selected vertex label as the attribute name by default
+    const attributeName = await vscode.window.showInputBox({
+      prompt: 'Enter attribute name for the link',
+      placeHolder: 'e.g., superstate, top-state, linked-state',
+      value: selectedVertex.label,
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Attribute name cannot be empty';
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+          return 'Attribute name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+        }
+        // Check if attribute already exists
+        if (parentVertex.outEdges?.some(e => e.name === value)) {
+          return `Attribute '${value}' already exists`;
+        }
+        return null;
+      },
+    });
+
+    if (!attributeName) {
+      return false;
+    }
+
+    // Optional: prompt for comment
+    const comment = await vscode.window.showInputBox({
+      prompt: 'Enter comment (optional)',
+      placeHolder: 'Description of this link',
+    });
+
+    // Create new edge pointing to existing vertex (no new vertex created)
+    const newEdge: OutEdge = {
+      name: attributeName,
+      toId: selectedVertex.vertexId,
+      comment: comment || undefined,
+    };
+
+    // Add edge to parent
+    if (!parentVertex.outEdges) {
+      parentVertex.outEdges = [];
+    }
+    parentVertex.outEdges.push(newEdge);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(
+      `Created link '${attributeName}' → '${selectedVertex.label}'`
+    );
+
+    return true;
+  }
+
   /**
    * Add a new attribute to a SOAR_ID vertex
    */
   static async addAttribute(
-    projectContext: ProjectContext,
+    projectContext: DatamapProjectContext,
     parentVertexId: string
   ): Promise<boolean> {
     const parentVertex = projectContext.datamapIndex.get(parentVertexId);
@@ -147,7 +259,7 @@ export class DatamapOperations {
    * Edit an attribute's properties
    */
   static async editAttribute(
-    projectContext: ProjectContext,
+    projectContext: DatamapProjectContext,
     vertexId: string,
     edgeName: string
   ): Promise<boolean> {
@@ -214,7 +326,7 @@ export class DatamapOperations {
    * Delete an attribute
    */
   static async deleteAttribute(
-    projectContext: ProjectContext,
+    projectContext: DatamapProjectContext,
     vertexId: string,
     edgeName: string
   ): Promise<boolean> {
@@ -269,12 +381,43 @@ export class DatamapOperations {
   }
 
   /**
+   * Remove a linked attribute edge without deleting the underlying vertex
+   */
+  static async removeLinkedAttribute(
+    projectContext: DatamapProjectContext,
+    edgeMetadata: InboundEdgeInfo
+  ): Promise<boolean> {
+    const parentVertex = projectContext.datamapIndex.get(edgeMetadata.parentId);
+    if (!parentVertex || parentVertex.type !== 'SOAR_ID' || !parentVertex.outEdges) {
+      vscode.window.showErrorMessage('Could not find linked attribute to remove');
+      return false;
+    }
+
+    const edgeIndex = parentVertex.outEdges.findIndex(
+      edge => edge.name === edgeMetadata.edgeName && edge.toId === edgeMetadata.targetId
+    );
+
+    if (edgeIndex === -1) {
+      vscode.window.showErrorMessage('Could not find linked attribute to remove');
+      return false;
+    }
+
+    parentVertex.outEdges.splice(edgeIndex, 1);
+
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(
+      `Removed link '^${edgeMetadata.edgeName}' → ${edgeMetadata.targetId}`
+    );
+    return true;
+  }
+
+  /**
    * Helper: Rename an attribute
    */
   private static async renameAttribute(
     parentVertex: SoarIdVertex,
     edge: OutEdge,
-    projectContext: ProjectContext
+    projectContext: DatamapProjectContext
   ): Promise<boolean> {
     const newName = await vscode.window.showInputBox({
       prompt: 'Enter new attribute name',
@@ -308,7 +451,7 @@ export class DatamapOperations {
    */
   private static async editAttributeComment(
     edge: OutEdge,
-    projectContext: ProjectContext
+    projectContext: DatamapProjectContext
   ): Promise<boolean> {
     const newComment = await vscode.window.showInputBox({
       prompt: 'Enter comment',
@@ -332,7 +475,7 @@ export class DatamapOperations {
   private static async changeAttributeType(
     vertex: DMVertex,
     edge: OutEdge,
-    projectContext: ProjectContext
+    projectContext: DatamapProjectContext
   ): Promise<boolean> {
     const newType = await vscode.window.showQuickPick(
       [
@@ -419,20 +562,30 @@ export class DatamapOperations {
 
   /**
    * Helper: Generate a unique vertex ID
+   * Always generates IDs sequentially, never reusing deleted IDs
    */
   private static generateVertexId(project: VisualSoarProject): string {
-    const existingIds = new Set(project.datamap.vertices.map(v => parseInt(v.id, 10)));
-    let id = 1;
-    while (existingIds.has(id)) {
-      id++;
+    // Find the highest numeric ID (including deleted ones)
+    let maxNumericId = 0;
+    for (const vertex of project.datamap.vertices) {
+      const numericId = parseInt(vertex.id, 10);
+      if (!isNaN(numericId) && numericId > maxNumericId) {
+        maxNumericId = numericId;
+      }
     }
-    return id.toString();
+
+    // Always return next sequential ID
+    // This ensures we never reuse IDs, even if they were deleted
+    return (maxNumericId + 1).toString();
   }
 
   /**
    * Helper: Recursively remove a vertex and all its descendants
    */
-  private static removeVertexRecursive(vertexId: string, projectContext: ProjectContext): void {
+  private static removeVertexRecursive(
+    vertexId: string,
+    projectContext: DatamapProjectContext
+  ): void {
     const vertex = projectContext.datamapIndex.get(vertexId);
     if (!vertex) {
       return;
@@ -461,11 +614,16 @@ export class DatamapOperations {
   /**
    * Helper: Save project to file
    */
-  private static async saveProject(projectContext: ProjectContext): Promise<void> {
+  private static async saveProject(projectContext: DatamapProjectContext): Promise<void> {
     try {
       const json = JSON.stringify(projectContext.project, null, 2);
       await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
       console.log(`Successfully saved project to: ${projectContext.projectFile}`);
+
+      projectContext.datamapMetadata = DatamapMetadataCache.build(
+        projectContext.project,
+        projectContext.datamapIndex
+      );
     } catch (error: any) {
       const errorMsg = `Failed to save project: ${error.message}`;
       console.error(errorMsg);

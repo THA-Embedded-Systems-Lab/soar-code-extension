@@ -66,19 +66,20 @@
 
 ## Datamap System - Editing
 
-| Feature                  | VisualSoar | VS Code Extension | Status | Notes                   |
-| ------------------------ | ---------- | ----------------- | ------ | ----------------------- |
-| Add SOAR_ID              | ✅         | ✅                | ✅     | Identifier type         |
-| Add INTEGER (range)      | ✅         | ✅                | ✅     | With min/max            |
-| Add FLOAT (range)        | ✅         | ✅                | ✅     | With min/max            |
-| Add ENUMERATION          | ✅         | ✅                | ✅     | Comma-separated choices |
-| Add STRING               | ✅         | ✅                | ✅     | Text type               |
-| Edit/rename attributes   | ✅         | ✅                | ✅     | Contextual operations   |
-| Delete attributes        | ✅         | ✅                | ✅     | Recursive deletion      |
-| Comments on nodes        | ✅         | ✅                | ✅     | Attribute descriptions  |
-| Drag-and-drop reorganize | ✅         | ❌                | ❌     | Not implemented         |
-| Create linked references | ✅         | ❌                | ❌     | Not implemented         |
-| Change attribute type    | ✅         | ✅                | ✅     | With warnings           |
+| Feature                   | VisualSoar | VS Code Extension | Status | Notes                                         |
+| ------------------------- | ---------- | ----------------- | ------ | --------------------------------------------- |
+| Add SOAR_ID               | ✅         | ✅                | ✅     | Identifier type                               |
+| Add INTEGER (range)       | ✅         | ✅                | ✅     | With min/max                                  |
+| Add FLOAT (range)         | ✅         | ✅                | ✅     | With min/max                                  |
+| Add ENUMERATION           | ✅         | ✅                | ✅     | Comma-separated choices                       |
+| Add STRING                | ✅         | ✅                | ✅     | Text type                                     |
+| Edit/rename attributes    | ✅         | ✅                | ✅     | Contextual operations                         |
+| Delete attributes         | ✅         | ✅                | ✅     | Recursive deletion                            |
+| Comments on nodes         | ✅         | ✅                | ✅     | Attribute descriptions                        |
+| Drag-and-drop reorganize  | ✅         | ❌                | ❌     | Not implemented                               |
+| Create linked references  | ✅         | ✅                | ✅     | VS Code: Visual highlighting and navigation   |
+| Navigate to linked vertex | ❌         | ✅                | 🔄     | VS Code-specific: Click to navigate to target |
+| Change attribute type     | ✅         | ✅                | ✅     | With warnings                                 |
 
 ## Datamap System - Automation
 

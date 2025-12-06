@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as lspClient from './client/lspClient';
-import { DatamapTreeProvider } from './datamap/datamapTreeProvider';
+import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
 import { DatamapOperations } from './datamap/datamapOperations';
 import { LayoutTreeProvider } from './layout/layoutTreeProvider';
@@ -199,10 +199,17 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.editAttribute', async treeItem => {
+    vscode.commands.registerCommand('soar.editAttribute', async (treeItem: DatamapTreeItem) => {
       const projectContext = datamapProvider.getProjectContext();
       if (!projectContext || !treeItem?.edgeName) {
         vscode.window.showWarningMessage('No attribute selected');
+        return;
+      }
+
+      if (treeItem.edgeMetadata?.isLink) {
+        vscode.window.showInformationMessage(
+          'Linked attributes are read-only. Use "Reveal Link Owner" or "Remove Linked Attribute" instead.'
+        );
         return;
       }
 
@@ -218,10 +225,17 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.deleteAttribute', async treeItem => {
+    vscode.commands.registerCommand('soar.deleteAttribute', async (treeItem: DatamapTreeItem) => {
       const projectContext = datamapProvider.getProjectContext();
       if (!projectContext || !treeItem?.edgeName) {
         vscode.window.showWarningMessage('No attribute selected');
+        return;
+      }
+
+      if (treeItem.edgeMetadata?.isLink) {
+        vscode.window.showInformationMessage(
+          'Use "Remove Linked Attribute" to delete a link without affecting the shared vertex.'
+        );
         return;
       }
 
@@ -234,6 +248,86 @@ export function activate(context: vscode.ExtensionContext) {
         datamapProvider.refresh();
       }
     })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.addLinkedAttribute', async treeItem => {
+      const projectContext = datamapProvider.getProjectContext();
+      if (!projectContext) {
+        vscode.window.showWarningMessage('No datamap loaded');
+        return;
+      }
+
+      const vertexId = treeItem?.vertexId || projectContext.project.datamap.rootId;
+      const success = await DatamapOperations.addLinkedAttribute(projectContext, vertexId);
+      if (success) {
+        datamapProvider.refresh();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.revealLinkedOwner', async (treeItem: DatamapTreeItem) => {
+      const projectContext = datamapProvider.getProjectContext();
+      if (!projectContext || !treeItem?.edgeMetadata) {
+        vscode.window.showWarningMessage('No datamap loaded');
+        return;
+      }
+
+      if (!treeItem.edgeMetadata.isLink) {
+        vscode.window.showInformationMessage('Selected attribute is not a linked reference.');
+        return;
+      }
+
+      const ownerId = treeItem.edgeMetadata.ownerParentId;
+      if (!ownerId) {
+        vscode.window.showWarningMessage('Could not determine owner for this link.');
+        return;
+      }
+
+      datamapProvider.setDatamapRoot(ownerId);
+      vscode.window.showInformationMessage(
+        `Showing owner '${ownerId}' for '^${treeItem.edgeMetadata.edgeName}'`
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'soar.deleteLinkedAttribute',
+      async (treeItem: DatamapTreeItem) => {
+        const projectContext = datamapProvider.getProjectContext();
+        if (!projectContext || !treeItem?.edgeMetadata || !treeItem.edgeName) {
+          vscode.window.showWarningMessage('No linked attribute selected');
+          return;
+        }
+
+        if (!treeItem.edgeMetadata.isLink) {
+          vscode.window.showInformationMessage(
+            'Only linked attributes can be removed with this command.'
+          );
+          return;
+        }
+
+        const confirm = await vscode.window.showWarningMessage(
+          `Remove link '^${treeItem.edgeMetadata.edgeName}' referencing ${treeItem.edgeMetadata.targetId}?`,
+          { modal: true },
+          'Remove Link'
+        );
+
+        if (confirm !== 'Remove Link') {
+          return;
+        }
+
+        const success = await DatamapOperations.removeLinkedAttribute(
+          projectContext,
+          treeItem.edgeMetadata
+        );
+        if (success) {
+          datamapProvider.refresh();
+        }
+      }
+    )
   );
 
   // Initialize Layout Tree View

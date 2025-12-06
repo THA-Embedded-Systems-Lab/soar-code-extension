@@ -95,6 +95,25 @@ Remove an attribute and all its descendants from the datamap.
 
 **Result:** The attribute is removed and the project file is saved.
 
+### 5. **Linked Attributes** - Read-Only Edges
+
+Linked attributes are edges that reference a vertex owned by another parent
+(`^io` on substates pointing to the shared IO structure, for example).
+
+**How to identify them:**
+
+1. A link icon appears next to the attribute.
+2. The tooltip lists the owning parent and the number of inbound references.
+3. Context menus only expose link-aware commands.
+
+**Available commands:**
+
+- **Reveal Link Owner** – switches the datamap view to the owning vertex so you can edit the source definition.
+- **Remove Linked Attribute** – deletes only the edge from the current parent, leaving the shared vertex intact.
+
+Linked attributes cannot be edited or deleted through the regular commands. This
+prevents accidentally destroying shared structures.
+
 ## Context Menu Availability
 
 The context menu shows different options depending on the selected item:
@@ -104,6 +123,7 @@ The context menu shows different options depending on the selected item:
 | Root node         | Add Attribute                                   |
 | SOAR_ID attribute | Add Attribute, Edit Attribute, Delete Attribute |
 | Other attributes  | Edit Attribute, Delete Attribute                |
+| Linked attribute  | Reveal Link Owner, Remove Linked Attribute      |
 
 ## Validation
 

@@ -7,7 +7,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { VisualSoarProject, DMVertex, ProjectContext } from '../server/visualSoarProject';
+import { VisualSoarProject, DMVertex } from '../server/visualSoarProject';
+import {
+  DatamapMetadataCache,
+  DatamapProjectContext,
+  DatamapEdgeMetadata,
+} from './datamapMetadata';
 
 export class DatamapTreeItem extends vscode.TreeItem {
   constructor(
@@ -18,22 +23,31 @@ export class DatamapTreeItem extends vscode.TreeItem {
     public readonly edgeName?: string,
     public readonly comment?: string,
     public readonly ancestorIds: Set<string> = new Set(),
-    private readonly datamapIndex?: Map<string, DMVertex>
+    private readonly datamapIndex?: Map<string, DMVertex>,
+    public readonly parentVertexId?: string,
+    public readonly isImmutableView: boolean = false,
+    public readonly edgeMetadata?: DatamapEdgeMetadata
   ) {
     super(label, collapsibleState);
 
     if (vertex) {
       this.tooltip = this.buildTooltip();
       this.description = this.buildDescription();
-      // Context value determines which menu items are shown
+
+      const isLinkedEdge = this.edgeMetadata?.isLink ?? false;
+
       if (edgeName) {
-        // This is an attribute (not the root)
-        this.contextValue = `datamap-attribute-${vertex.type.toLowerCase()}`;
+        const baseContext = `datamap-attribute-${vertex.type.toLowerCase()}`;
+        this.contextValue = isLinkedEdge ? `${baseContext}-linked` : baseContext;
       } else {
-        // This is the root node
-        this.contextValue = `datamap-root`;
+        this.contextValue = 'datamap-root';
       }
-      this.iconPath = this.getIconForVertexType(vertex.type);
+
+      if (isLinkedEdge && vertex.type === 'SOAR_ID') {
+        this.iconPath = new vscode.ThemeIcon('link', new vscode.ThemeColor('charts.blue'));
+      } else {
+        this.iconPath = this.getIconForVertexType(vertex.type);
+      }
     }
   }
 
@@ -48,6 +62,14 @@ export class DatamapTreeItem extends vscode.TreeItem {
 
     if (this.comment) {
       lines.push(`Comment: ${this.comment}`);
+    }
+
+    if (this.edgeMetadata?.isLink) {
+      lines.push('🔗 Linked attribute');
+      if (this.edgeMetadata.ownerParentId) {
+        lines.push(`Owner: ${this.edgeMetadata.ownerParentId}`);
+      }
+      lines.push(`Inbound references: ${this.edgeMetadata.inboundCount}`);
     }
 
     if (this.vertex.type === 'ENUMERATION') {
@@ -67,11 +89,9 @@ export class DatamapTreeItem extends vscode.TreeItem {
     if (this.vertex.type === 'ENUMERATION') {
       return `{${this.vertex.choices.join(' | ')}}`;
     } else if (this.vertex.type === 'SOAR_ID') {
-      // For operator attributes, show the operator name if available
       if (this.edgeName === 'operator' && this.vertex.outEdges) {
         const nameEdge = this.vertex.outEdges.find(e => e.name === 'name');
         if (nameEdge) {
-          // Try to find the name vertex
           const nameVertex = this.getVertexFromContext(nameEdge.toId);
           if (nameVertex && nameVertex.type === 'ENUMERATION' && nameVertex.choices) {
             return `{${nameVertex.choices.join(' | ')}}`;
@@ -87,10 +107,7 @@ export class DatamapTreeItem extends vscode.TreeItem {
   }
 
   private getVertexFromContext(vertexId: string): DMVertex | undefined {
-    if (!this.datamapIndex) {
-      return undefined;
-    }
-    return this.datamapIndex.get(vertexId);
+    return this.datamapIndex?.get(vertexId);
   }
 
   private getIconForVertexType(type: string): vscode.ThemeIcon {
@@ -98,7 +115,6 @@ export class DatamapTreeItem extends vscode.TreeItem {
       case 'SOAR_ID':
         return new vscode.ThemeIcon('symbol-object');
       case 'INTEGER':
-        return new vscode.ThemeIcon('symbol-number');
       case 'FLOAT':
         return new vscode.ThemeIcon('symbol-number');
       case 'STRING':
@@ -119,7 +135,7 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
   readonly onDidChangeTreeData: vscode.Event<DatamapTreeItem | undefined | null | void> =
     this._onDidChangeTreeData.event;
 
-  private projectContext: ProjectContext | null = null;
+  private projectContext: DatamapProjectContext | null = null;
   private currentRootId: string | null = null; // Which datamap vertex to display (null = project root)
 
   constructor() {}
@@ -142,11 +158,14 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
       const layoutIndex = new Map<string, any>();
       this.buildLayoutIndex(project.layout, layoutIndex);
 
+      const datamapMetadata = DatamapMetadataCache.build(project, datamapIndex);
+
       this.projectContext = {
         projectFile,
         project,
         datamapIndex,
         layoutIndex,
+        datamapMetadata,
       };
 
       // Reset to project root when loading new project
@@ -163,7 +182,7 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
     this._onDidChangeTreeData.fire();
   }
 
-  getProjectContext(): ProjectContext | null {
+  getProjectContext(): DatamapProjectContext | null {
     return this.projectContext;
   }
 
@@ -260,7 +279,7 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
       let nodeName = rootId;
       if (this.currentRootId) {
         // Find layout node with this dmId
-        for (const [nodeId, node] of this.projectContext.layoutIndex.entries()) {
+        for (const [, node] of this.projectContext.layoutIndex.entries()) {
           if ('dmId' in node && node.dmId === this.currentRootId) {
             nodeName = node.name + ' (substate)';
             break;
@@ -280,7 +299,9 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
           undefined,
           undefined,
           ancestorIds,
-          this.projectContext.datamapIndex
+          this.projectContext.datamapIndex,
+          undefined,
+          false
         ),
       ]);
     }
@@ -291,6 +312,7 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
     }
 
     const children: DatamapTreeItem[] = [];
+    const metadataHelper = this.projectContext.datamapMetadata;
 
     if (element.vertex.outEdges) {
       for (const edge of element.vertex.outEdges) {
@@ -298,6 +320,9 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
         if (!targetVertex) {
           continue;
         }
+
+        const edgeMetadata = metadataHelper.getEdgeMetadata(element.vertexId, edge.name, edge.toId);
+        const isLinkedEdge = edgeMetadata?.isLink ?? false;
 
         // Check for cycles - if the target is already an ancestor, don't expand it
         const isCycle = element.ancestorIds.has(edge.toId);
@@ -331,7 +356,10 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
             edge.name,
             edge.comment,
             childAncestors,
-            this.projectContext.datamapIndex
+            this.projectContext.datamapIndex,
+            element.vertexId,
+            isLinkedEdge || element.isImmutableView,
+            edgeMetadata
           )
         );
       }

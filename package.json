@@ -107,6 +107,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "soar.addLinkedAttribute",
+        "title": "Add Linked Attribute",
+        "category": "Soar",
+        "icon": "$(link)"
+      },
+      {
         "command": "soar.editAttribute",
         "title": "Edit Attribute",
         "category": "Soar",
@@ -117,6 +123,18 @@
         "title": "Delete Attribute",
         "category": "Soar",
         "icon": "$(trash)"
+      },
+      {
+        "command": "soar.revealLinkedOwner",
+        "title": "Reveal Link Owner",
+        "category": "Soar",
+        "icon": "$(compass)"
+      },
+      {
+        "command": "soar.deleteLinkedAttribute",
+        "title": "Remove Linked Attribute",
+        "category": "Soar",
+        "icon": "$(debug-disconnect)"
       },
       {
         "command": "soar.refreshLayout",
@@ -251,13 +269,28 @@
         },
         {
           "command": "soar.editAttribute",
-          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-/",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-(soar_id|enumeration|integer|float|string|foreign|java_file)$/",
           "group": "1_modification@2"
         },
         {
           "command": "soar.deleteAttribute",
-          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-/",
-          "group": "1_modification@3"
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-(soar_id|enumeration|integer|float|string|foreign|java_file)$/",
+          "group": "2_modify@2"
+        },
+        {
+          "command": "soar.addLinkedAttribute",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-(root|attribute-soar_id)$/",
+          "group": "1_add@2"
+        },
+        {
+          "command": "soar.revealLinkedOwner",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-.*-linked$/",
+          "group": "2_modify@1"
+        },
+        {
+          "command": "soar.deleteLinkedAttribute",
+          "when": "view == soarDatamap && viewItem =~ /^datamap-attribute-.*-linked$/",
+          "group": "2_modify@2"
         },
         {
           "command": "soar.addOperator",
