@@ -46,6 +46,24 @@ suite('Diagnostics Test Suite', () => {
     assert.ok(hasUnboundDiagnostic, 'Should have diagnostic about unbound variables');
   });
 
+  test('Should report unbound variable diagnostics for disconnected identifier blocks', async function () {
+    this.timeout(10000);
+
+    const testUri = vscode.Uri.file(
+      path.join(testProjectPath, 'test-unbound-variable-smart-sander.soar')
+    );
+
+    const diagnostics = await TestHelper.waitForDiagnostics(testUri, 5000);
+
+    assert.ok(diagnostics.length > 0, 'Should have diagnostics for SmartSander example');
+
+    const hasSmartSanderUnbound = diagnostics.some(d =>
+      d.message.includes('Variable <t> is not bound')
+    );
+
+    assert.ok(hasSmartSanderUnbound, 'Should flag <t> as unbound in SmartSander example');
+  });
+
   test('Should highlight unbound variable at correct position', async function () {
     this.timeout(10000);
 

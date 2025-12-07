@@ -248,11 +248,14 @@ export class SoarParser {
     // Pattern needs to handle both: (type <var> ^attr ...) and (<var> ^attr ...)
     // Capture everything from the variable to the closing paren
     const contextAttributeRegex =
-      /\((?:[a-zA-Z][a-zA-Z0-9_-]*\s+)?<([a-zA-Z][a-zA-Z0-9_-]*)>\s+([^)]+)\)/g;
+      /\(\s*(?:[a-zA-Z][a-zA-Z0-9_-]*\s+)?<([a-zA-Z][a-zA-Z0-9_-]*)>\s+([^)]+)\)/g;
     while ((match = contextAttributeRegex.exec(cleanBody)) !== null) {
       const parentId = match[1]; // The identifier (without < >)
+      const fullMatch = match[0];
       const attributesBlock = match[2];
-      const blockStartOffset = match.index + match[1].length + 1; // Position after "(<id> "
+      const relativeAttributesOffset = fullMatch.indexOf(attributesBlock);
+      const blockStartOffset =
+        match.index + (relativeAttributesOffset >= 0 ? relativeAttributesOffset : 0);
 
       // Parse each attribute within this context
       // Note: An attribute can have multiple values on the same line: ^object <a> <b> <c>

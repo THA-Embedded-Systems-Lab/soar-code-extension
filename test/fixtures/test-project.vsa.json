@@ -347,6 +347,12 @@
       },
       {
         "type": "FILE",
+        "id": "17",
+        "name": "test-unbound-variable-smart-sander",
+        "file": "test-unbound-variable-smart-sander.soar"
+      },
+      {
+        "type": "FILE",
         "id": "12",
         "name": "test-definition-attribute",
         "file": "test-definition-attribute.soar"

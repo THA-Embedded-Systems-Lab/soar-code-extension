@@ -1,0 +1,11 @@
+sp {SmartSander*propose*decompose
+   (state <s> ^name SmartSander
+      ^task <task>
+      ^item <item>)
+   (<t> ^item <item>
+      ^process <process>
+      ^material <material>)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name decompose)
+}
