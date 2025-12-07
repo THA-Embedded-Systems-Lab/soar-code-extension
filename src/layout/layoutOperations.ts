@@ -18,11 +18,18 @@ import {
   hasChildren,
 } from '../server/visualSoarProject';
 import { SoarTemplates } from './soarTemplates';
+import { SourceScriptManager } from './sourceScriptManager';
 
 export interface DeleteResult {
   success: boolean;
   filesDeleted?: string[];
   foldersDeleted?: string[];
+}
+
+interface SourceReference {
+  absolutePath: string;
+  folderPath: string;
+  relativePath: string;
 }
 
 export class LayoutOperations {
@@ -126,6 +133,9 @@ export class LayoutOperations {
     // Create file
     await fs.promises.writeFile(fullPath, content, 'utf-8');
 
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
+
     // Save project
     await this.saveProject(projectContext);
 
@@ -207,6 +217,9 @@ export class LayoutOperations {
 
     // Create file
     await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, filePath);
 
     // Save project
     await this.saveProject(projectContext);
@@ -358,6 +371,7 @@ export class LayoutOperations {
     const workspaceFolder = path.dirname(projectContext.projectFile);
     const filesToDelete: string[] = [];
     const foldersToDelete: string[] = [];
+    const sourceReferences: SourceReference[] = [];
 
     // Get the parent's folder path to properly resolve file paths
     const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
@@ -366,8 +380,14 @@ export class LayoutOperations {
       workspaceFolder,
       filesToDelete,
       foldersToDelete,
-      parentFolderPath
+      parentFolderPath,
+      sourceReferences
     );
+
+    const sourceReferenceMap = new Map<string, SourceReference>();
+    for (const reference of sourceReferences) {
+      sourceReferenceMap.set(path.normalize(reference.absolutePath), reference);
+    }
 
     // Show confirmation dialog unless skipped
     if (!skipConfirmation) {
@@ -388,15 +408,24 @@ export class LayoutOperations {
 
     // Delete files first
     for (const file of filesToDelete) {
+      const normalizedFile = path.normalize(file);
+      const reference = sourceReferenceMap.get(normalizedFile);
+      let removedOrMissing = false;
       try {
         if (fs.existsSync(file)) {
           await fs.promises.unlink(file);
         }
+        removedOrMissing = true;
       } catch (error: any) {
         console.error(`Failed to delete file ${file}:`, error);
         if (skipConfirmation) {
           return { success: false };
         }
+      }
+
+      if (removedOrMissing && reference) {
+        await SourceScriptManager.removeReference(reference.folderPath, reference.relativePath);
+        sourceReferenceMap.delete(normalizedFile);
       }
     }
 
@@ -494,7 +523,8 @@ export class LayoutOperations {
     workspaceFolder: string,
     files: string[],
     folders: string[],
-    parentFolderPath: string = ''
+    parentFolderPath: string = '',
+    sourceRefs?: SourceReference[]
   ): void {
     // Determine the current folder path for this node
     let currentFolderPath = parentFolderPath;
@@ -506,6 +536,15 @@ export class LayoutOperations {
     if ('file' in node && node.file) {
       const fullPath = path.join(workspaceFolder, currentFolderPath, node.file);
       files.push(fullPath);
+
+      if (sourceRefs && node.file.toLowerCase().endsWith('.soar')) {
+        const folderAbsolute = this.resolveFolderAbsolute(workspaceFolder, currentFolderPath);
+        sourceRefs.push({
+          absolutePath: fullPath,
+          folderPath: folderAbsolute,
+          relativePath: node.file,
+        });
+      }
     }
 
     // Add this node's folder if it has one (and it's a HIGH_LEVEL_OPERATOR)
@@ -527,7 +566,14 @@ export class LayoutOperations {
     // Recursively collect from children
     if (hasChildren(node) && node.children) {
       for (const child of node.children) {
-        this.collectFilesAndFolders(child, workspaceFolder, files, folders, currentFolderPath);
+        this.collectFilesAndFolders(
+          child,
+          workspaceFolder,
+          files,
+          folders,
+          currentFolderPath,
+          sourceRefs
+        );
       }
     }
   }
@@ -812,6 +858,9 @@ export class LayoutOperations {
     const content = SoarTemplates.generateProductionFile(fileName);
     await fs.promises.writeFile(fullPath, content, 'utf-8');
 
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, filePath);
+
     await this.saveProject(projectContext);
 
     return { success: true, nodeId: newNodeId };
@@ -892,6 +941,9 @@ export class LayoutOperations {
 
     // Create file
     await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
 
     // Save project
     await this.saveProject(projectContext);
@@ -1160,6 +1212,19 @@ export class LayoutOperations {
     }
 
     return path.join(...pathParts);
+  }
+
+  /**
+   * Helper: Resolve an absolute folder path from workspace + relative folder segments
+   */
+  private static resolveFolderAbsolute(
+    workspaceFolder: string,
+    relativeFolderPath: string
+  ): string {
+    if (!relativeFolderPath) {
+      return workspaceFolder;
+    }
+    return path.join(workspaceFolder, relativeFolderPath);
   }
 
   /**

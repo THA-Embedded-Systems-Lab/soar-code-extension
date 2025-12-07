@@ -10,6 +10,7 @@ import { LayoutOperations } from './layout/layoutOperations';
 import { ProjectSync } from './layout/projectSync';
 import { SoarParser } from './server/soarParser';
 import { ProjectManager } from './projectManager';
+import { SourceScriptAnalyzer } from './server/sourceScriptParser';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -18,6 +19,7 @@ let datamapProviderGlobal: DatamapTreeProvider;
 let layoutProviderGlobal: LayoutTreeProvider;
 let parser: SoarParser;
 let projectManager: ProjectManager;
+let sourceScriptAnalyzer: SourceScriptAnalyzer;
 
 /**
  * Get the project manager instance (for testing)
@@ -40,6 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize validator and parser
   validator = new DatamapValidator();
   parser = new SoarParser();
+  sourceScriptAnalyzer = new SourceScriptAnalyzer();
   diagnosticsCollection = vscode.languages.createDiagnosticCollection('soar-datamap');
   context.subscriptions.push(diagnosticsCollection);
 
@@ -698,6 +701,31 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
   try {
     // Parse the document
     const documentText = document.getText();
+
+    if (isSourceScript(document.fileName)) {
+      const sourceDiagnostics = sourceScriptAnalyzer.analyze(documentText, document.fileName);
+      const diagnostics = sourceDiagnostics.map(diag => {
+        const range = new vscode.Range(
+          diag.range.start.line,
+          diag.range.start.character,
+          diag.range.end.line,
+          diag.range.end.character
+        );
+        const vscodeDiag = new vscode.Diagnostic(
+          range,
+          diag.message,
+          diag.severity === 'error'
+            ? vscode.DiagnosticSeverity.Error
+            : vscode.DiagnosticSeverity.Warning
+        );
+        vscodeDiag.source = 'soar-source-script';
+        return vscodeDiag;
+      });
+
+      diagnosticsCollection.set(document.uri, diagnostics);
+      return;
+    }
+
     const soarDoc = parser.parse(document.uri.toString(), documentText, document.version);
 
     // Validate against datamap
@@ -719,6 +747,10 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
   } catch (error: any) {
     console.error('Validation error:', error);
   }
+}
+
+function isSourceScript(filePath: string): boolean {
+  return filePath.toLowerCase().endsWith('_source.soar');
 }
 
 /**

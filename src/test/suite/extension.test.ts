@@ -836,6 +836,15 @@ suite('Operator Creation Test Suite', () => {
       const simpleOpFile = path.join(tempDir, agentName, agentName, 'sub-operator-only.soar');
       assert.ok(fs.existsSync(simpleOpFile), 'Operator file should exist');
 
+      const rootSourceFile = path.join(tempDir, agentName, agentName, `${agentName}_source.soar`);
+      assert.ok(fs.existsSync(rootSourceFile), 'Root source file should exist');
+
+      let rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        rootSourceContent.includes('source sub-operator-only.soar'),
+        'Root source file should reference sub-operator-only'
+      );
+
       // Verify file content
       const simpleOpContent = fs.readFileSync(simpleOpFile, 'utf-8');
       assert.ok(simpleOpContent.includes('propose*sub-operator-only'), 'Should have propose rule');
@@ -928,6 +937,16 @@ suite('Operator Creation Test Suite', () => {
       const sourceFile = path.join(highLevelFolder, 'sub-operator-with-child_source.soar');
       assert.ok(fs.existsSync(sourceFile), 'Source file should exist');
 
+      const sourceFileContent = fs.readFileSync(sourceFile, 'utf-8');
+      assert.ok(
+        sourceFileContent.includes('source elaborations.soar'),
+        'High-level source file should reference elaborations.soar'
+      );
+      assert.ok(
+        sourceFileContent.includes('source child-operator.soar'),
+        'High-level source file should reference child-operator.soar'
+      );
+
       // Verify child operator file
       const childOpFile = path.join(highLevelFolder, 'child-operator.soar');
       assert.ok(fs.existsSync(childOpFile), 'Child operator file should exist');
@@ -1002,6 +1021,12 @@ suite('Operator Creation Test Suite', () => {
         2,
         'High-level operator should have 2 children: elaborations and child-operator'
       );
+
+      rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        rootSourceContent.includes('source sub-operator-with-child.soar'),
+        'Root source file should reference sub-operator-with-child'
+      );
     } finally {
       // Clean up
       if (fs.existsSync(tempDir)) {
@@ -1036,6 +1061,7 @@ suite('Operator Creation Test Suite', () => {
       const initialChildCount = projectContext.project.layout.children?.length || 0;
       const initialVertexCount = projectContext.project.datamap.vertices.length;
       const projectPath = path.join(tempDir, agentName, agentName);
+      const rootSourceFile = path.join(projectPath, `${agentName}_source.soar`);
 
       // Get list of initial files
       const getFilesRecursive = (dir: string): string[] => {
@@ -1094,6 +1120,13 @@ suite('Operator Creation Test Suite', () => {
       const operatorFile = path.join(projectPath, 'test-operator.soar');
       assert.ok(fs.existsSync(operatorFile), 'Operator file should exist');
 
+      assert.ok(fs.existsSync(rootSourceFile), 'Root source file should exist');
+      let rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        rootSourceContent.includes('source test-operator.soar'),
+        'Root source file should reference test-operator before deletion'
+      );
+
       // Find the operator node
       const operatorNode = projectContext.project.layout.children?.find(
         (c: any) => c.name === 'test-operator'
@@ -1146,6 +1179,12 @@ suite('Operator Creation Test Suite', () => {
 
       // Verify operator file was deleted
       assert.ok(!fs.existsSync(operatorFile), 'Operator file should be deleted');
+
+      rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        !rootSourceContent.includes('source test-operator.soar'),
+        'Root source file should no longer reference test-operator'
+      );
 
       // Verify operator is not in layout
       const deletedOpNode = projectContext.project.layout.children?.find(
@@ -1219,6 +1258,14 @@ suite('Operator Creation Test Suite', () => {
       const helperFile = path.join(workspaceFolder, folderName, 'helper.soar');
       assert.ok(fs.existsSync(helperFile), 'Helper file should exist on disk');
 
+      const folderSourceFile = path.join(workspaceFolder, folderName, `${folderName}_source.soar`);
+      assert.ok(fs.existsSync(folderSourceFile), 'Folder source file should exist');
+      const folderSourceContent = fs.readFileSync(folderSourceFile, 'utf-8');
+      assert.ok(
+        folderSourceContent.includes('source helper.soar'),
+        'Folder source file should reference helper.soar'
+      );
+
       projectContext = await projectLoader.loadProject(projectFilePath);
       const updatedFolder: any = projectContext.layoutIndex.get(folderNodeId);
       assert.ok(updatedFolder, 'Folder node should exist after reload');
@@ -1260,6 +1307,7 @@ suite('Operator Creation Test Suite', () => {
       const initialChildCount = projectContext.project.layout.children?.length || 0;
       const initialVertexCount = projectContext.project.datamap.vertices.length;
       const projectPath = path.join(tempDir, agentName, agentName);
+      const rootSourceFile = path.join(projectPath, `${agentName}_source.soar`);
 
       // Get files and folders recursively
       const getStructure = (dir: string) => {
@@ -1297,6 +1345,13 @@ suite('Operator Creation Test Suite', () => {
         'parent-operator'
       );
       assert.ok(parentResult.success, 'Should add parent operator');
+
+      assert.ok(fs.existsSync(rootSourceFile), 'Root source file should exist');
+      let rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        rootSourceContent.includes('source parent-operator.soar'),
+        'Root source file should reference parent-operator'
+      );
 
       projectContext = await projectLoader.loadProject(projectFilePath);
 
@@ -1350,8 +1405,19 @@ suite('Operator Creation Test Suite', () => {
       const childFile = path.join(parentFolder, 'child-operator.soar');
 
       assert.ok(fs.existsSync(parentSourceFile), 'Parent source file should exist');
+      const parentSourceContent = fs.readFileSync(parentSourceFile, 'utf-8');
+      assert.ok(
+        parentSourceContent.includes('source elaborations.soar'),
+        'Parent source file should reference elaborations.soar'
+      );
       assert.ok(fs.existsSync(elabFile), 'Elaborations file should exist');
       assert.ok(fs.existsSync(childFile), 'Child operator file should exist');
+
+      const updatedParentSourceContent = fs.readFileSync(parentSourceFile, 'utf-8');
+      assert.ok(
+        updatedParentSourceContent.includes('source child-operator.soar'),
+        'Parent source file should reference child-operator.soar'
+      );
 
       // Find updated parent node
       const parentNodeUpdated = projectContext.project.layout.children?.find(
@@ -1456,6 +1522,12 @@ suite('Operator Creation Test Suite', () => {
         const deletedVertex = projectContext.datamapIndex.get(parentNodeUpdated.dmId);
         assert.ok(!deletedVertex, 'Substate vertex should be removed from datamap');
       }
+
+      rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
+      assert.ok(
+        !rootSourceContent.includes('source parent-operator.soar'),
+        'Root source file should no longer reference parent-operator'
+      );
     } finally {
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
