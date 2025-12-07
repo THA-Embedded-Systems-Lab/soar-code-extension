@@ -96,6 +96,33 @@ suite('Definition Test Suite', () => {
     }
   });
 
+  test('Should open files from _source scripts', async function () {
+    this.timeout(10000);
+
+    const sourceUri = vscode.Uri.file(path.join(testProjectPath, 'source-definition_source.soar'));
+
+    const document = await vscode.workspace.openTextDocument(sourceUri);
+    await vscode.window.showTextDocument(document);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const position = new vscode.Position(1, 10);
+
+    const locations = await vscode.commands.executeCommand<
+      vscode.Location[] | vscode.LocationLink[]
+    >('vscode.executeDefinitionProvider', sourceUri, position);
+
+    assert.ok(locations && locations.length > 0, 'Should return definition locations');
+
+    const location = locations![0];
+    const uri = 'targetUri' in location ? location.targetUri : location.uri;
+
+    assert.strictEqual(
+      uri.fsPath,
+      path.join(testProjectPath, 'test_operator.soar'),
+      'Should navigate to referenced file'
+    );
+  });
+
   test('Should navigate to variable binding', async function () {
     this.timeout(10000);
 

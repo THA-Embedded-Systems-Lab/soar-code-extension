@@ -17,6 +17,15 @@ export interface SourceScriptDiagnostic {
   severity: 'error' | 'warning';
 }
 
+export interface SourceScriptPosition {
+  line: number;
+  character: number;
+}
+
+export interface SourceDefinitionResult {
+  targetPath: string;
+}
+
 export class SourceScriptParser {
   parse(text: string): SourceCommand[] {
     const commands: SourceCommand[] = [];
@@ -105,33 +114,49 @@ export class SourceScriptAnalyzer {
     return diagnostics;
   }
 
+  resolveDefinition(
+    text: string,
+    scriptFilePath: string,
+    position: SourceScriptPosition
+  ): SourceDefinitionResult | null {
+    const commands = this.parser.parse(text);
+    const directoryStack: string[] = [path.dirname(scriptFilePath)];
+
+    for (const command of commands) {
+      switch (command.type) {
+        case 'pushd':
+          this.processPushd(command, directoryStack);
+          break;
+        case 'popd':
+          this.processPopd(command, directoryStack);
+          break;
+        case 'source': {
+          const evaluation = this.evaluateSource(command, directoryStack);
+          if (
+            command.argumentRange &&
+            this.isPositionInRange(position, command.argumentRange) &&
+            evaluation?.target &&
+            !evaluation.diagnostic
+          ) {
+            return { targetPath: evaluation.target };
+          }
+          break;
+        }
+      }
+    }
+
+    return null;
+  }
+
   private handlePushd(
     command: SourceCommand,
     directoryStack: string[],
     diagnostics: SourceScriptDiagnostic[]
   ): void {
-    if (!command.argument || command.argument.length === 0) {
-      diagnostics.push({
-        message: 'pushd requires a folder argument',
-        range: command.range,
-        severity: 'error',
-      });
-      return;
+    const diagnostic = this.processPushd(command, directoryStack);
+    if (diagnostic) {
+      diagnostics.push(diagnostic);
     }
-
-    const currentDir = directoryStack[directoryStack.length - 1];
-    const target = this.resolvePath(currentDir, command.argument);
-
-    if (!this.directoryExists(target)) {
-      diagnostics.push({
-        message: `Folder not found: ${path.basename(target)}`,
-        range: command.argumentRange || command.range,
-        severity: 'error',
-      });
-      return;
-    }
-
-    directoryStack.push(target);
   }
 
   private handlePopd(
@@ -139,16 +164,10 @@ export class SourceScriptAnalyzer {
     directoryStack: string[],
     diagnostics: SourceScriptDiagnostic[]
   ): void {
-    if (directoryStack.length <= 1) {
-      diagnostics.push({
-        message: 'popd without matching pushd',
-        range: command.range,
-        severity: 'error',
-      });
-      return;
+    const diagnostic = this.processPopd(command, directoryStack);
+    if (diagnostic) {
+      diagnostics.push(diagnostic);
     }
-
-    directoryStack.pop();
   }
 
   private handleSource(
@@ -156,25 +175,108 @@ export class SourceScriptAnalyzer {
     directoryStack: string[],
     diagnostics: SourceScriptDiagnostic[]
   ): void {
+    const evaluation = this.evaluateSource(command, directoryStack);
+    if (evaluation?.diagnostic) {
+      diagnostics.push(evaluation.diagnostic);
+    }
+  }
+
+  private processPushd(
+    command: SourceCommand,
+    directoryStack: string[]
+  ): SourceScriptDiagnostic | null {
     if (!command.argument || command.argument.length === 0) {
-      diagnostics.push({
-        message: 'source requires a file argument',
+      return {
+        message: 'pushd requires a folder argument',
         range: command.range,
         severity: 'error',
-      });
-      return;
+      };
+    }
+
+    const currentDir = directoryStack[directoryStack.length - 1];
+    const target = this.resolvePath(currentDir, command.argument);
+
+    if (!this.directoryExists(target)) {
+      return {
+        message: `Folder not found: ${path.basename(target)}`,
+        range: command.argumentRange || command.range,
+        severity: 'error',
+      };
+    }
+
+    directoryStack.push(target);
+    return null;
+  }
+
+  private processPopd(
+    command: SourceCommand,
+    directoryStack: string[]
+  ): SourceScriptDiagnostic | null {
+    if (directoryStack.length <= 1) {
+      return {
+        message: 'popd without matching pushd',
+        range: command.range,
+        severity: 'error',
+      };
+    }
+
+    directoryStack.pop();
+    return null;
+  }
+
+  private evaluateSource(
+    command: SourceCommand,
+    directoryStack: string[]
+  ): { target?: string; diagnostic?: SourceScriptDiagnostic } | null {
+    if (!command.argument || command.argument.length === 0) {
+      return {
+        diagnostic: {
+          message: 'source requires a file argument',
+          range: command.range,
+          severity: 'error',
+        },
+      };
     }
 
     const currentDir = directoryStack[directoryStack.length - 1];
     const target = this.resolvePath(currentDir, command.argument);
 
     if (!this.fileExists(target)) {
-      diagnostics.push({
-        message: `File not found: ${path.basename(target)}`,
-        range: command.argumentRange || command.range,
-        severity: 'error',
-      });
+      return {
+        target,
+        diagnostic: {
+          message: `File not found: ${path.basename(target)}`,
+          range: command.argumentRange || command.range,
+          severity: 'error',
+        },
+      };
     }
+
+    return { target };
+  }
+
+  private isPositionInRange(position: SourceScriptPosition, range: Range): boolean {
+    if (position.line < range.start.line || position.line > range.end.line) {
+      return false;
+    }
+
+    if (range.start.line === range.end.line) {
+      return (
+        position.line === range.start.line &&
+        position.character >= range.start.character &&
+        position.character < range.end.character
+      );
+    }
+
+    if (position.line === range.start.line) {
+      return position.character >= range.start.character;
+    }
+
+    if (position.line === range.end.line) {
+      return position.character < range.end.character;
+    }
+
+    return true;
   }
 
   private resolvePath(baseDir: string, argument: string): string {

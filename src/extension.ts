@@ -680,6 +680,29 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider('soar', {
+      provideDefinition(document, position) {
+        if (!isSourceScript(document.fileName)) {
+          return null;
+        }
+
+        const result = sourceScriptAnalyzer.resolveDefinition(
+          document.getText(),
+          document.fileName,
+          { line: position.line, character: position.character }
+        );
+
+        if (!result) {
+          return null;
+        }
+
+        const targetUri = vscode.Uri.file(result.targetPath);
+        return new vscode.Location(targetUri, new vscode.Position(0, 0));
+      },
+    })
+  );
+
   // Return API for testing
   return {
     getProjectManager: () => projectManager,
