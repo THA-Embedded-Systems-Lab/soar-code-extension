@@ -214,5 +214,14 @@ export function hasChildren(
   | HighLevelFileOperatorNode
   | HighLevelImpasseOperatorNode
   | OperatorRootNode {
-  return 'children' in node && node.children !== undefined;
+  switch (node.type) {
+    case 'FOLDER':
+    case 'HIGH_LEVEL_OPERATOR':
+    case 'HIGH_LEVEL_FILE_OPERATOR':
+    case 'HIGH_LEVEL_IMPASSE_OPERATOR':
+    case 'OPERATOR_ROOT':
+      return true;
+    default:
+      return false;
+  }
 }

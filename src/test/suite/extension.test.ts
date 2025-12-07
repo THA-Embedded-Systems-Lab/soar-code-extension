@@ -1165,6 +1165,75 @@ suite('Operator Creation Test Suite', () => {
     }
   });
 
+  test('Should add files to folder-like nodes even without children arrays', async function () {
+    this.timeout(15000);
+
+    const { ProjectCreator } = await import('../../layout/projectCreator');
+    const { ProjectLoader } = await import('../../server/projectLoader');
+    const { LayoutOperations } = await import('../../layout/layoutOperations');
+    const fs = await import('fs');
+    const os = await import('os');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soar-add-file-'));
+    const agentName = 'AddFileAgent';
+
+    try {
+      const projectFilePath = await ProjectCreator.createProject({
+        directory: tempDir,
+        agentName,
+      });
+
+      const projectLoader = new ProjectLoader();
+      let projectContext = await projectLoader.loadProject(projectFilePath);
+
+      const folderNodeId = 'folder-without-children';
+      const folderName = 'folder-without-children';
+      const folderNode: any = {
+        type: 'FOLDER',
+        id: folderNodeId,
+        name: folderName,
+        folder: folderName,
+      };
+
+      if (!projectContext.project.layout.children) {
+        projectContext.project.layout.children = [];
+      }
+      projectContext.project.layout.children.push(folderNode);
+      projectContext.layoutIndex.set(folderNodeId, folderNode);
+
+      const workspaceFolder = path.dirname(projectContext.projectFile);
+      await fs.promises.mkdir(path.join(workspaceFolder, folderName), { recursive: true });
+
+      await projectLoader.saveProject(projectContext);
+      projectContext = await projectLoader.loadProject(projectFilePath);
+
+      const result = await LayoutOperations.addFileProgrammatic(
+        projectContext,
+        folderNodeId,
+        'helper'
+      );
+
+      assert.ok(result.success, 'Should successfully add a file to folder-like nodes');
+      assert.ok(result.nodeId, 'Should return the new file node ID');
+
+      const helperFile = path.join(workspaceFolder, folderName, 'helper.soar');
+      assert.ok(fs.existsSync(helperFile), 'Helper file should exist on disk');
+
+      projectContext = await projectLoader.loadProject(projectFilePath);
+      const updatedFolder: any = projectContext.layoutIndex.get(folderNodeId);
+      assert.ok(updatedFolder, 'Folder node should exist after reload');
+      assert.ok(
+        updatedFolder.children && updatedFolder.children.length === 1,
+        'Folder should contain the new file child'
+      );
+      assert.strictEqual(updatedFolder.children?.[0].name, 'helper');
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
   test('Should delete nested operator-on-operator and restore initial state', async function () {
     this.timeout(15000);
 

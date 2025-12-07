@@ -20,7 +20,7 @@ export class LayoutTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly node: LayoutNode,
     public readonly projectContext: ProjectContext,
-    private readonly parentPath: string = '',
+    public readonly parentPath: string = '',
     private readonly currentDatamapId: string | null = null
   ) {
     // Check if this node's datamap is currently being viewed
@@ -115,6 +115,13 @@ export class LayoutTreeItem extends vscode.TreeItem {
       default:
         return new vscode.ThemeIcon('symbol-misc');
     }
+  }
+
+  public getFolderPath(): string {
+    if ('folder' in this.node && this.node.folder) {
+      return this.parentPath ? path.join(this.parentPath, this.node.folder) : this.node.folder;
+    }
+    return this.parentPath;
   }
 }
 

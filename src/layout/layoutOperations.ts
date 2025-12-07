@@ -141,8 +141,13 @@ export class LayoutOperations {
   /**
    * Add a new file to a folder
    */
-  static async addFile(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
-    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+  static async addFile(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    parentNodeOverride?: LayoutNode,
+    folderPathOverride?: string
+  ): Promise<boolean> {
+    const parentNode = parentNodeOverride ?? projectContext.layoutIndex.get(parentNodeId);
 
     if (!parentNode || !hasChildren(parentNode)) {
       vscode.window.showErrorMessage('Can only add files to folder nodes');
@@ -170,7 +175,8 @@ export class LayoutOperations {
 
     // Determine file path (relative to parent)
     const workspaceFolder = path.dirname(projectContext.projectFile);
-    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const parentFolderPath =
+      folderPathOverride ?? this.getNodeFolderPath(projectContext, parentNodeId, parentNode);
     const filePath = `${fileName}.soar`; // Just the filename, relative to parent
     const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
 
@@ -763,6 +769,55 @@ export class LayoutOperations {
   }
 
   /**
+   * Add a file programmatically (for testing)
+   */
+  static async addFileProgrammatic(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    fileName: string
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode || !hasChildren(parentNode)) {
+      return { success: false };
+    }
+
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(fileName)) {
+      return { success: false };
+    }
+
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const filePath = `${fileName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
+
+    if (fs.existsSync(fullPath)) {
+      return { success: false };
+    }
+
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: FileNode = {
+      type: 'FILE',
+      id: newNodeId,
+      name: fileName,
+      file: filePath,
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    const content = SoarTemplates.generateProductionFile(fileName);
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    await this.saveProject(projectContext);
+
+    return { success: true, nodeId: newNodeId };
+  }
+
+  /**
    * Add an operator programmatically (for testing)
    * Same as addOperator but takes operatorName as parameter instead of prompting
    */
@@ -1080,15 +1135,18 @@ export class LayoutOperations {
   /**
    * Helper: Get the full folder path for a node by traversing up to the root
    */
-  private static getNodeFolderPath(projectContext: ProjectContext, nodeId: string): string {
+  private static getNodeFolderPath(
+    projectContext: ProjectContext,
+    nodeId: string,
+    nodeOverride?: LayoutNode
+  ): string {
     const pathParts: string[] = [];
     let currentId: string | null = nodeId;
+    let currentNode: LayoutNode | undefined =
+      nodeOverride ?? projectContext.layoutIndex.get(nodeId);
 
-    while (currentId) {
-      const node = projectContext.layoutIndex.get(currentId);
-      if (!node) {
-        break;
-      }
+    while (currentId && currentNode) {
+      const node = currentNode;
 
       // Add this node's folder to the path
       if ('folder' in node && node.folder) {
@@ -1096,7 +1154,9 @@ export class LayoutOperations {
       }
 
       // Move to parent
-      currentId = this.findParentId(projectContext, currentId);
+      const parentId = this.findParentId(projectContext, currentId);
+      currentId = parentId;
+      currentNode = parentId ? projectContext.layoutIndex.get(parentId) : undefined;
     }
 
     return path.join(...pathParts);

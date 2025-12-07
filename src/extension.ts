@@ -5,7 +5,7 @@ import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
 import { DatamapOperations } from './datamap/datamapOperations';
-import { LayoutTreeProvider } from './layout/layoutTreeProvider';
+import { LayoutTreeProvider, LayoutTreeItem } from './layout/layoutTreeProvider';
 import { LayoutOperations } from './layout/layoutOperations';
 import { ProjectSync } from './layout/projectSync';
 import { SoarParser } from './server/soarParser';
@@ -385,7 +385,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.addFile', async treeItem => {
+    vscode.commands.registerCommand('soar.addFile', async (treeItem?: LayoutTreeItem) => {
       const projectContext = layoutProvider.getProjectContext();
       if (!projectContext) {
         vscode.window.showWarningMessage('No project loaded');
@@ -393,7 +393,13 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
-      const success = await LayoutOperations.addFile(projectContext, nodeId);
+      const folderPath = treeItem?.getFolderPath();
+      const success = await LayoutOperations.addFile(
+        projectContext,
+        nodeId,
+        treeItem?.node,
+        folderPath
+      );
       if (success) {
         layoutProvider.refresh();
       }
