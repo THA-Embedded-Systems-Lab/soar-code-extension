@@ -21,3 +21,6 @@ INSTRUCTIONS.md
 GET-STARTED.md
 REFERENCES.md
 BOOTSTRAP-COMPLETE.md
+
+# Keep schema file for validation
+!dist/project.schema.json

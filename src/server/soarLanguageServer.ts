@@ -88,6 +88,28 @@ connection.onInitialized(async () => {
       if (projectFile) {
         currentProject = await projectLoader.loadProject(projectFile);
         connection.console.log(`Loaded project on initialization: ${projectFile}`);
+
+        // Report validation warnings if any
+        if (currentProject.validationErrors && currentProject.validationErrors.length > 0) {
+          const diagnostics: Diagnostic[] = currentProject.validationErrors.map(error => ({
+            severity: DiagnosticSeverity.Warning,
+            range: {
+              start: { line: 0, character: 0 },
+              end: { line: 0, character: 0 },
+            },
+            message: `Project validation: ${error.path} - ${error.message}`,
+            source: 'soar-project-validator',
+          }));
+
+          connection.sendDiagnostics({
+            uri: `file://${projectFile}`,
+            diagnostics,
+          });
+
+          connection.console.warn(
+            `Project validation found ${currentProject.validationErrors.length} warning(s)`
+          );
+        }
       }
     }
   } catch (error: any) {
@@ -101,6 +123,34 @@ connection.onNotification('soar/projectChanged', async (params: { projectFile: s
     connection.console.log(`Loading project from notification: ${params.projectFile}`);
     currentProject = await projectLoader.loadProject(params.projectFile);
     connection.console.log(`Successfully loaded project: ${params.projectFile}`);
+
+    // Report validation warnings if any
+    if (currentProject.validationErrors && currentProject.validationErrors.length > 0) {
+      const diagnostics: Diagnostic[] = currentProject.validationErrors.map(error => ({
+        severity: DiagnosticSeverity.Warning,
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 0 },
+        },
+        message: `Project validation: ${error.path} - ${error.message}`,
+        source: 'soar-project-validator',
+      }));
+
+      connection.sendDiagnostics({
+        uri: `file://${params.projectFile}`,
+        diagnostics,
+      });
+
+      connection.console.warn(
+        `Project validation found ${currentProject.validationErrors.length} warning(s)`
+      );
+    } else {
+      // Clear diagnostics if validation passed
+      connection.sendDiagnostics({
+        uri: `file://${params.projectFile}`,
+        diagnostics: [],
+      });
+    }
 
     // Revalidate all open documents with the new project
     documents.all().forEach(validateTextDocument);
@@ -140,6 +190,29 @@ documents.onDidOpen(async event => {
           if (projectFile) {
             currentProject = await projectLoader.loadProject(projectFile);
             connection.console.log(`Loaded project: ${projectFile}`);
+
+            // Report validation warnings if any
+            if (currentProject.validationErrors && currentProject.validationErrors.length > 0) {
+              const diagnostics: Diagnostic[] = currentProject.validationErrors.map(error => ({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 0 },
+                },
+                message: `Project validation: ${error.path} - ${error.message}`,
+                source: 'soar-project-validator',
+              }));
+
+              connection.sendDiagnostics({
+                uri: `file://${projectFile}`,
+                diagnostics,
+              });
+
+              connection.console.warn(
+                `Project validation found ${currentProject.validationErrors.length} warning(s)`
+              );
+            }
+
             break;
           }
         }
@@ -151,6 +224,28 @@ documents.onDidOpen(async event => {
           if (projectFile) {
             currentProject = await projectLoader.loadProject(projectFile);
             connection.console.log(`Loaded project from subdirectory: ${projectFile}`);
+
+            // Report validation warnings if any
+            if (currentProject.validationErrors && currentProject.validationErrors.length > 0) {
+              const diagnostics: Diagnostic[] = currentProject.validationErrors.map(error => ({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 0 },
+                },
+                message: `Project validation: ${error.path} - ${error.message}`,
+                source: 'soar-project-validator',
+              }));
+
+              connection.sendDiagnostics({
+                uri: `file://${projectFile}`,
+                diagnostics,
+              });
+
+              connection.console.warn(
+                `Project validation found ${currentProject.validationErrors.length} warning(s)`
+              );
+            }
           }
         }
       }

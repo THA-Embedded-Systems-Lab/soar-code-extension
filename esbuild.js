@@ -1,7 +1,28 @@
 const esbuild = require('esbuild');
+const fs = require('fs');
+const path = require('path');
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+
+/**
+ * Plugin to copy schema file to dist directory
+ */
+const copySchemaPlugin = {
+  name: 'copy-schema',
+  setup(build) {
+    build.onEnd(() => {
+      const schemaSource = path.join(__dirname, 'project.schema.json');
+      const schemaDest = path.join(__dirname, 'dist', 'project.schema.json');
+      try {
+        fs.copyFileSync(schemaSource, schemaDest);
+        console.log('[schema] Copied project.schema.json to dist/');
+      } catch (err) {
+        console.error('[schema] Failed to copy schema file:', err.message);
+      }
+    });
+  },
+};
 
 async function main() {
   // Build extension
@@ -16,7 +37,7 @@ async function main() {
     outfile: 'dist/extension.js',
     external: ['vscode'],
     logLevel: 'silent',
-    plugins: [esbuildProblemMatcherPlugin],
+    plugins: [esbuildProblemMatcherPlugin, copySchemaPlugin],
   });
 
   // Build language server

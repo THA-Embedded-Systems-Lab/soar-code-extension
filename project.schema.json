@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "http://https://soar.eecs.umich.edu/VisualSoar/project_schema.json",
+  "$id": "https://soar.eecs.umich.edu/VisualSoar/project_schema.json",
   "title": "Project",
   "type": "object",
-  "version": "9.6.4",
+  "version": "9.7.0",
   "description": "A Soar project description consisting of the working memory layout (datamap) and the file/operator layout. This is used by VisualSoar to manage the project.",
   "properties": {
     "version": {
@@ -45,6 +45,31 @@
     "DMVertex": {
       "type": "object",
       "description": "A datamap vertex maps to a Soar working memory element (WME), and can be of various types. See ((https://soar.eecs.umich.edu/soar_manual/03_SyntaxOfSoarPrograms/#working-memory).",
+      "required": ["id", "type"],
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SoarIdVertex"
+        },
+        {
+          "$ref": "#/definitions/EnumerationVertex"
+        },
+        {
+          "$ref": "#/definitions/IntegerRangeVertex"
+        },
+        {
+          "$ref": "#/definitions/FloatRangeVertex"
+        },
+        {
+          "$ref": "#/definitions/StringVertex"
+        },
+        {
+          "$ref": "#/definitions/ForeignVertex"
+        }
+      ]
+    },
+    "SoarIdVertex": {
+      "type": "object",
+      "description": "A vertex that represents a Soar identifier (https://soar.eecs.umich.edu/soar_manual/03_SyntaxOfSoarPrograms/#symbols). This is the basis for all others vertex types.",
       "properties": {
         "id": {
           "type": "string",
@@ -52,185 +77,135 @@
         },
         "type": {
           "type": "string",
-          "description": "The type of the vertex, which specifies which more specific definition below applies to the vertex.",
-          "enum": [
-            "SOAR_ID",
-            "ENUMERATION",
-            "INTEGER",
-            "FLOAT",
-            "STRING",
-            "FOREIGN"
-          ]
+          "const": "SOAR_ID",
+          "description": "The type of the vertex."
+        },
+        "outEdges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OutEdge"
+          },
+          "description": "The outgoing edges from this vertex. These correspond to WME attributes (https://soar.eecs.umich.edu/soar_manual/03_SyntaxOfSoarPrograms/#working-memory). Null/missing is treated the same as an empty list."
         }
       },
       "required": ["id", "type"],
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "SOAR_ID"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/definitions/SoarIdVertex"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "ENUMERATION"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/definitions/EnumerationVertex"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "INTEGER"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/definitions/IntegerRangeVertex"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "FLOAT"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/definitions/FloatRangeVertex"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "FOREIGN"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/definitions/ForeignVertex"
-          }
-        }
-      ]
-    },
-    "SoarIdVertex": {
-      "type": "object",
-      "description": "A vertex that represents a Soar identifier (https://soar.eecs.umich.edu/soar_manual/03_SyntaxOfSoarPrograms/#symbols). This is the basis for all others vertex types.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DMVertex"
-        },
-        {
-          "properties": {
-            "outEdges": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/OutEdge"
-              },
-              "description": "The outgoing edges from this vertex. These correspond to WME attributes (https://soar.eecs.umich.edu/soar_manual/03_SyntaxOfSoarPrograms/#working-memory). Null/missing is treated the same as an empty list."
-            }
-          }
-        }
-      ]
+      "additionalProperties": false
     },
     "EnumerationVertex": {
       "type": "object",
       "description": "A vertex that represents an enumeration of possible string values.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DMVertex"
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the vertex. This is used within the project JSON to refer to this vertex. This is not the same as the Soar identifier, and it has no meaning outside of this JSON document. This may be a unique human-readable string, but VisualSoar generates UUIDs for this purpose."
         },
-        {
-          "properties": {
-            "choices": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "The list of choices for this enumeration vertex."
-            }
+        "type": {
+          "type": "string",
+          "const": "ENUMERATION",
+          "description": "The type of the vertex."
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "string"
           },
-          "required": ["choices"]
+          "description": "The list of choices for this enumeration vertex."
         }
-      ]
+      },
+      "required": ["id", "type", "choices"],
+      "additionalProperties": false
     },
     "IntegerRangeVertex": {
       "type": "object",
       "description": "A vertex that represents a range of integer values. Soar uses 64-bit integers, but VisualSoar currently uses 32-bit integers, meaning that the range of acceptable values is in [-2147483648, 2147483647].",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DMVertex"
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the vertex. This is used within the project JSON to refer to this vertex. This is not the same as the Soar identifier, and it has no meaning outside of this JSON document. This may be a unique human-readable string, but VisualSoar generates UUIDs for this purpose."
         },
-        {
-          "properties": {
-            "min": {
-              "type": "integer",
-              "description": "The minimum value for this integer range vertex. If null, there is no minimum value."
-            },
-            "max": {
-              "type": "integer",
-              "description": "The maximum value for this integer range vertex. If null, there is no maximum value."
-            }
-          }
+        "type": {
+          "type": "string",
+          "const": "INTEGER",
+          "description": "The type of the vertex."
+        },
+        "min": {
+          "type": "integer",
+          "description": "The minimum value for this integer range vertex. If null, there is no minimum value."
+        },
+        "max": {
+          "type": "integer",
+          "description": "The maximum value for this integer range vertex. If null, there is no maximum value."
         }
-      ]
+      },
+      "required": ["id", "type"],
+      "additionalProperties": false
     },
     "FloatRangeVertex": {
       "type": "object",
       "description": "A vertex that represents a range of float values. These are 64-bit doubles.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DMVertex"
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the vertex. This is used within the project JSON to refer to this vertex. This is not the same as the Soar identifier, and it has no meaning outside of this JSON document. This may be a unique human-readable string, but VisualSoar generates UUIDs for this purpose."
         },
-        {
-          "properties": {
-            "min": {
-              "type": "number",
-              "description": "The minimum value for this float range vertex. If null, there is no minimum value."
-            },
-            "max": {
-              "type": "number",
-              "description": "The maximum value for this float range vertex. If null, there is no maximum value."
-            }
-          }
+        "type": {
+          "type": "string",
+          "const": "FLOAT",
+          "description": "The type of the vertex."
+        },
+        "min": {
+          "type": "number",
+          "description": "The minimum value for this float range vertex. If null, there is no minimum value."
+        },
+        "max": {
+          "type": "number",
+          "description": "The maximum value for this float range vertex. If null, there is no maximum value."
         }
-      ]
+      },
+      "required": ["id", "type"],
+      "additionalProperties": false
+    },
+    "StringVertex": {
+      "type": "object",
+      "description": "A vertex that represents a string value.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the vertex. This is used within the project JSON to refer to this vertex. This is not the same as the Soar identifier, and it has no meaning outside of this JSON document. This may be a unique human-readable string, but VisualSoar generates UUIDs for this purpose."
+        },
+        "type": {
+          "type": "string",
+          "const": "STRING",
+          "description": "The type of the vertex."
+        }
+      },
+      "required": ["id", "type"],
+      "additionalProperties": false
     },
     "ForeignVertex": {
       "type": "object",
-      "description": "A vertex that is copied from a datamap in another project, and may be updated when that project updates its vertex. Note that the other datamap need not be a JSON datamap, but may also be a legacy .dm file.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DMVertex"
+      "description": "A vertex that is copied from a datamap in another project...",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the vertex..."
         },
-        {
-          "properties": {
-            "foreignDMPath": {
-              "type": "string",
-              "description": "The path to the external datamap."
-            },
-            "importedVertex": {
-              "$ref": "#/definitions/DMVertex",
-              "description": "The imported vertex from the external datamap. It will have its own ID, which is not the same as this vertex's ID. This vertex's ID is used to refer to this vertex in the project JSON, while the imported vertex's ID is used to refer to it in the external datamap."
-            }
-          },
-          "required": ["foreignDMPath", "importedVertex"]
+        "type": {
+          "type": "string",
+          "const": "FOREIGN",
+          "description": "The type of the vertex."
+        },
+        "foreignDMPath": {
+          "type": "string",
+          "description": "The path to the external datamap."
+        },
+        "importedVertex": {
+          "$ref": "#/definitions/DMVertex",
+          "description": "The imported vertex from the external datamap..."
         }
-      ]
+      },
+      "required": ["id", "type", "foreignDMPath", "importedVertex"],
+      "additionalProperties": false
     },
     "OutEdge": {
       "type": "object",

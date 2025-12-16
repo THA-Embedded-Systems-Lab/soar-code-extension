@@ -8,15 +8,71 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import Ajv, { ErrorObject } from 'ajv';
 import {
   VisualSoarProject,
   ProjectContext,
+  ProjectValidationError,
   DMVertex,
   LayoutNode,
   hasChildren,
 } from './visualSoarProject';
 
 export class ProjectLoader {
+  private ajv: Ajv;
+  private schemaValidator: any;
+  private schema: any;
+
+  constructor() {
+    // Initialize AJV with options to handle recursive schemas
+    this.ajv = new Ajv({
+      allErrors: true,
+      verbose: true,
+    });
+
+    // Add custom keyword for schema version metadata
+    this.ajv.addKeyword({
+      keyword: 'version',
+      schemaType: 'string',
+      metaSchema: {
+        type: 'string',
+      },
+    });
+
+    // Load and compile schema
+    try {
+      // Try multiple paths for schema location:
+      // 1. In dist/ (production build with esbuild)
+      // 2. In out/ relative (development build with tsc)
+      // 3. Root of workspace (fallback)
+      const possiblePaths = [
+        path.join(__dirname, 'project.schema.json'), // dist/project.schema.json
+        path.join(__dirname, '../../project.schema.json'), // from out/server/
+        path.join(__dirname, '../project.schema.json'), // alternative
+      ];
+
+      let schemaPath: string | null = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          schemaPath = p;
+          break;
+        }
+      }
+
+      if (!schemaPath) {
+        throw new Error('Could not find project.schema.json in any expected location');
+      }
+
+      const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
+      this.schema = JSON.parse(schemaContent);
+      this.schemaValidator = this.ajv.compile(this.schema);
+    } catch (error: any) {
+      console.error('Failed to load project schema:', error.message);
+      // If schema loading fails, we'll continue without validation
+      this.schemaValidator = null;
+    }
+  }
+
   /**
    * Find a Soar project file in the workspace
    * Priority: .vsa.json (default) > .vsproj (VisualSoar) > .soarproj (legacy)
@@ -81,11 +137,40 @@ export class ProjectLoader {
   }
 
   /**
+   * Validate project against schema
+   */
+  validateProject(project: any): ProjectValidationError[] {
+    const errors: ProjectValidationError[] = [];
+
+    // Skip validation if schema failed to load
+    if (!this.schemaValidator) {
+      return errors;
+    }
+
+    const isValid = this.schemaValidator(project);
+
+    if (!isValid && this.schemaValidator.errors) {
+      for (const error of this.schemaValidator.errors) {
+        errors.push({
+          path: error.instancePath || '(root)',
+          message: error.message || 'Unknown validation error',
+          params: error.params || {},
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  /**
    * Load a VisualSoar project file
    */
   async loadProject(projectFile: string): Promise<ProjectContext> {
     const content = await fs.promises.readFile(projectFile, 'utf-8');
     const project: VisualSoarProject = JSON.parse(content);
+
+    // Validate against schema
+    const validationErrors = this.validateProject(project);
 
     // Validate schema version
     if (project.version !== '6') {
@@ -112,6 +197,7 @@ export class ProjectLoader {
       project,
       datamapIndex,
       layoutIndex,
+      validationErrors,
     };
   }
 

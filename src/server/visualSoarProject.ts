@@ -175,11 +175,18 @@ export interface LinkNode extends BaseLayoutNode {
 
 // Utility Types
 
+export interface ProjectValidationError {
+  path: string;
+  message: string;
+  params?: Record<string, any>;
+}
+
 export interface ProjectContext {
   projectFile: string;
   project: VisualSoarProject;
   datamapIndex: Map<string, DMVertex>;
   layoutIndex: Map<string, LayoutNode>;
+  validationErrors?: ProjectValidationError[];
 }
 
 // Type Guards
