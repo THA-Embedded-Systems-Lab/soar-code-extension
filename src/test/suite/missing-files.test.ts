@@ -45,15 +45,19 @@ suite('Missing Files Validation Test Suite', () => {
       name: 'Test Missing Files',
       topState: 'test-missing-agent',
       layout: {
-        type: 'FILE',
-        file: 'test-missing-agent.soar',
+        id: 'root',
+        type: 'OPERATOR_ROOT',
+        name: 'test-missing-agent',
+        folder: 'test-missing-agent',
         children: [
           {
+            id: 'elab-folder',
             type: 'FOLDER',
             name: 'elaborations',
             folder: 'elaborations',
             children: [
               {
+                id: 'missing-file-node',
                 type: 'FILE',
                 name: 'missing-file',
                 file: 'missing-file.soar',
@@ -62,7 +66,7 @@ suite('Missing Files Validation Test Suite', () => {
           },
         ],
       },
-      datamap: { topState: 'test' },
+      datamap: { topState: 'test', vertices: [], edges: [] },
     };
 
     // Write temporary project file
@@ -75,9 +79,30 @@ suite('Missing Files Validation Test Suite', () => {
 
       // Create a minimal project context
       const ProjectSync = require('../../layout/projectSync').ProjectSync;
+
+      // Build the layout index for the project context
+      const layoutIndex = new Map();
+      const buildIndex = (node: any) => {
+        if (node.id) {
+          layoutIndex.set(node.id, node);
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            buildIndex(child);
+          }
+        }
+      };
+      const layout: any = testProject.layout;
+      if (!layout.id) {
+        layout.id = 'root';
+      }
+      buildIndex(layout);
+
       const projectContext = {
         projectFile: tempProjectPath,
         project: testProject,
+        layoutIndex,
+        datamapIndex: new Map(),
       };
 
       const missingFiles = await ProjectSync.findMissingFiles(projectContext);
@@ -171,15 +196,19 @@ suite('Missing Files Validation Test Suite', () => {
       name: 'Test Context',
       topState: 'test-context',
       layout: {
-        type: 'FILE',
-        file: 'test-context.soar',
+        id: 'root',
+        type: 'OPERATOR_ROOT',
+        name: 'test-context',
+        folder: 'test-context',
         children: [
           {
+            id: 'operators-folder',
             type: 'FOLDER',
             name: 'operators',
             folder: 'operators',
             children: [
               {
+                id: 'missing-op-node',
                 type: 'FILE',
                 name: 'missing-operator',
                 file: 'missing-operator.soar',
@@ -187,22 +216,44 @@ suite('Missing Files Validation Test Suite', () => {
             ],
           },
           {
+            id: 'missing-elab-node',
             type: 'FILE',
             name: 'missing-elaboration',
             file: 'missing-elaboration.soar',
           },
         ],
       },
-      datamap: { topState: 'test' },
+      datamap: { topState: 'test', vertices: [], edges: [] },
     };
 
     await fs.promises.writeFile(tempProjectPath, JSON.stringify(testProject, null, 2));
 
     try {
       const ProjectSync = require('../../layout/projectSync').ProjectSync;
+
+      // Build the layout index
+      const layoutIndex = new Map();
+      const buildIndex = (node: any) => {
+        if (node.id) {
+          layoutIndex.set(node.id, node);
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            buildIndex(child);
+          }
+        }
+      };
+      const layout: any = testProject.layout;
+      if (!layout.id) {
+        layout.id = 'root';
+      }
+      buildIndex(layout);
+
       const projectContext = {
         projectFile: tempProjectPath,
         project: testProject,
+        layoutIndex,
+        datamapIndex: new Map(),
       };
 
       const missingFiles = await ProjectSync.findMissingFiles(projectContext);

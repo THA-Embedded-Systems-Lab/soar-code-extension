@@ -639,6 +639,14 @@ export class LayoutOperations {
       await fs.promises.rename(oldFullPath, newFullPath);
     }
 
+    // Remove the old source reference from the parent folder
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.removeReference(parentFolderAbsolute, oldFile);
+
+    // Add the new source reference (now it's a _source file in the operator folder)
+    const newSourceReference = path.join(newFolderRelative, `${operatorName}_source.soar`);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, newSourceReference);
+
     // Create elaborations file (matching VisualSoar's behavior)
     const elabFile = 'elaborations.soar'; // Relative to the operator folder
     const elabContent = ''; // Empty file like VisualSoar
@@ -856,6 +864,9 @@ export class LayoutOperations {
     projectContext.layoutIndex.set(newNodeId, newNode);
 
     const content = SoarTemplates.generateProductionFile(fileName);
+    // Ensure the directory exists before writing the file
+    const fileDir = path.dirname(fullPath);
+    await fs.promises.mkdir(fileDir, { recursive: true });
     await fs.promises.writeFile(fullPath, content, 'utf-8');
 
     const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);

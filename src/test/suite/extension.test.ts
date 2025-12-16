@@ -1024,8 +1024,10 @@ suite('Operator Creation Test Suite', () => {
 
       rootSourceContent = fs.readFileSync(rootSourceFile, 'utf-8');
       assert.ok(
-        rootSourceContent.includes('source sub-operator-with-child.soar'),
-        'Root source file should reference sub-operator-with-child'
+        rootSourceContent.includes(
+          'source sub-operator-with-child/sub-operator-with-child_source.soar'
+        ),
+        'Root source file should reference sub-operator-with-child via its _source file'
       );
     } finally {
       // Clean up
@@ -1241,7 +1243,13 @@ suite('Operator Creation Test Suite', () => {
       projectContext.layoutIndex.set(folderNodeId, folderNode);
 
       const workspaceFolder = path.dirname(projectContext.projectFile);
-      await fs.promises.mkdir(path.join(workspaceFolder, folderName), { recursive: true });
+      // The folder should be created inside the agent folder (since root layout has folder: agentName)
+      const agentFolder =
+        ('folder' in projectContext.project.layout && projectContext.project.layout.folder) ||
+        agentName;
+      await fs.promises.mkdir(path.join(workspaceFolder, agentFolder, folderName), {
+        recursive: true,
+      });
 
       await projectLoader.saveProject(projectContext);
       projectContext = await projectLoader.loadProject(projectFilePath);
@@ -1255,10 +1263,15 @@ suite('Operator Creation Test Suite', () => {
       assert.ok(result.success, 'Should successfully add a file to folder-like nodes');
       assert.ok(result.nodeId, 'Should return the new file node ID');
 
-      const helperFile = path.join(workspaceFolder, folderName, 'helper.soar');
+      const helperFile = path.join(workspaceFolder, agentFolder, folderName, 'helper.soar');
       assert.ok(fs.existsSync(helperFile), 'Helper file should exist on disk');
 
-      const folderSourceFile = path.join(workspaceFolder, folderName, `${folderName}_source.soar`);
+      const folderSourceFile = path.join(
+        workspaceFolder,
+        agentFolder,
+        folderName,
+        `${folderName}_source.soar`
+      );
       assert.ok(fs.existsSync(folderSourceFile), 'Folder source file should exist');
       const folderSourceContent = fs.readFileSync(folderSourceFile, 'utf-8');
       assert.ok(
