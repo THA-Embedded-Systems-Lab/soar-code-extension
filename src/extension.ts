@@ -32,7 +32,7 @@ export function getProjectManager(): ProjectManager {
  * Extension activation function
  * Called when the extension is activated (when a .soar file is opened)
  */
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   console.log('Soar extension is now active');
 
   // Initialize project manager
@@ -53,7 +53,8 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(disposable);
 
   // Initialize LSP client (Phase 3)
-  lspClient.activate(context);
+  // Wait for the LSP client to be fully initialized before continuing
+  await lspClient.activate(context);
 
   // Register restart language server command
   context.subscriptions.push(

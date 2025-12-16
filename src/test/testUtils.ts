@@ -12,9 +12,20 @@ export class TestHelper {
     testUri: vscode.Uri,
     maxWaitMs: number = 10000
   ): Promise<void> {
+    console.log('Waiting for language server to be ready...');
+
+    // Give the server a moment to register the document after it's opened
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     const startTime = Date.now();
+    let lastError: any = null;
+    let attemptCount = 0;
+
     while (Date.now() - startTime < maxWaitMs) {
       try {
+        attemptCount++;
+        console.log(`Attempt ${attemptCount} to connect to language server...`);
+
         // Try a simple completion request to check if server is ready
         const testPos = new vscode.Position(0, 0);
         await vscode.commands.executeCommand(
@@ -22,12 +33,25 @@ export class TestHelper {
           testUri,
           testPos
         );
+        console.log(
+          `Language server is ready after ${Date.now() - startTime}ms (${attemptCount} attempts)`
+        );
         return; // Success!
-      } catch {
+      } catch (error) {
+        lastError = error;
+        console.log(
+          `Attempt ${attemptCount} failed:`,
+          error instanceof Error ? error.message : error
+        );
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-    throw new Error('Language server did not become ready in time');
+    console.error('Language server did not become ready in time. Last error:', lastError);
+    throw new Error(
+      `Language server did not become ready in time after ${attemptCount} attempts: ${
+        lastError?.message || 'Unknown error'
+      }`
+    );
   }
 
   /**
@@ -59,13 +83,17 @@ export class TestHelper {
 
     let api: any;
     if (!extension.isActive) {
+      console.log('Activating extension...');
       api = await extension.activate();
+      console.log('Extension activated');
     } else {
+      console.log('Extension already active');
       api = extension.exports;
     }
 
-    // Wait for extension activation
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // The extension activate now waits for LSP client, so we don't need the extra delay
+    // But let's give a small buffer for any async initialization
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     return api;
   }

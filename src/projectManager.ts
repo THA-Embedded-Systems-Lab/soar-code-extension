@@ -134,21 +134,30 @@ export class ProjectManager {
    * Set the active project
    */
   async setActiveProject(project: SoarProjectInfo): Promise<void> {
+    console.log(`Setting active project: ${project.projectFile}`);
     this.activeProject = project;
 
     // Save to workspace state
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, project.projectFile);
+    console.log('Workspace state updated');
 
     this.updateStatusBar();
+    console.log('Status bar updated');
 
     // Notify LSP server of project change
     const lspClient = await import('./client/lspClient');
     await lspClient.notifyProjectChanged(project.projectFile);
+    console.log('LSP server notified');
 
     this.activeProjectEmitter.fire(project);
+    console.log('Active project event fired');
 
-    // Validate project files and report issues
-    await this.validateProjectFiles(project);
+    // Validate project files and report issues (don't await - run in background)
+    // This prevents blocking the project activation
+    console.log('Starting project file validation in background...');
+    this.validateProjectFiles(project).catch(error => {
+      console.error('Project validation failed:', error);
+    });
   }
 
   /**

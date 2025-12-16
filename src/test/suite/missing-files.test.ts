@@ -6,12 +6,14 @@ import { TestHelper } from '../testUtils';
 
 suite('Missing Files Validation Test Suite', () => {
   let testProjectPath: string;
+  let testDocUri: vscode.Uri;
 
   suiteSetup(async function () {
     this.timeout(30000);
 
     // Get the test project path
     testProjectPath = path.resolve(__dirname, '../../../test/fixtures');
+    testDocUri = vscode.Uri.file(path.join(testProjectPath, 'elaborations.soar'));
 
     // Activate extension and get API
     const api = await TestHelper.activateExtension();
@@ -25,6 +27,13 @@ suite('Missing Files Validation Test Suite', () => {
     // Setup test project
     const projectFile = path.join(testProjectPath, 'test-project.vsa.json');
     await TestHelper.setupTestProject(projectManager, projectFile);
+
+    // Open a test document to trigger LSP initialization
+    const document = await vscode.workspace.openTextDocument(testDocUri);
+    await vscode.window.showTextDocument(document);
+
+    // Wait for LSP to be ready
+    await TestHelper.waitForLanguageServer(testDocUri);
   });
 
   test('Should find missing files referenced in project', async function () {

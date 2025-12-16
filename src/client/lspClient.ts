@@ -15,8 +15,9 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+let clientReadyPromise: Promise<void> | null = null;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext): Promise<void> {
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(path.join('dist', 'server.js'));
 
@@ -53,8 +54,28 @@ export function activate(context: ExtensionContext) {
     clientOptions
   );
 
+  // Add error handlers
+  client.onDidChangeState(event => {
+    console.log(`LSP Client state changed: ${event.oldState} -> ${event.newState}`);
+  });
+
   // Start the client. This will also launch the server
-  client.start();
+  // Store the promise so tests can wait for it
+  clientReadyPromise = client.start().catch(error => {
+    console.error('Failed to start LSP client:', error);
+    throw error;
+  });
+  await clientReadyPromise;
+  console.log('LSP client started successfully');
+}
+
+/**
+ * Wait for the LSP client to be fully initialized and ready
+ */
+export async function waitForReady(): Promise<void> {
+  if (clientReadyPromise) {
+    await clientReadyPromise;
+  }
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -80,11 +101,24 @@ export function getClient(): LanguageClient | undefined {
  */
 export async function notifyProjectChanged(projectFile: string): Promise<void> {
   if (!client) {
+    console.log('LSP client not initialized, skipping project notification');
     return;
   }
 
+  // Wait for the client to be ready before sending notifications
+  if (clientReadyPromise) {
+    try {
+      await clientReadyPromise;
+    } catch (error) {
+      console.error('LSP client failed to initialize:', error);
+      return;
+    }
+  }
+
   try {
+    console.log(`Notifying LSP server of project change: ${projectFile}`);
     await client.sendNotification('soar/projectChanged', { projectFile });
+    console.log('LSP server notified successfully');
   } catch (error) {
     console.error('Failed to notify LSP of project change:', error);
   }
