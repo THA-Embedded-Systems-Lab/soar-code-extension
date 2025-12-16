@@ -2,7 +2,7 @@
   "name": "soar",
   "displayName": "Soar",
   "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
   "repository": {
@@ -375,6 +375,7 @@
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.0",
     "@vscode/vsce": "^2.19.0",
+    "ajv": "^8.17.1",
     "esbuild": "^0.27.0",
     "eslint": "^8.40.0",
     "glob": "^10.0.0",
