@@ -1,254 +1,2546 @@
 {
-  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Soar",
-  "scopeName": "source.soar",
+  "fileTypes": ["soar"],
+  "name": "soar",
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#production" },
-    { "include": "#keywords" },
-    { "include": "#strings" },
-    { "include": "#numbers" },
-    { "include": "#variables" },
-    { "include": "#attributes" },
-    { "include": "#operators" },
-    { "include": "#functions" },
-    { "include": "#preferences" }
+    {
+      "include": "#main"
+    }
   ],
+  "scopeName": "source.soar",
+  "uuid": "",
   "repository": {
-    "comments": {
+    "main": {
       "patterns": [
         {
-          "name": "comment.line.number-sign.soar",
-          "match": "#.*$"
+          "include": "#comment"
+        },
+        {
+          "include": "#command"
+        },
+        {
+          "include": "#script"
+        },
+        {
+          "include": "#production"
+        },
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#illegal_open_bracket"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_open_curly"
+        },
+        {
+          "include": "#illegal_close_curly"
+        },
+        {
+          "include": "#illegal_open_paren"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_quotation"
         }
       ]
     },
-    "production": {
+    "command": {
       "patterns": [
         {
-          "name": "meta.production.soar",
-          "begin": "\\b(sp|gp)\\s*\\{",
+          "begin": "^(\\s*)(?!sp\\b)(?!gp\\b)(?!script\\b)(?!proc\\b)(?!if\\b)(?!for\\b)(?!switch\\b)(?!while\\b)(?!foreach\\b)([A-Za-z0-9\\-_\\x{002a}]+)",
           "beginCaptures": {
-            "1": { "name": "keyword.control.production.soar" }
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.function.soar"
+            }
           },
-          "end": "\\}",
-          "patterns": [
-            { "include": "#comments" },
-            { "include": "#production-name" },
-            { "include": "#production-body" }
-          ]
-        }
-      ]
-    },
-    "production-name": {
-      "patterns": [
-        {
-          "name": "entity.name.function.production.soar",
-          "match": "\\b[a-zA-Z][a-zA-Z0-9_*-]*\\b"
-        }
-      ]
-    },
-    "production-body": {
-      "patterns": [
-        { "include": "#comments" },
-        { "include": "#actions" },
-        { "include": "#conditions" },
-        { "include": "#variables" },
-        { "include": "#attributes" },
-        { "include": "#strings" },
-        { "include": "#numbers" },
-        { "include": "#operators" },
-        { "include": "#functions" },
-        { "include": "#preferences" }
-      ]
-    },
-    "conditions": {
-      "patterns": [
-        {
-          "name": "meta.condition.soar",
-          "begin": "\\(",
-          "end": "\\)",
-          "patterns": [
-            { "include": "#comments" },
-            { "include": "#state-keyword" },
-            { "include": "#variables" },
-            { "include": "#attributes" },
-            { "include": "#operators" },
-            { "include": "#strings" },
-            { "include": "#numbers" },
-            { "include": "#negation" },
-            { "include": "#conjunctive-test" },
-            { "include": "#disjunction" },
-            { "include": "#conditions" },
-            { "include": "#functions" }
-          ]
-        }
-      ]
-    },
-    "actions": {
-      "patterns": [
-        {
-          "name": "keyword.operator.action.soar",
-          "match": "-->"
-        }
-      ]
-    },
-    "keywords": {
-      "patterns": [
-        {
-          "name": "keyword.control.soar",
-          "match": "\\b(sp|gp|source|learn|watch|excise|chunk|rl|cmd|default-wme-depth|echo|epmem|explain|explain-backtraces|gds-print|help|indifferent-selection|load-library|max-chunks|max-dc-time|max-elaborations|max-goal-depth|max-memory-usage|max-nil-output-cycles|numeric-indifferent-mode|o-support-mode|output-strings-destination|print|production|production-find|pwatch|quit|rand|rete-net|run|save-backtraces|select|set-library-location|set-stop-phase|smem|soar|soarnews|stats|stop-soar|svs|time|timers|version|waitsnc|warnings|wm|wma)\\b"
-        }
-      ]
-    },
-    "state-keyword": {
-      "patterns": [
-        {
-          "name": "keyword.other.state.soar",
-          "match": "\\b(state|impasse|operator|superstate|problem-space|type|name|io|input-link|output-link|item|quiescence|tie|conflict|constraint-failure|no-change|attribute|choices|multi-attributes|t)\\b"
-        }
-      ]
-    },
-    "strings": {
-      "patterns": [
-        {
-          "name": "string.quoted.pipe.soar",
-          "begin": "\\|",
-          "end": "\\|",
           "patterns": [
             {
-              "name": "constant.character.escape.soar",
-              "match": "\\\\."
+              "include": "#command__1"
             }
-          ]
+          ],
+          "end": "(?:(?<!\\\\)(;|\n))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
         },
         {
-          "name": "string.quoted.double.soar",
-          "begin": "\"",
-          "end": "\"",
+          "include": "#tcl_proc"
+        },
+        {
+          "include": "#tcl_if"
+        },
+        {
+          "include": "#tcl_flow_control"
+        }
+      ]
+    },
+    "command__1": {
+      "patterns": [
+        {
+          "match": "(\\\\$)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#tcl_code_common"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "comment": {
+      "patterns": [
+        {
+          "begin": "(#)",
+          "beginCaptures": {
+            "1": {
+              "name": "comment.soar"
+            }
+          },
+          "contentName": "comment.soar",
+          "end": "((?<!\\\\)$)",
+          "endCaptures": {
+            "1": {
+              "name": "comment.soar"
+            }
+          }
+        }
+      ]
+    },
+    "comment__1": {
+      "patterns": []
+    },
+    "common_production_body": {
+      "patterns": [
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "match": "(-->)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#soar_identifier"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#flags"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_sp"
+        }
+      ]
+    },
+    "conjunction_tests": {
+      "patterns": [
+        {
+          "match": "(<>|<\\s|>|<=>|<=\\s|>=)",
+          "name": "keyword.operator.soar"
+        }
+      ]
+    },
+    "docstring": {
+      "patterns": [
+        {
+          "begin": "(\")",
+          "beginCaptures": {
+            "1": {
+              "name": "string.quoted.triple.soar"
+            }
+          },
           "patterns": [
             {
-              "name": "constant.character.escape.soar",
-              "match": "\\\\."
+              "include": "#docstring__1"
             }
-          ]
+          ],
+          "end": "(\")",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.triple.soar"
+            }
+          }
         }
       ]
     },
-    "numbers": {
+    "docstring__1": {
       "patterns": [
         {
-          "name": "constant.numeric.float.soar",
-          "match": "\\b-?[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+          "match": "(\\\\(?:\\\\|\"|$))",
+          "name": "constant.character.escape.soar"
         },
         {
-          "name": "constant.numeric.integer.soar",
-          "match": "\\b-?[0-9]+\\b"
+          "match": "([^\\x{0022}\\x{005c}]+)",
+          "name": "string.quoted.triple.soar"
         }
       ]
     },
-    "variables": {
+    "escaped_docstring": {
       "patterns": [
         {
-          "name": "variable.other.soar",
-          "match": "<[a-zA-Z][a-zA-Z0-9_-]*>"
-        }
-      ]
-    },
-    "attributes": {
-      "patterns": [
-        {
-          "name": "entity.other.attribute-name.soar",
-          "match": "\\^[a-zA-Z][a-zA-Z0-9_-]*"
-        }
-      ]
-    },
-    "operators": {
-      "patterns": [
-        {
-          "name": "keyword.operator.comparison.soar",
-          "match": "(<>|<=|>=|<=>|<|>|==|=)"
-        },
-        {
-          "name": "keyword.operator.logical.soar",
-          "match": "(<<|>>)"
-        }
-      ]
-    },
-    "functions": {
-      "patterns": [
-        {
-          "name": "meta.function-call.soar",
-          "begin": "\\(\\s*(write|crlf|halt|interrupt|timestamp|cmd|exec|tcl|dont-learn|force-learn|make-constant-symbol)\\b",
+          "begin": "(\\\\\")",
           "beginCaptures": {
-            "1": { "name": "support.function.builtin.soar" }
+            "1": {
+              "name": "string.quoted.triple.soar"
+            }
           },
-          "end": "\\)",
           "patterns": [
-            { "include": "#strings" },
-            { "include": "#numbers" },
-            { "include": "#variables" },
-            { "include": "#attributes" }
-          ]
+            {
+              "include": "#escaped_docstring__1"
+            }
+          ],
+          "end": "(\\\\\")",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.triple.soar"
+            }
+          }
+        }
+      ]
+    },
+    "escaped_docstring__1": {
+      "patterns": [
+        {
+          "match": "(?!\\\\\")(.*)",
+          "name": "string.quoted.triple.soar"
         },
         {
-          "name": "meta.function-call.math.soar",
-          "begin": "\\(\\s*(\\+|-|\\*|/|div|mod|abs|sqrt|sin|cos|tan|atan2|log|ln|exp|int|float|round|min|max)\\b",
-          "beginCaptures": {
-            "1": { "name": "support.function.math.soar" }
-          },
-          "end": "\\)",
-          "patterns": [
-            { "include": "#numbers" },
-            { "include": "#variables" },
-            { "include": "#functions" }
-          ]
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_embedded"
+        }
+      ]
+    },
+    "flags": {
+      "patterns": [
+        {
+          "match": "(:(?:i-support|o-support|chunk|default))",
+          "name": "keyword.control.soar"
+        }
+      ]
+    },
+    "illegal_close_bracket": {
+      "patterns": [
+        {
+          "match": "(\\])",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_close_curly": {
+      "patterns": [
+        {
+          "match": "(})",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_close_paren": {
+      "patterns": [
+        {
+          "match": "(\\))",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_open_bracket": {
+      "patterns": [
+        {
+          "match": "(\\[)",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_open_curly": {
+      "patterns": [
+        {
+          "match": "({)",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_open_paren": {
+      "patterns": [
+        {
+          "match": "(\\()",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_quotation": {
+      "patterns": [
+        {
+          "match": "(\")",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "illegal_sp": {
+      "patterns": [
+        {
+          "match": "(sp|gp)(?=\\s|$)",
+          "name": "invalid.soar"
+        }
+      ]
+    },
+    "lisp_common": {
+      "patterns": [
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_curly"
+        },
+        {
+          "include": "#illegal_quotation"
         }
       ]
     },
     "preferences": {
       "patterns": [
         {
-          "name": "keyword.operator.preference.soar",
-          "match": "\\s(\\+|!|~|-|@|#|=|<|>|&)(?=\\s|\\)|$)"
+          "match": "(-|\\+|<|>|=|!|~)(?=\\s|\\))",
+          "name": "keyword.operator.soar"
         }
       ]
     },
-    "negation": {
+    "production": {
       "patterns": [
         {
-          "name": "keyword.operator.negation.soar",
-          "match": "-(?=\\^)"
-        }
-      ]
-    },
-    "conjunctive-test": {
-      "patterns": [
-        {
-          "name": "meta.conjunctive-test.soar",
-          "begin": "\\{",
-          "end": "\\}",
+          "begin": "(sp\\b|gp\\b)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.soar"
+            }
+          },
           "patterns": [
-            { "include": "#operators" },
-            { "include": "#variables" },
-            { "include": "#numbers" },
-            { "include": "#strings" }
-          ]
+            {
+              "include": "#uid_production_start"
+            }
+          ],
+          "end": "((?<!\\\\)$)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
         }
       ]
     },
-    "disjunction": {
+    "script": {
       "patterns": [
         {
-          "name": "meta.disjunction.soar",
-          "begin": "<<",
-          "end": ">>",
+          "begin": "(script\\b)(\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.function.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            }
+          },
           "patterns": [
-            { "include": "#variables" },
-            { "include": "#numbers" },
-            { "include": "#strings" },
-            { "include": "#attributes" }
-          ]
+            {
+              "include": "#script__1"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "script__1": {
+      "patterns": [
+        {
+          "begin": "(javascript)(\\s+)({)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "source.js"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "begin": "(?!javascript)(\\w+)(\\s+)({)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#script__3"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "script__2": {
+      "patterns": [
+        {
+          "include": "#script"
+        }
+      ]
+    },
+    "script__3": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "contentName": "markup.raw.soar",
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "match": "([^\\x{007b}\\x{007d}]+)",
+          "name": "markup.raw.soar"
+        }
+      ]
+    },
+    "script__4": {
+      "patterns": []
+    },
+    "soar_float": {
+      "patterns": [
+        {
+          "match": "(-?(?:\\d+\\.\\d*|\\.\\d+))",
+          "name": "constant.numeric.float.soar"
+        }
+      ]
+    },
+    "soar_identifier": {
+      "patterns": [
+        {
+          "match": "(?!(?:-->|sp|gp)(?:[^a-zA-Z0-9\\x{002a}\\%\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_]))(?!:)((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)",
+          "name": "entity.name.class.soar"
+        }
+      ]
+    },
+    "soar_integer": {
+      "patterns": [
+        {
+          "match": "(-?\\d+(?!\\.))",
+          "name": "constant.numeric.integer.soar"
+        }
+      ]
+    },
+    "soar_symbol": {
+      "patterns": [
+        {
+          "match": "(?!(?:-->|\\*(?:yes|no|YES|NO|UNKNOWN)\\*|nil)(?:[^a-zA-Z0-9\\x{002a}\\%\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_]))((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)",
+          "name": "constant.other.soar"
+        },
+        {
+          "match": "(\\*(?:yes|no|YES|NO|UNKNOWN)\\*|nil)(?=(?:[^a-zA-Z0-9\\x{002a}\\%\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_]))",
+          "name": "constant.language.soar"
+        }
+      ]
+    },
+    "soar_variable": {
+      "patterns": [
+        {
+          "match": "(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)",
+          "name": "variable.parameter.soar"
+        }
+      ]
+    },
+    "subattributes_common": {
+      "patterns": [
+        {
+          "match": "(\\s*)(\\.)(\\s*)((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)",
+          "captures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "entity.name.tag.soar"
+            }
+          }
+        },
+        {
+          "match": "(\\s*)(\\.)(\\s*)(-?\\d+)",
+          "captures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "constant.numeric.integer.soar"
+            }
+          }
+        },
+        {
+          "match": "(\\s*)(\\.)(\\s*)(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)",
+          "captures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "variable.parameter.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_args": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_proc_args_start"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_attribute": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\^)(\\s*)((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "entity.name.tag.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__1"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(-?\\d+(?!\\.))",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "constant.numeric.integer.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__2"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(?=<<\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__3"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])(?!<<)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__4"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])(?!{)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "variable.parameter.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__5"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(?:(\\$(?:::)?\\w+)|(\\${[A-Za-z0-9-_\\*]+}))",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "variable.other.soar"
+            },
+            "5": {
+              "name": "variable.other.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_attribute__6"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "match": "(\\^)(\\s*)(-?(?:\\d+\\.\\d*|\\.\\d+))",
+          "captures": {
+            "1": {
+              "name": "entity.name.tag.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "constant.numeric.float.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_attribute__1": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        }
+      ]
+    },
+    "tcl_attribute__2": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        }
+      ]
+    },
+    "tcl_attribute__3": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        },
+        {
+          "include": "#tcl_disjunction"
+        }
+      ]
+    },
+    "tcl_attribute__4": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        },
+        {
+          "include": "#tcl_conjunction"
+        }
+      ]
+    },
+    "tcl_attribute__5": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        }
+      ]
+    },
+    "tcl_attribute__6": {
+      "patterns": [
+        {
+          "include": "#tcl_subattributes"
+        }
+      ]
+    },
+    "tcl_block": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_block_start"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_code_common": {
+      "patterns": [
+        {
+          "begin": "(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_code_common__1"
+            }
+          ],
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#soar_variable"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_string_quoted"
+        },
+        {
+          "include": "#tcl_string_curly"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_float"
+        }
+      ]
+    },
+    "tcl_code_common__1": {
+      "patterns": [
+        {
+          "include": "#tcl_code_common"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "tcl_conditional_block": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_conditional_block_start"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_conditional_block_common": {
+      "patterns": [
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_string_curly"
+        },
+        {
+          "include": "#tcl_string_quoted"
+        },
+        {
+          "match": "(==|!=|&&|\\|\\||\\?|:|eq|ne|in|ni)",
+          "name": "keyword.operator.tcl.soar"
+        },
+        {
+          "begin": "(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_conditional_block_common__1"
+            }
+          ],
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_conditional_block_common__1": {
+      "patterns": [
+        {
+          "include": "#tcl_conditional_block_common"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "tcl_conjunction": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\s*)({)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_conjunction__1"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_conjunction__1": {
+      "patterns": [
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#conjunction_tests"
+        },
+        {
+          "include": "#illegal_quotation"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#tcl_conjunction"
+        },
+        {
+          "include": "#tcl_disjunction"
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_variable"
+        }
+      ]
+    },
+    "tcl_disjunction": {
+      "patterns": [
+        {
+          "begin": "(<<)(\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_disjunction__1"
+            }
+          ],
+          "end": "(\\s+)(>>)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_disjunction__1": {
+      "patterns": [
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_float"
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_embedded"
+        }
+      ]
+    },
+    "tcl_embedded": {
+      "patterns": [
+        {
+          "begin": "(\\[)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_embedded__1"
+            }
+          ],
+          "end": "(\\])",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_embedded__1": {
+      "patterns": [
+        {
+          "begin": "([A-Za-z0-9\\-_\\x{002a}]+)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.function.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_embedded__2"
+            }
+          ],
+          "end": "(?=\\])",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "tcl_embedded__2": {
+      "patterns": [
+        {
+          "include": "#tcl_code_common"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "tcl_flow_control": {
+      "patterns": [
+        {
+          "begin": "(while\\b|for\\b|foreach\\b|switch\\b)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_flow_control_start"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_if": {
+      "patterns": [
+        {
+          "begin": "(if\\b|elseif\\b)(?=\\b|$)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_if_start"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_lisp": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_lisp__1"
+            }
+          ],
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_lisp__1": {
+      "patterns": [
+        {
+          "begin": "(state|impasse)?(\\s+)?(?:(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)|(?=-?\\^))",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.modifier.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "variable.parameter.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_lisp__2"
+            }
+          ],
+          "end": "(?=\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "begin": "(?!state|impasse)(?:((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)|(\\$(?:::)?\\w+)|(\\${[A-Za-z0-9-_\\*]+}))",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.function.soar"
+            },
+            "2": {
+              "name": "variable.other.soar"
+            },
+            "3": {
+              "name": "variable.other.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_lisp__3"
+            }
+          ],
+          "end": "(?=\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_lisp"
+        },
+        {
+          "include": "#lisp_common"
+        }
+      ]
+    },
+    "tcl_lisp__2": {
+      "patterns": [
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_lisp"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_attribute"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#tcl_disjunction"
+        },
+        {
+          "include": "#tcl_conjunction"
+        },
+        {
+          "include": "#conjunction_tests"
+        },
+        {
+          "include": "#preferences"
+        },
+        {
+          "include": "#wme_soar_common"
+        }
+      ]
+    },
+    "tcl_lisp__3": {
+      "patterns": [
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_lisp"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#wme_soar_common"
+        }
+      ]
+    },
+    "tcl_proc": {
+      "patterns": [
+        {
+          "begin": "(proc)(?=\\s|$)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_proc_start"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_production_body": {
+      "patterns": [
+        {
+          "begin": "(\")",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_body_start"
+            }
+          ],
+          "end": "(\")",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_soar_string": {
+      "patterns": [
+        {
+          "begin": "(\\|)",
+          "beginCaptures": {
+            "1": {
+              "name": "string.quoted.single.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_soar_string__1"
+            }
+          ],
+          "end": "(\\||$)",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.single.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_soar_string__1": {
+      "patterns": [
+        {
+          "match": "(\\\\(?:\\\\|\\||\\$))",
+          "name": "constant.character.escape.soar"
+        },
+        {
+          "match": "([^\\|\\x{005c}\\x{0024}]+)",
+          "name": "string.quoted.single.soar"
+        },
+        {
+          "include": "#tcl_variable"
+        }
+      ]
+    },
+    "tcl_string_curly": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "string.quoted.double.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_string_curly_start"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.double.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_string_quoted": {
+      "patterns": [
+        {
+          "begin": "(\")",
+          "beginCaptures": {
+            "1": {
+              "name": "string.quoted.double.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_string_quoted__1"
+            }
+          ],
+          "end": "(\")",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.double.soar"
+            }
+          }
+        }
+      ]
+    },
+    "tcl_string_quoted__1": {
+      "patterns": [
+        {
+          "match": "(\\\\(?:\\\\|\"|$))",
+          "name": "constant.character.escape.soar"
+        },
+        {
+          "match": "([^\\x{0022}\\x{005c}\\x{007c}\\x{0028}\\x{003c}\\x{0024}\\[]+)",
+          "name": "string.quoted.double.soar"
+        },
+        {
+          "include": "#tcl_lisp"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#tcl_string_curly"
+        },
+        {
+          "include": "#soar_variable"
+        }
+      ]
+    },
+    "tcl_subattributes": {
+      "patterns": [
+        {
+          "match": "(\\s*)(\\.)(\\s*)(?:(\\$(?:::)?\\w+)|(\\${[A-Za-z0-9-_\\*]+}))",
+          "captures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "variable.other.soar"
+            },
+            "5": {
+              "name": "variable.other.soar"
+            }
+          }
+        },
+        {
+          "begin": "(\\s*)(\\.)(\\s*)(?=<<\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_subattributes__1"
+            }
+          ],
+          "end": "(?<=>>)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(\\s*)(\\.)(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tcl_subattributes__2"
+            }
+          ],
+          "end": "(?<=})",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "include": "#subattributes_common"
+        }
+      ]
+    },
+    "tcl_subattributes__1": {
+      "patterns": [
+        {
+          "include": "#tcl_disjunction"
+        }
+      ]
+    },
+    "tcl_subattributes__2": {
+      "patterns": [
+        {
+          "include": "#tcl_conjunction"
+        }
+      ]
+    },
+    "tcl_variable": {
+      "patterns": [
+        {
+          "match": "(\\$(?:::)?\\w+)",
+          "name": "variable.other.soar"
+        },
+        {
+          "match": "(\\${[A-Za-z0-9-_\\*]+})",
+          "name": "variable.other.soar"
+        }
+      ]
+    },
+    "traditional_attribute": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\^)(\\s*)((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "entity.name.tag.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_attribute__1"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(-?\\d+(?!\\.))",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "constant.numeric.integer.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_attribute__2"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(?=<<\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_attribute__3"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])(?!<<)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_attribute__4"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])(?!{)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(-?)(\\^)(\\s*)(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            },
+            "4": {
+              "name": "variable.parameter.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_attribute__5"
+            }
+          ],
+          "end": "(?=\\s*[^\\.])",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "match": "(\\^)(\\s*)(-?(?:\\d+\\.\\d*|\\.\\d+))",
+          "captures": {
+            "1": {
+              "name": "entity.name.tag.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "constant.numeric.float.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_attribute__1": {
+      "patterns": [
+        {
+          "include": "#traditional_subattributes"
+        }
+      ]
+    },
+    "traditional_attribute__2": {
+      "patterns": [
+        {
+          "include": "#traditional_subattributes"
+        }
+      ]
+    },
+    "traditional_attribute__3": {
+      "patterns": [
+        {
+          "include": "#traditional_subattributes"
+        },
+        {
+          "include": "#traditional_disjunction"
+        }
+      ]
+    },
+    "traditional_attribute__4": {
+      "patterns": [
+        {
+          "include": "#traditional_subattributes"
+        },
+        {
+          "include": "#traditional_conjunction"
+        }
+      ]
+    },
+    "traditional_attribute__5": {
+      "patterns": [
+        {
+          "include": "#traditional_subattributes"
+        }
+      ]
+    },
+    "traditional_conjunction": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\s*)({)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_conjunction__1"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_conjunction__1": {
+      "patterns": [
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#conjunction_tests"
+        },
+        {
+          "include": "#illegal_quotation"
+        },
+        {
+          "include": "#illegal_close_paren"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#traditional_conjunction"
+        },
+        {
+          "include": "#traditional_disjunction"
+        },
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_variable"
+        }
+      ]
+    },
+    "traditional_disjunction": {
+      "patterns": [
+        {
+          "begin": "(<<)(\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_disjunction__1"
+            }
+          ],
+          "end": "(\\s+)(>>)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_disjunction__1": {
+      "patterns": [
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_float"
+        }
+      ]
+    },
+    "traditional_lisp": {
+      "patterns": [
+        {
+          "begin": "(-?)(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.operator.soar"
+            },
+            "2": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_lisp__1"
+            }
+          ],
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_lisp__1": {
+      "patterns": [
+        {
+          "begin": "(state|impasse)?(\\s+)?(?:(<(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])+>)|(?=-?\\^))",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.modifier.soar"
+            },
+            "2": {
+              "name": "text.soar"
+            },
+            "3": {
+              "name": "variable.parameter.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_lisp__2"
+            }
+          ],
+          "end": "(?=\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "begin": "(?!state|impasse)(?:((?!-)(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*?(?:[a-zA-Z\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])(?:\\w|[\\x{002a}\\-\\x{0025}\\x{0026}\\x{002a}\\x{002b}\\x{002f}\\x{003a}\\x{003d}\\x{003f}_])*)|(-)(\\s+))",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.function.soar"
+            },
+            "2": {
+              "name": "entity.name.function.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_lisp__3"
+            }
+          ],
+          "end": "(?=\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        },
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#lisp_common"
+        }
+      ]
+    },
+    "traditional_lisp__2": {
+      "patterns": [
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#traditional_attribute"
+        },
+        {
+          "include": "#traditional_disjunction"
+        },
+        {
+          "include": "#traditional_conjunction"
+        },
+        {
+          "include": "#conjunction_tests"
+        },
+        {
+          "include": "#preferences"
+        },
+        {
+          "include": "#wme_soar_common"
+        }
+      ]
+    },
+    "traditional_lisp__3": {
+      "patterns": [
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#wme_soar_common"
+        }
+      ]
+    },
+    "traditional_production_body": {
+      "patterns": [
+        {
+          "begin": "({)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_traditional_body_start"
+            }
+          ],
+          "end": "(})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_soar_string": {
+      "patterns": [
+        {
+          "begin": "(\\|)",
+          "beginCaptures": {
+            "1": {
+              "name": "string.quoted.single.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_soar_string__1"
+            }
+          ],
+          "end": "(\\||$)",
+          "endCaptures": {
+            "1": {
+              "name": "string.quoted.single.soar"
+            }
+          }
+        }
+      ]
+    },
+    "traditional_soar_string__1": {
+      "patterns": [
+        {
+          "match": "(\\\\(?:\\\\|\\|))",
+          "name": "constant.character.escape.soar"
+        },
+        {
+          "match": "([^\\|\\x{005c}]+)",
+          "name": "string.quoted.single.soar"
+        }
+      ]
+    },
+    "traditional_subattributes": {
+      "patterns": [
+        {
+          "begin": "(\\s*)(\\.)(\\s*)(?=<<\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_subattributes__1"
+            }
+          ],
+          "end": "(?<=>>)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "begin": "(\\s*)(\\.)(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            },
+            "2": {
+              "name": "entity.name.tag.soar"
+            },
+            "3": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#traditional_subattributes__2"
+            }
+          ],
+          "end": "(?<=})",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "include": "#subattributes_common"
+        }
+      ]
+    },
+    "traditional_subattributes__1": {
+      "patterns": [
+        {
+          "include": "#traditional_disjunction"
+        }
+      ]
+    },
+    "traditional_subattributes__2": {
+      "patterns": [
+        {
+          "include": "#traditional_conjunction"
+        }
+      ]
+    },
+    "uid_production_start": {
+      "patterns": [
+        {
+          "include": "#traditional_production_body"
+        },
+        {
+          "include": "#tcl_production_body"
+        }
+      ]
+    },
+    "uid_tcl_block_start": {
+      "patterns": [
+        {
+          "include": "#main"
+        }
+      ]
+    },
+    "uid_tcl_body_start": {
+      "patterns": [
+        {
+          "include": "#common_production_body"
+        },
+        {
+          "include": "#tcl_embedded"
+        },
+        {
+          "include": "#escaped_docstring"
+        },
+        {
+          "include": "#tcl_variable"
+        },
+        {
+          "include": "#tcl_lisp"
+        },
+        {
+          "include": "#tcl_conjunction"
+        },
+        {
+          "include": "#tcl_soar_string"
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "uid_tcl_conditional_block_start": {
+      "patterns": [
+        {
+          "include": "#tcl_conditional_block_common"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_paren"
+        }
+      ]
+    },
+    "uid_tcl_else_body_look_ahead": {
+      "patterns": [
+        {
+          "include": "#tcl_block"
+        }
+      ]
+    },
+    "uid_tcl_else_start": {
+      "patterns": [
+        {
+          "begin": "(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_else_body_look_ahead"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_flow_control_start": {
+      "patterns": [
+        {
+          "include": "#tcl_block"
+        }
+      ]
+    },
+    "uid_tcl_if_body_look_ahead": {
+      "patterns": [
+        {
+          "include": "#tcl_block"
+        },
+        {
+          "include": "#tcl_if"
+        },
+        {
+          "begin": "(else\\b)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_else_start"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_if_condition_look_ahead": {
+      "patterns": [
+        {
+          "match": "(then)",
+          "name": "storage.type.soar"
+        },
+        {
+          "include": "#tcl_conditional_block"
+        },
+        {
+          "begin": "(?<=}|then)(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_if_body_look_ahead"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_if_start": {
+      "patterns": [
+        {
+          "begin": "(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_if_condition_look_ahead"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_proc_args_lookahead": {
+      "patterns": [
+        {
+          "include": "#tcl_args"
+        },
+        {
+          "begin": "(?<=})(\\s*)(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_proc_body_lookahead"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_proc_args_start": {
+      "patterns": [
+        {
+          "match": "(\\w+)",
+          "name": "variable.parameter.soar"
+        },
+        {
+          "include": "#tcl_args"
+        }
+      ]
+    },
+    "uid_tcl_proc_body_lookahead": {
+      "patterns": [
+        {
+          "include": "#tcl_block"
+        }
+      ]
+    },
+    "uid_tcl_proc_name": {
+      "patterns": [
+        {
+          "begin": "(?={)",
+          "beginCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_proc_args_lookahead"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        }
+      ]
+    },
+    "uid_tcl_proc_start": {
+      "patterns": [
+        {
+          "begin": "([A-Za-z0-9\\-_\\x{002a}]+)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.soar"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#uid_tcl_proc_name"
+            }
+          ],
+          "end": "($)",
+          "endCaptures": {
+            "1": {
+              "name": "text.soar"
+            }
+          }
+        },
+        {
+          "include": "#illegal_close_curly"
+        }
+      ]
+    },
+    "uid_tcl_string_curly_start": {
+      "patterns": [
+        {
+          "match": "(\\\\(?:\\\\|}|$))",
+          "name": "constant.character.escape.soar"
+        },
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#tcl_string_curly"
+        },
+        {
+          "include": "#soar_variable"
+        }
+      ]
+    },
+    "uid_traditional_body_start": {
+      "patterns": [
+        {
+          "include": "#common_production_body"
+        },
+        {
+          "include": "#docstring"
+        },
+        {
+          "include": "#traditional_lisp"
+        },
+        {
+          "include": "#traditional_conjunction"
+        },
+        {
+          "include": "#traditional_soar_string"
+        },
+        {
+          "include": "#illegal_open_bracket"
+        }
+      ]
+    },
+    "wme_soar_common": {
+      "patterns": [
+        {
+          "match": "(;)",
+          "name": "punctuation.soar"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#soar_symbol"
+        },
+        {
+          "include": "#soar_variable"
+        },
+        {
+          "include": "#soar_integer"
+        },
+        {
+          "include": "#soar_float"
+        },
+        {
+          "include": "#illegal_close_bracket"
+        },
+        {
+          "include": "#illegal_close_curly"
+        },
+        {
+          "include": "#illegal_quotation"
         }
       ]
     }
