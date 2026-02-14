@@ -15,6 +15,7 @@ import '../lsp/datamap/helpers/datamap.test';
 
 // Project layout tests
 import '../layout/projectCreator.test';
+import '../layout/undoManager.test';
 
 // Legacy project validation tests
 import '../legacy-agents/project-validation.test';

@@ -78,6 +78,18 @@
         "icon": "$(folder-library)"
       },
       {
+        "command": "soar.undo",
+        "title": "Undo Project Structure Change",
+        "category": "Soar",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "soar.redo",
+        "title": "Redo Project Structure Change",
+        "category": "Soar",
+        "icon": "$(redo)"
+      },
+      {
         "command": "soar.refreshDatamap",
         "title": "Refresh Datamap",
         "category": "Soar",
@@ -231,6 +243,16 @@
     "menus": {
       "view/title": [
         {
+          "command": "soar.undo",
+          "when": "view == soarDatamap && soar.canUndo",
+          "group": "navigation@0"
+        },
+        {
+          "command": "soar.redo",
+          "when": "view == soarDatamap && soar.canRedo",
+          "group": "navigation@0"
+        },
+        {
           "command": "soar.refreshDatamap",
           "when": "view == soarDatamap",
           "group": "navigation@1"
@@ -239,6 +261,16 @@
           "command": "soar.viewRootDatamap",
           "when": "view == soarDatamap",
           "group": "navigation@2"
+        },
+        {
+          "command": "soar.undo",
+          "when": "view == soarLayout && soar.canUndo",
+          "group": "navigation@0"
+        },
+        {
+          "command": "soar.redo",
+          "when": "view == soarLayout && soar.canRedo",
+          "group": "navigation@0"
         },
         {
           "command": "soar.refreshLayout",
@@ -324,6 +356,20 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "soar.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "focusedView == soarLayout || focusedView == soarDatamap"
+      },
+      {
+        "command": "soar.redo",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "focusedView == soarLayout || focusedView == soarDatamap"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Soar",

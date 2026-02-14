@@ -19,6 +19,7 @@ import {
 } from '../server/visualSoarProject';
 import { SoarTemplates } from './soarTemplates';
 import { SourceScriptManager } from './sourceScriptManager';
+import { UndoManager, getUndoManager } from './undoManager';
 
 export interface DeleteResult {
   success: boolean;
@@ -963,6 +964,171 @@ export class LayoutOperations {
   }
 
   /**
+   * Add folder programmatically (for testing)
+   */
+  static async addFolderProgrammatic(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    folderName: string
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode || !hasChildren(parentNode)) {
+      return { success: false };
+    }
+
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(folderName)) {
+      return { success: false };
+    }
+
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const folderPath = folderName;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, folderPath);
+
+    if (fs.existsSync(fullPath)) {
+      return { success: false };
+    }
+
+    // Create folder
+    await fs.promises.mkdir(fullPath, { recursive: true });
+
+    // Create folder node
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: FolderNode = {
+      type: 'FOLDER',
+      id: newNodeId,
+      name: folderName,
+      folder: folderName,
+      children: [],
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    await this.saveProject(projectContext);
+
+    return { success: true, nodeId: newNodeId };
+  }
+
+  /**
+   * Add operator programmatically with undo support (for testing)
+   */
+  static async addOperatorProgrammaticWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    operatorName: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const result = await this.addOperatorProgrammatic(projectContext, parentNodeId, operatorName);
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Operator',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return result;
+  }
+
+  /**
+   * Add file programmatically with undo support (for testing)
+   */
+  static async addFileProgrammaticWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    fileName: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const result = await this.addFileProgrammatic(projectContext, parentNodeId, fileName);
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add File',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return result;
+  }
+
+  /**
+   * Add folder programmatically with undo support (for testing)
+   */
+  static async addFolderProgrammaticWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    folderName: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const result = await this.addFolderProgrammatic(projectContext, parentNodeId, folderName);
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Folder',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return result;
+  }
+
+  /**
    * Helper: Add an operator to the datamap
    * Creates a new operator vertex with ^name enumeration and adds ^operator edge from parent state
    * Returns the operator vertex ID
@@ -1270,5 +1436,203 @@ export class LayoutOperations {
   private static async saveProject(projectContext: ProjectContext): Promise<void> {
     const json = JSON.stringify(projectContext.project, null, 2);
     await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
+  }
+
+  /**
+   * Add operator with undo support
+   */
+  static async addOperatorWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<boolean> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const success = await this.addOperator(projectContext, parentNodeId);
+
+    if (!success) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Operator',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return true;
+  }
+
+  /**
+   * Add file with undo support
+   */
+  static async addFileWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    reloadCallback: () => Promise<void>,
+    parentNodeOverride?: LayoutNode,
+    folderPathOverride?: string
+  ): Promise<boolean> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const success = await this.addFile(
+      projectContext,
+      parentNodeId,
+      parentNodeOverride,
+      folderPathOverride
+    );
+
+    if (!success) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add File',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return true;
+  }
+
+  /**
+   * Add folder with undo support
+   */
+  static async addFolderWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<boolean> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const success = await this.addFolder(projectContext, parentNodeId);
+
+    if (!success) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Folder',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return true;
+  }
+
+  /**
+   * Delete node with undo support
+   */
+  static async deleteNodeWithUndo(
+    projectContext: ProjectContext,
+    nodeId: string,
+    parentNodeId: string,
+    reloadCallback: () => Promise<void>,
+    skipConfirmation: boolean = false
+  ): Promise<boolean | DeleteResult> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const result = await this.deleteNode(projectContext, nodeId, parentNodeId, skipConfirmation);
+
+    if (!result) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Get node name for description
+    const node = projectContext.layoutIndex.get(nodeId);
+    const nodeName = node ? node.name : 'Node';
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      `Delete ${nodeName}`,
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return result;
+  }
+
+  /**
+   * Rename node with undo support
+   */
+  static async renameNodeWithUndo(
+    projectContext: ProjectContext,
+    nodeId: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<boolean> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const success = await this.renameNode(projectContext, nodeId);
+
+    if (!success) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Rename Node',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return true;
   }
 }

@@ -320,7 +320,7 @@ export class ProjectManager {
       // Reload the project by firing the active project changed event
       // This will trigger all the registered listeners (datamap, layout, etc.)
       if (this.activeProject) {
-        console.log('Reloading project due to external file change...');
+        console.log('Reloading project due to file change...');
         this.activeProjectEmitter.fire(this.activeProject);
 
         // Re-validate project files after external changes
@@ -341,6 +341,9 @@ export class ProjectManager {
     this.context.subscriptions.push(watcher);
   }
 
+  /**
+   * Suppress the next file watcher reload (call before saving project)
+   */
   /**
    * Clear the active project
    */

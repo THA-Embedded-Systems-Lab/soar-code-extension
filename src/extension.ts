@@ -11,6 +11,7 @@ import { ProjectSync } from './layout/projectSync';
 import { SoarParser } from './server/soarParser';
 import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
+import { getUndoManager, resetUndoManager } from './layout/undoManager';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -148,6 +149,49 @@ export async function activate(context: vscode.ExtensionContext) {
       const project = await projectManager.showProjectSelector();
     })
   );
+
+  // Register undo/redo commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.undo', async () => {
+      const undoManager = getUndoManager();
+
+      if (!undoManager.canUndo()) {
+        vscode.window.showInformationMessage('Nothing to undo');
+        return;
+      }
+
+      try {
+        await undoManager.undo();
+        const description = undoManager.getRedoDescription();
+        vscode.window.showInformationMessage(`Undone: ${description || 'Last operation'}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to undo: ${error.message}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.redo', async () => {
+      const undoManager = getUndoManager();
+
+      if (!undoManager.canRedo()) {
+        vscode.window.showInformationMessage('Nothing to redo');
+        return;
+      }
+
+      try {
+        await undoManager.redo();
+        const description = undoManager.getUndoDescription();
+        vscode.window.showInformationMessage(`Redone: ${description || 'Last operation'}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to redo: ${error.message}`);
+      }
+    })
+  );
+
+  // Initialize context keys for undo/redo button visibility
+  await vscode.commands.executeCommand('setContext', 'soar.canUndo', false);
+  await vscode.commands.executeCommand('setContext', 'soar.canRedo', false);
 
   // Register commands for datamap tree
   context.subscriptions.push(
@@ -339,12 +383,30 @@ export async function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(layoutTreeView);
 
+  // Track the current project to avoid resetting undo on reload
+  let currentProjectFile: string | null = null;
+
   const projectChangeDisposable = projectManager.onDidChangeActiveProject(project => {
     if (project) {
+      // Only reset undo history when switching to a DIFFERENT project
+      if (currentProjectFile !== project.projectFile) {
+        console.log(
+          `Switching from ${currentProjectFile} to ${project.projectFile} - resetting undo`
+        );
+        resetUndoManager();
+        currentProjectFile = project.projectFile;
+      } else {
+        console.log(`Reloading same project ${project.projectFile} - keeping undo history`);
+      }
+
       void Promise.all([
         datamapProvider.loadProjectFromFile(project.projectFile),
         layoutProvider.loadProjectFromFile(project.projectFile),
       ]);
+    } else {
+      // Project was cleared
+      currentProjectFile = null;
+      resetUndoManager();
     }
   });
   context.subscriptions.push(projectChangeDisposable);
@@ -379,11 +441,21 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
-      const success = await LayoutOperations.addOperator(projectContext, nodeId);
-      if (success) {
-        // Reload both providers from the updated project file
+
+      // Use undoable version
+      const reloadViews = async () => {
         await layoutProvider.loadProjectFromFile(projectContext.projectFile);
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.addOperatorWithUndo(
+        projectContext,
+        nodeId,
+        reloadViews
+      );
+
+      if (success) {
+        await reloadViews();
       }
     })
   );
@@ -398,14 +470,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
       const folderPath = treeItem?.getFolderPath();
-      const success = await LayoutOperations.addFile(
+
+      // Use undoable version
+      const reloadViews = async () => {
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.addFileWithUndo(
         projectContext,
         nodeId,
+        reloadViews,
         treeItem?.node,
         folderPath
       );
       if (success) {
-        layoutProvider.refresh();
+        await reloadViews();
       }
     })
   );
@@ -419,9 +499,16 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
-      const success = await LayoutOperations.addFolder(projectContext, nodeId);
+
+      // Use undoable version
+      const reloadViews = async () => {
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.addFolderWithUndo(projectContext, nodeId, reloadViews);
       if (success) {
-        layoutProvider.refresh();
+        await reloadViews();
       }
     })
   );
@@ -434,9 +521,19 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const success = await LayoutOperations.renameNode(projectContext, treeItem.node.id);
+      // Use undoable version
+      const reloadViews = async () => {
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.renameNodeWithUndo(
+        projectContext,
+        treeItem.node.id,
+        reloadViews
+      );
       if (success) {
-        layoutProvider.refresh();
+        await reloadViews();
       }
     })
   );
@@ -455,14 +552,20 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const success = await LayoutOperations.deleteNode(
+      // Use undoable version
+      const reloadViews = async () => {
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.deleteNodeWithUndo(
         projectContext,
         treeItem.node.id,
-        parentNode.id
+        parentNode.id,
+        reloadViews
       );
       if (success) {
-        layoutProvider.refresh();
-        datamapProvider.refresh(); // Refresh both views
+        await reloadViews();
       }
     })
   );

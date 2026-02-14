@@ -29,6 +29,31 @@
     Information: 2,
     Hint: 3,
   },
+  EventEmitter: class EventEmitter<T> {
+    private listeners: Array<(e: T) => any> = [];
+
+    get event() {
+      return (listener: (e: T) => any) => {
+        this.listeners.push(listener);
+        return {
+          dispose: () => {
+            const index = this.listeners.indexOf(listener);
+            if (index >= 0) {
+              this.listeners.splice(index, 1);
+            }
+          },
+        };
+      };
+    }
+
+    fire(data: T): void {
+      this.listeners.forEach(listener => listener(data));
+    }
+
+    dispose(): void {
+      this.listeners = [];
+    }
+  },
 };
 
 // Register the mock with require cache
