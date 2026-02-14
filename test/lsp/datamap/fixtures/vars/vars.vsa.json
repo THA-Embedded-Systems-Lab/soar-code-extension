@@ -294,6 +294,12 @@
         "name": "anchor-object-class",
         "file": "anchor-object-class.soar",
         "dmId": "1"
+      },
+      {
+        "type": "FILE",
+        "id": "2",
+        "name": "augmentation-validation",
+        "file": "augmentation-validation.soar"
       }
     ]
   }

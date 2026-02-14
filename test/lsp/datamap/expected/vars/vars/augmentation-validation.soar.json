@@ -1,0 +1,21 @@
+[
+  {
+    "production": "propose*anchor-object-class*update-desired-relation",
+    "attribute": "attribute-not-in-datamap",
+    "attributePath": "^attribute-not-in-datamap",
+    "line": 5,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 6
+      },
+      "end": {
+        "line": 5,
+        "character": 31
+      }
+    },
+    "message": "Attribute '^attribute-not-in-datamap' not found in project datamap",
+    "severity": "error"
+  }
+]

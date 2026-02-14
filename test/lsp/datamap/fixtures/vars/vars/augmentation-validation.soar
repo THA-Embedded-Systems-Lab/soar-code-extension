@@ -1,0 +1,7 @@
+sp {propose*anchor-object-class*update-desired-relation
+   (state <s> ^name vars)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name anchor-object-class
+      ^attribute-not-in-datamap <test>)
+}

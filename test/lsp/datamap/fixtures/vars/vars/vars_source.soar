@@ -6,3 +6,4 @@ source elaborations_source.soar
 popd
 source initialize-vars.soar
 source anchor-object-class.soar
+source augmentation-validation.soar
