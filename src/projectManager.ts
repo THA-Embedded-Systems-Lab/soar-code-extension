@@ -28,6 +28,7 @@ export class ProjectManager {
   private diagnosticCollection: vscode.DiagnosticCollection;
   private readonly activeProjectEmitter = new vscode.EventEmitter<SoarProjectInfo | null>();
   readonly onDidChangeActiveProject = this.activeProjectEmitter.event;
+  private projectFileWatcher: vscode.FileSystemWatcher | null = null;
 
   private constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -143,6 +144,10 @@ export class ProjectManager {
 
     this.updateStatusBar();
     console.log('Status bar updated');
+
+    // Set up file system watcher for the project file
+    this.setupProjectWatcher(project.projectFile);
+    console.log('Project file watcher set up');
 
     // Notify LSP server of project change
     const lspClient = await import('./client/lspClient');
@@ -285,12 +290,70 @@ export class ProjectManager {
   }
 
   /**
+   * Set up file system watcher for the active project's .vsa.json file
+   * When the file changes externally, reload the project
+   */
+  private setupProjectWatcher(projectFile: string): void {
+    // Dispose of existing watcher if any
+    if (this.projectFileWatcher) {
+      this.projectFileWatcher.dispose();
+      this.projectFileWatcher = null;
+    }
+
+    // Create a watcher specifically for this project file using a RelativePattern
+    // This ensures we watch the specific file, not a glob pattern
+    const fileDir = path.dirname(projectFile);
+    const fileName = path.basename(projectFile);
+    const pattern = new vscode.RelativePattern(fileDir, fileName);
+
+    console.log(`Setting up watcher for: ${projectFile}`);
+    console.log(`  Directory: ${fileDir}`);
+    console.log(`  File: ${fileName}`);
+
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    this.projectFileWatcher = watcher;
+
+    // Watch for changes to the .vsa.json file
+    watcher.onDidChange(async (uri: vscode.Uri) => {
+      console.log(`Project file changed: ${uri.fsPath}`);
+
+      // Reload the project by firing the active project changed event
+      // This will trigger all the registered listeners (datamap, layout, etc.)
+      if (this.activeProject) {
+        console.log('Reloading project due to external file change...');
+        this.activeProjectEmitter.fire(this.activeProject);
+
+        // Re-validate project files after external changes
+        await this.validateProjectFiles(this.activeProject);
+      }
+    });
+
+    // Watch for deletion of the .vsa.json file
+    watcher.onDidDelete(async (uri: vscode.Uri) => {
+      console.log(`Project file deleted: ${uri.fsPath}`);
+      vscode.window.showWarningMessage(
+        `Active project file was deleted: ${path.basename(uri.fsPath)}`
+      );
+      await this.clearActiveProject();
+    });
+
+    // Register for cleanup
+    this.context.subscriptions.push(watcher);
+  }
+
+  /**
    * Clear the active project
    */
   async clearActiveProject(): Promise<void> {
     this.activeProject = null;
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, undefined);
     this.updateStatusBar();
+
+    // Dispose of project file watcher
+    if (this.projectFileWatcher) {
+      this.projectFileWatcher.dispose();
+      this.projectFileWatcher = null;
+    }
 
     // Clear project validation diagnostics
     this.diagnosticCollection.clear();
@@ -399,6 +462,10 @@ export class ProjectManager {
    * Dispose resources
    */
   dispose(): void {
+    if (this.projectFileWatcher) {
+      this.projectFileWatcher.dispose();
+      this.projectFileWatcher = null;
+    }
     this.statusBarItem.dispose();
   }
 }
