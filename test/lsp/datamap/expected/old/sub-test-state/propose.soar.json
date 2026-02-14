@@ -1,0 +1,21 @@
+[
+  {
+    "production": "propose*sub-test-state",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 10,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 10,
+        "character": 9
+      },
+      "end": {
+        "line": 10,
+        "character": 14
+      }
+    },
+    "message": "Invalid enumeration value 'sub-test-state' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  }
+]
