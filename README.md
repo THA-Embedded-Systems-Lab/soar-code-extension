@@ -6,7 +6,7 @@ seamless VisualSoar project integration.
 
 ## Features
 
-### 🆕 Project Creation
+### Project Creation
 
 - **Command**: "Create New Soar Project"
 - **Guided Setup**: Select directory and enter agent name
@@ -15,19 +15,19 @@ seamless VisualSoar project integration.
 - **VisualSoar Compatible**: Generates .vsa.json project files
 - **Ready to Run**: Includes initialization operator and elaborations
 
-### 🎨 Syntax Highlighting
+### Syntax Highlighting
 
 - Complete TextMate grammar for Soar productions
 - Color-coded keywords, variables, attributes, and operators
 - Support for comments, strings, and numeric literals
 
-### 🔍 Language Server Protocol (LSP)
+### Language Server Protocol (LSP)
 
 - **Real-time Validation**: Checks code against project datamap
 - **Diagnostics**: Highlights errors at exact attribute locations
 - **Code Intelligence**: Foundation for completions and navigation
 
-### 📊 Datamap Management
+### Datamap Management
 
 - **Tree View**: Visual representation of working memory structure
 - **CRUD Operations**: Add, edit, delete attributes via UI
@@ -35,7 +35,7 @@ seamless VisualSoar project integration.
 - **Cycle Detection**: Prevents infinite expansion of recursive structures
 - **Multiple Views**: Switch between root and substate datamaps
 
-### 🗂️ Project Structure
+### Project Structure
 
 - **Layout Tree**: Hierarchical view of operators and files
 - **VisualSoar Compatible**: Full bidirectional compatibility
@@ -43,7 +43,7 @@ seamless VisualSoar project integration.
 - **CRUD Operations**: Add operators, substates, files, folders
 - **Orphan Detection**: Find and import untracked .soar files
 
-### ✅ Code Validation
+### Code Validation
 
 - Validates attributes against datamap structure
 - Reports errors at actual attribute locations
@@ -66,6 +66,9 @@ seamless VisualSoar project integration.
 3. Go to Extensions view (`Ctrl+Shift+X`)
 4. Click `...` menu → `Install from VSIX`
 5. Select the downloaded file
+
+CLI installation via `code --install-extension ./soar-<version>.vsix` in the VS
+Code terminal.
 
 #### From Source
 
@@ -253,7 +256,8 @@ npm install          # Install dependencies
 npm run compile      # Compile TypeScript
 npm run watch        # Watch mode for development
 npm run lint         # Run ESLint
-npm test            # Run tests
+npm test             # Run unit tests (mocha)
+npm run test:ci      # Run integration tests (VS Code environment)
 ```
 
 ### Debug Extension
@@ -262,6 +266,26 @@ npm test            # Run tests
 2. Press `F5` to launch Extension Development Host
 3. Set breakpoints in TypeScript files
 4. Test in the debug window
+
+### Testing
+
+The extension has two test configurations:
+
+**Unit Tests** (`npm test`)
+
+- Fast mocha tests that run in Node.js
+- Tests for parsers, validators, and core logic
+- No VS Code environment required
+- Use for TDD and quick feedback
+
+**Integration Tests** (`npm run test:ci`)
+
+- Full VS Code extension host tests
+- Tests LSP client/server, tree views, commands
+- Runs in headless VS Code environment
+- Use for E2E validation
+
+Both test suites run in CI on all platforms (Linux, Windows, macOS).
 
 ### Project Structure
 
@@ -301,15 +325,6 @@ See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for detailed system design.
 - **Large Projects**: Very large projects (>10K lines) may have slow initial validation
 - **Foreign Datamaps**: External datamap references not fully implemented yet
 
-## Roadmap
-
-- [ ] Context-aware completions based on variable bindings
-- [ ] Rename refactoring across project
-- [ ] Visual graph editor for datamap
-- [ ] Import datamap from existing code
-- [ ] Semantic search for attributes
-- [ ] Hover information for attributes
-
 ## Contributing
 
 Contributions welcome! See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for system design details.
@@ -330,7 +345,7 @@ Contributions welcome! See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for system
 
 ## License
 
-[Add license information]
+[License](./LICENSE)
 
 ## Documentation
 
