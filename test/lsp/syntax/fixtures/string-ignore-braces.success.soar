@@ -1,0 +1,6 @@
+sp {monitor*game-over*duplicate-move
+         (state <s> ^io.input-link.observation <obs>)
+         (<obs> ^black-pegs -1)
+         -->
+         (write (crlf) |[AGENT] Duplicate move detected... Game over :(    |)
+}

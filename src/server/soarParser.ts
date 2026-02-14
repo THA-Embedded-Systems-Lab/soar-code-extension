@@ -156,9 +156,22 @@ export class SoarParser {
   ): void {
     let parenCount = 0;
     const unmatchedOpens: number[] = [];
+    let inString = false;
 
     for (let i = 0; i < body.length; i++) {
       const char = body[i];
+
+      // Toggle string state when encountering pipe delimiter
+      if (char === '|') {
+        inString = !inString;
+        continue;
+      }
+
+      // Skip parentheses inside strings
+      if (inString) {
+        continue;
+      }
+
       if (char === '(') {
         parenCount++;
         unmatchedOpens.push(i);
@@ -218,8 +231,8 @@ export class SoarParser {
     // Strip comments while preserving positions
     const cleanBody = this.stripComments(body);
 
-    // Check for unmatched parentheses (use original body for error messages)
-    this.validateParentheses(body, production, basePosition, document);
+    // Check for unmatched parentheses (use clean body with comments stripped)
+    this.validateParentheses(cleanBody, production, basePosition, document);
 
     // Parse variables (use clean body without comments)
     const variableRegex = /<([a-zA-Z][a-zA-Z0-9_-]*)>/g;

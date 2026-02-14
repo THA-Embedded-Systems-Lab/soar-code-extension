@@ -1,0 +1,8 @@
+# Another parse issue
+sp {monitor*game-over*duplicate-move
+         (state <s> ^io.input-link.observation <obs>)
+#                         ^an-old-test-no-longer-needed)
+         (<obs> ^black-pegs -1)
+         -->
+         (write (crlf) |[AGENT] Duplicate move detected... Game over ....   |)
+}
