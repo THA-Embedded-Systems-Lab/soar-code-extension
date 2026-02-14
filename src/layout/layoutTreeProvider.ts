@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ProjectLoader } from '../server/projectLoader';
 import {
   VisualSoarProject,
   LayoutNode,
@@ -158,26 +159,9 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
    */
   async loadProjectFromFile(projectFile: string): Promise<void> {
     try {
-      // Load and parse project
-      const content = await fs.promises.readFile(projectFile, 'utf-8');
-      const project: VisualSoarProject = JSON.parse(content);
-
-      // Build indices
-      const datamapIndex = new Map<string, any>();
-      for (const vertex of project.datamap.vertices) {
-        datamapIndex.set(vertex.id, vertex);
-      }
-
-      const layoutIndex = new Map<string, LayoutNode>();
-      this.buildLayoutIndex(project.layout, layoutIndex);
-
-      this.projectContext = {
-        projectFile,
-        project,
-        datamapIndex,
-        layoutIndex,
-      };
-
+      const loader = new ProjectLoader();
+      const context = await loader.loadProject(projectFile);
+      this.projectContext = context;
       this.refresh();
       vscode.window.showInformationMessage(
         `Loaded project structure: ${path.basename(projectFile)}`
@@ -192,8 +176,8 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
    */
   async loadProject(workspaceFolder: vscode.Uri): Promise<void> {
     try {
-      // Find project file
-      const projectFile = await this.findProjectFile(workspaceFolder.fsPath);
+      const loader = new ProjectLoader();
+      const projectFile = await loader.findProjectFile(workspaceFolder.fsPath);
       if (!projectFile) {
         vscode.window.showInformationMessage(
           'No Soar project file (.vsa.json, .vsproj, or .soarproj) found in workspace'

@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { ProjectContext } from '../server/visualSoarProject';
 import { SoarDocument, SoarProduction, SoarAttribute } from '../server/soarTypes';
+import { DatamapMetadataCache } from './datamapMetadata';
 
 export interface ValidationError {
   production: string;
@@ -67,12 +68,16 @@ export class DatamapValidator {
         continue; // Parent not bound yet
       }
 
-      // Navigate the attribute path from parent vertices to find target vertices
-      const targetVertices = this.findTargetVerticesForPath(
-        Array.from(parentVertices),
-        attr.name.split('.'),
-        projectContext
-      );
+      const dmMeta = (projectContext as any).datamapMetadata as DatamapMetadataCache | undefined;
+      const pathSegments = attr.name.split('.');
+      const targetVertices =
+        (dmMeta &&
+          dmMeta.findTargetVerticesForPath(
+            Array.from(parentVertices),
+            pathSegments,
+            projectContext.project
+          )) ||
+        this.findTargetVerticesForPath(Array.from(parentVertices), pathSegments, projectContext);
 
       // Bind the variable to these target vertices
       const varName = attr.value.substring(1, attr.value.length - 1); // Remove < >
@@ -166,13 +171,15 @@ export class DatamapValidator {
       return null; // Don't report errors if datamap isn't loaded
     }
 
-    // Check if attribute exists anywhere in the datamap
-    const existsInDatamap = this.attributeExistsInDatamap(attr.name, projectContext);
+    const dmMeta = (projectContext as any).datamapMetadata as DatamapMetadataCache | undefined;
+    const existsInDatamap = dmMeta
+      ? dmMeta.attributeExists(attr.name, projectContext.project)
+      : this.attributeExistsInDatamap(attr.name, projectContext);
 
     if (!existsInDatamap) {
-      // Attribute doesn't exist anywhere - find the specific invalid segment
-      const pathAnalysis = this.findFirstInvalidSegment(attr.name, projectContext);
-
+      const pathAnalysis = dmMeta
+        ? dmMeta.findFirstInvalidSegment(attr.name, projectContext.project)
+        : this.findFirstInvalidSegment(attr.name, projectContext);
       let message: string;
       if (pathAnalysis.invalidSegment) {
         // Dotted path with a specific invalid segment
@@ -464,17 +471,18 @@ export class DatamapValidator {
     const pathSegments = attr.name.split('.');
     const lastSegment = pathSegments[pathSegments.length - 1];
 
+    const dmMeta = (projectContext as any).datamapMetadata as DatamapMetadataCache | undefined;
+
     // Try to find the specific vertices this attribute refers to based on variable bindings
     let enumerations: Array<{ vertexId: string; choices: string[] }> = [];
 
     if (attr.parentId && variableBindings.has(attr.parentId)) {
       // We know which vertices the parent variable is bound to - use specific context
       const parentVertices = Array.from(variableBindings.get(attr.parentId)!);
-      const targetVertices = this.findTargetVerticesForPath(
-        parentVertices,
-        pathSegments,
-        projectContext
-      );
+      const targetVertices =
+        (dmMeta &&
+          dmMeta.findTargetVerticesForPath(parentVertices, pathSegments, projectContext.project)) ||
+        this.findTargetVerticesForPath(parentVertices, pathSegments, projectContext);
 
       // Check if any target vertices are enumerations
       for (const vertexId of targetVertices) {
@@ -488,7 +496,9 @@ export class DatamapValidator {
       }
     } else {
       // No binding information - fall back to global search (for RHS or unbound variables)
-      enumerations = this.findAllEnumerationsForAttribute(pathSegments, projectContext);
+      enumerations = dmMeta
+        ? dmMeta.findAllEnumerationsForAttribute(pathSegments, projectContext.project)
+        : this.findAllEnumerationsForAttribute(pathSegments, projectContext);
     }
 
     // If no enumerations found, the attribute doesn't point to an enum - no error

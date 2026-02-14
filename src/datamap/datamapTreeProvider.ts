@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { VisualSoarProject, DMVertex } from '../server/visualSoarProject';
+import { ProjectLoader } from '../server/projectLoader';
 import {
   DatamapMetadataCache,
   DatamapProjectContext,
@@ -152,28 +153,17 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
    */
   async loadProjectFromFile(projectFile: string): Promise<void> {
     try {
-      // Load and parse project
-      const content = await fs.promises.readFile(projectFile, 'utf-8');
-      const project: VisualSoarProject = JSON.parse(content);
-
-      // Build indices
-      const datamapIndex = new Map<string, DMVertex>();
-      for (const vertex of project.datamap.vertices) {
-        datamapIndex.set(vertex.id, vertex);
-      }
-
-      const layoutIndex = new Map<string, any>();
-      this.buildLayoutIndex(project.layout, layoutIndex);
-
-      const datamapMetadata = DatamapMetadataCache.build(project, datamapIndex);
+      const loader = new ProjectLoader();
+      const baseContext = await loader.loadProject(projectFile);
+      const datamapMetadata = DatamapMetadataCache.build(
+        baseContext.project,
+        baseContext.datamapIndex
+      );
 
       this.projectContext = {
-        projectFile,
-        project,
-        datamapIndex,
-        layoutIndex,
+        ...baseContext,
         datamapMetadata,
-      };
+      } as DatamapProjectContext;
 
       // Reset to project root when loading new project
       this.currentRootId = null;
@@ -214,8 +204,8 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
    */
   async loadProject(workspaceFolder: vscode.Uri): Promise<void> {
     try {
-      // Find project file
-      const projectFile = await this.findProjectFile(workspaceFolder.fsPath);
+      const loader = new ProjectLoader();
+      const projectFile = await loader.findProjectFile(workspaceFolder.fsPath);
       if (!projectFile) {
         vscode.window.showInformationMessage(
           'No Soar project file (.vsa.json, .vsproj, or .soarproj) found in workspace'
