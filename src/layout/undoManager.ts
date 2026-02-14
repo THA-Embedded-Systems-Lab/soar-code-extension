@@ -52,7 +52,7 @@ interface ProjectSnapshot {
 export class UndoManager {
   private undoStack: UndoableOperation[] = [];
   private redoStack: UndoableOperation[] = [];
-  private maxStackSize = 50;
+  private maxStackSize = 25;
   private readonly onDidChangeStackEmitter = new vscode.EventEmitter<void>();
 
   /** Fires when the undo/redo stack changes (for updating UI) */

@@ -474,11 +474,11 @@ suite('UndoManager', () => {
     }
   });
 
-  test('Should limit undo stack to 50 operations', async () => {
+  test('Should limit undo stack to 25 operations', async () => {
     const rootNodeId = projectContext.project.layout.id;
 
-    // Perform 60 operations
-    for (let i = 0; i < 60; i++) {
+    // Perform 30 operations
+    for (let i = 0; i < 30; i++) {
       await LayoutOperations.addFileProgrammaticWithUndo(
         projectContext,
         rootNodeId,
@@ -488,7 +488,7 @@ suite('UndoManager', () => {
       await reloadProject();
     }
 
-    // Try to undo 51 times
+    // Try to undo all operations
     let undoCount = 0;
     while (undoManager.canUndo()) {
       await undoManager.undo();
@@ -496,7 +496,7 @@ suite('UndoManager', () => {
       undoCount++;
     }
 
-    // Should only be able to undo 50 times (max stack size)
-    assert.ok(undoCount <= 50, 'Should only undo up to 50 operations');
+    // Should only be able to undo 25 times (max stack size)
+    assert.ok(undoCount <= 25, 'Should only undo up to 25 operations');
   });
 });
