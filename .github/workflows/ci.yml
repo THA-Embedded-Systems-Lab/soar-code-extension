@@ -35,13 +35,11 @@ jobs:
       - name: Compile TypeScript
         run: npm run compile
 
-      - name: Run tests (Linux)
-        run: npm run test:ci
-        if: runner.os == 'Linux'
-
-      - name: Run tests (Windows/macOS)
+      - name: Run unit tests
         run: npm run test
-        if: runner.os != 'Linux'
+
+      - name: Run integration tests
+        run: npm run test:ci
 
       - name: Package extension
         run: npx vsce package
