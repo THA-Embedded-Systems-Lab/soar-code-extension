@@ -1,0 +1,300 @@
+{
+  "version": "6",
+  "datamap": {
+    "rootId": "f2a11c585f93d00ecc600b7c48d3228c",
+    "vertices": [
+      {
+        "id": "f2a11c585f93d00ecc600b7c48d3228c",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "epmem",
+            "toId": "d64cc4f33c2fe1d7bc149e9d3f0cf388"
+          },
+          {
+            "name": "io",
+            "toId": "784e673487b96c36bf3fff67344ce162"
+          },
+          {
+            "name": "name",
+            "toId": "f010ee856a91d34e6e40e01dc32faa88"
+          },
+          {
+            "name": "operator",
+            "toId": "cbd6b532e41f96f0291af0abc3390758"
+          },
+          {
+            "name": "reward-link",
+            "toId": "f0857dbe199bf259d4f10545702e17af"
+          },
+          {
+            "name": "smem",
+            "toId": "a12320f5829bc134fe1c03e98eb69c2f"
+          },
+          {
+            "name": "superstate",
+            "toId": "347a9d74ef130482f1afd655135236d1"
+          },
+          {
+            "name": "top-state",
+            "toId": "f2a11c585f93d00ecc600b7c48d3228c"
+          },
+          {
+            "name": "type",
+            "toId": "e9869e78d7171e4498995a2fa286f3ae"
+          },
+          {
+            "name": "operator",
+            "toId": "1"
+          }
+        ]
+      },
+      {
+        "id": "784e673487b96c36bf3fff67344ce162",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "input-link",
+            "toId": "5c2688a86ab7823b84bb1e0d30997e1f"
+          },
+          {
+            "name": "output-link",
+            "toId": "28d97b047473c6f787526ffef2127584"
+          }
+        ]
+      },
+      {
+        "id": "5c2688a86ab7823b84bb1e0d30997e1f",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "28d97b047473c6f787526ffef2127584",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "f010ee856a91d34e6e40e01dc32faa88",
+        "type": "ENUMERATION",
+        "choices": ["vars"]
+      },
+      {
+        "id": "e9869e78d7171e4498995a2fa286f3ae",
+        "type": "ENUMERATION",
+        "choices": ["state"]
+      },
+      {
+        "id": "347a9d74ef130482f1afd655135236d1",
+        "type": "ENUMERATION",
+        "choices": ["nil"]
+      },
+      {
+        "id": "cbd6b532e41f96f0291af0abc3390758",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "8a29122b4797f5a2e1f3b5e089e3f17a"
+          }
+        ]
+      },
+      {
+        "id": "8a29122b4797f5a2e1f3b5e089e3f17a",
+        "type": "ENUMERATION",
+        "choices": ["initialize-vars"]
+      },
+      {
+        "id": "d64cc4f33c2fe1d7bc149e9d3f0cf388",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "244137f4002772d00dd4f0c8308d239f"
+          },
+          {
+            "name": "present-id",
+            "toId": "28f27683e6ac9ae6a78c4e1935e4106d"
+          },
+          {
+            "name": "result",
+            "toId": "75c6f5c1167cb9089ae005a184a8585a"
+          }
+        ]
+      },
+      {
+        "id": "244137f4002772d00dd4f0c8308d239f",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "28f27683e6ac9ae6a78c4e1935e4106d",
+        "type": "INTEGER"
+      },
+      {
+        "id": "75c6f5c1167cb9089ae005a184a8585a",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "a12320f5829bc134fe1c03e98eb69c2f",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "fa2dac640d6386135caa1202df62e4cd"
+          },
+          {
+            "name": "result",
+            "toId": "7730f91ab9533878041bee358fafebb3"
+          }
+        ]
+      },
+      {
+        "id": "fa2dac640d6386135caa1202df62e4cd",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "7730f91ab9533878041bee358fafebb3",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "f0857dbe199bf259d4f10545702e17af",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "reward",
+            "toId": "b7057bb1fd0f2bf8a44668c2823be6d5"
+          }
+        ]
+      },
+      {
+        "id": "b7057bb1fd0f2bf8a44668c2823be6d5",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "value",
+            "toId": "1704b2f086fe490e7e9e8e53601ce648"
+          }
+        ]
+      },
+      {
+        "id": "1704b2f086fe490e7e9e8e53601ce648",
+        "type": "FLOAT"
+      },
+      {
+        "id": "1",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "2"
+          },
+          {
+            "name": "desireds",
+            "toId": "244138"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "type": "ENUMERATION",
+        "choices": ["anchor-object-class"]
+      },
+      {
+        "id": "244138",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "desired",
+            "toId": "244139"
+          }
+        ]
+      },
+      {
+        "id": "244139",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "on",
+            "toId": "244140"
+          },
+          {
+            "name": "in",
+            "toId": "244141"
+          }
+        ]
+      },
+      {
+        "id": "244140",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "244142"
+          }
+        ]
+      },
+      {
+        "id": "244141",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "244143"
+          }
+        ]
+      },
+      {
+        "id": "244142",
+        "type": "STRING"
+      },
+      {
+        "id": "244143",
+        "type": "STRING"
+      }
+    ]
+  },
+  "layout": {
+    "id": "2a4b96eead8824a7855aed3f6e26a94d",
+    "name": "vars",
+    "type": "OPERATOR_ROOT",
+    "folder": "vars",
+    "children": [
+      {
+        "id": "fc20a268ac1098a2917d1aa82066e3fb",
+        "name": "elaborations",
+        "type": "FOLDER",
+        "folder": "elaborations",
+        "children": [
+          {
+            "id": "ee5ad82e67046adb63465a247655e591",
+            "name": "_all",
+            "type": "FILE_OPERATOR",
+            "file": "_all.soar"
+          },
+          {
+            "id": "d56ce9095ff982b5d0f1384de29f846a",
+            "name": "top-state",
+            "type": "FILE_OPERATOR",
+            "file": "top-state.soar"
+          }
+        ]
+      },
+      {
+        "id": "e7f912fe3480934aec893309f53f9403",
+        "name": "initialize-vars",
+        "type": "OPERATOR",
+        "file": "initialize-vars.soar"
+      },
+      {
+        "type": "OPERATOR",
+        "id": "1",
+        "name": "anchor-object-class",
+        "file": "anchor-object-class.soar",
+        "dmId": "1"
+      }
+    ]
+  }
+}

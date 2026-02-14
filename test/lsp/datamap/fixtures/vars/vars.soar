@@ -1,0 +1,3 @@
+pushd vars
+source vars_source.soar
+popd

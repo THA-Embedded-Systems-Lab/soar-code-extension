@@ -276,7 +276,7 @@ export class SoarParser {
       let attrMatch;
       while ((attrMatch = attributeRegex.exec(attributesBlock)) !== null) {
         const isNegated = attrMatch[1] === '-';
-        const attrPath = attrMatch[2];
+        let attrPath = attrMatch[2];
         const attrStartOffset = blockStartOffset + attrMatch.index;
 
         // Check if there are multiple values following this attribute
@@ -288,36 +288,46 @@ export class SoarParser {
           nextAttrMatch ? nextAttrMatch.index : remainingText.length
         );
 
-        // Collect all values from the text following the attribute
+        // Check for path disjunction syntax: ^attr.path.<< choice1 choice2 >> value
+        // This expands to multiple attributes: ^attr.path.choice1 value, ^attr.path.choice2 value
+        // Only expand if attribute path ends with a dot (indicating path disjunction, not value disjunction)
+        const disjunctionMatch = valuesText.match(/^\s*<<\s*([^>]+)>>/);
+        let attributePaths: string[] = [attrPath];
+        let actualValuesText = valuesText;
+
+        if (disjunctionMatch && attrPath.endsWith('.')) {
+          // Parse disjunction choices
+          const disjuncts = disjunctionMatch[1]
+            .trim()
+            .split(/\s+/)
+            .filter(d => d.length > 0);
+
+          // Remove trailing dot from attribute path
+          const baseAttrPath = attrPath.slice(0, -1);
+
+          // Expand to multiple attribute paths
+          attributePaths = disjuncts.map(d => `${baseAttrPath}.${d}`);
+
+          // The actual values come after the >> closing bracket
+          actualValuesText = valuesText.substring(disjunctionMatch[0].length);
+        }
+
+        // Collect all values from the text following the attribute (or disjunction)
         // Note: Filter out standalone '-' which is a WME removal operator in RHS
         const values: string[] = [];
         const valueRegex = /([a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>)/g;
         let valueMatch;
-        while ((valueMatch = valueRegex.exec(valuesText)) !== null) {
+        while ((valueMatch = valueRegex.exec(actualValuesText)) !== null) {
           // Skip standalone '-' which is used for WME removal on RHS
           if (valueMatch[1] !== '-') {
             values.push(valueMatch[1]);
           }
         }
 
-        // Create an attribute entry for each value (or one without value if none)
-        if (values.length === 0) {
-          const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
-          const endPos = this.getPositionInBody(
-            body,
-            attrStartOffset + attrMatch[0].length,
-            basePosition
-          );
-          production.attributes.push({
-            name: attrPath,
-            range: { start: startPos, end: endPos },
-            value: undefined,
-            isNegated,
-            parentId,
-          });
-        } else {
-          // Create separate attribute for each value
-          for (const value of values) {
+        // Create attribute entries for each path (expanded from disjunction if present)
+        for (const path of attributePaths) {
+          // Create an attribute entry for each value (or one without value if none)
+          if (values.length === 0) {
             const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
             const endPos = this.getPositionInBody(
               body,
@@ -325,12 +335,29 @@ export class SoarParser {
               basePosition
             );
             production.attributes.push({
-              name: attrPath,
+              name: path,
               range: { start: startPos, end: endPos },
-              value: value,
+              value: undefined,
               isNegated,
               parentId,
             });
+          } else {
+            // Create separate attribute for each value
+            for (const value of values) {
+              const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
+              const endPos = this.getPositionInBody(
+                body,
+                attrStartOffset + attrMatch[0].length,
+                basePosition
+              );
+              production.attributes.push({
+                name: path,
+                range: { start: startPos, end: endPos },
+                value: value,
+                isNegated,
+                parentId,
+              });
+            }
           }
         }
       }

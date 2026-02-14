@@ -220,18 +220,24 @@ suite('Datamap Validation Fixtures', () => {
 function collectSoarFilesFromLayout(node: any, projectDir: string): string[] {
   const files: string[] = [];
 
+  // Determine the current directory for this node
+  let currentDir = projectDir;
+  if (node.folder && node.folder !== '.') {
+    currentDir = path.join(projectDir, node.folder);
+  }
+
   // Check if this node has a file property (FILE, OPERATOR, FILE_OPERATOR, etc.)
   if (node.file) {
-    const fullPath = path.join(projectDir, node.file);
+    const fullPath = path.join(currentDir, node.file);
     if (fullPath.endsWith('.soar')) {
       files.push(fullPath);
     }
   }
 
-  // Recursively check children
+  // Recursively check children using the current directory
   if (node.children && Array.isArray(node.children)) {
     for (const child of node.children) {
-      files.push(...collectSoarFilesFromLayout(child, projectDir));
+      files.push(...collectSoarFilesFromLayout(child, currentDir));
     }
   }
 

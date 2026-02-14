@@ -1,0 +1,21 @@
+sp {vars*propose*anchor-object-class
+   (state <s> ^name vars)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name anchor-object-class)
+}
+
+sp {apply*anchor-object-class
+   (state <s> ^operator <op>)
+   (<op> ^name anchor-object-class)
+-->
+   (<s>)
+}
+
+sp {apply*anchor-object-class*update-desired-relation
+   (state <s> ^operator <op>)
+   (<op> ^desireds.desired.<< on in >> <relation>
+      <op> ^name anchor-object-class)
+-->
+    (<relation> ^name <test>)
+}

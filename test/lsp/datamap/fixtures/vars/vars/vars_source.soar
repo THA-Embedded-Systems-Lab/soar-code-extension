@@ -1,0 +1,8 @@
+pushd all
+source all_source.soar
+popd
+pushd elaborations
+source elaborations_source.soar
+popd
+source initialize-vars.soar
+source anchor-object-class.soar
