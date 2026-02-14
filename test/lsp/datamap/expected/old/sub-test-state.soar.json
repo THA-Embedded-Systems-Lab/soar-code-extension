@@ -1,0 +1,21 @@
+[
+  {
+    "production": "propose*sub-test-state",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 4,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 8
+      },
+      "end": {
+        "line": 4,
+        "character": 13
+      }
+    },
+    "message": "Invalid enumeration value 'move-block' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  }
+]

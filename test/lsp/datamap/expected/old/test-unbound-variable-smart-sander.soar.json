@@ -1,0 +1,173 @@
+[
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "task",
+    "attributePath": "^task",
+    "line": 2,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 2,
+        "character": 6
+      },
+      "end": {
+        "line": 2,
+        "character": 11
+      }
+    },
+    "message": "Attribute '^task' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "item",
+    "attributePath": "^item",
+    "line": 3,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 3,
+        "character": 6
+      },
+      "end": {
+        "line": 3,
+        "character": 11
+      }
+    },
+    "message": "Attribute '^item' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "item",
+    "attributePath": "<t> ^item",
+    "line": 4,
+    "column": 4,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 4
+      },
+      "end": {
+        "line": 4,
+        "character": 7
+      }
+    },
+    "message": "Variable <t> is not bound. Variables must be connected to the state through attribute paths.",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "item",
+    "attributePath": "^item",
+    "line": 4,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 8
+      },
+      "end": {
+        "line": 4,
+        "character": 13
+      }
+    },
+    "message": "Attribute '^item' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "process",
+    "attributePath": "<t> ^process",
+    "line": 5,
+    "column": 1,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 1
+      },
+      "end": {
+        "line": 5,
+        "character": 4
+      }
+    },
+    "message": "Variable <t> is not bound. Variables must be connected to the state through attribute paths.",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "process",
+    "attributePath": "^process",
+    "line": 5,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 6
+      },
+      "end": {
+        "line": 5,
+        "character": 14
+      }
+    },
+    "message": "Attribute '^process' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "material",
+    "attributePath": "<t> ^material",
+    "line": 6,
+    "column": 1,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 1
+      },
+      "end": {
+        "line": 6,
+        "character": 4
+      }
+    },
+    "message": "Variable <t> is not bound. Variables must be connected to the state through attribute paths.",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "material",
+    "attributePath": "^material",
+    "line": 6,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 6
+      },
+      "end": {
+        "line": 6,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^material' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "SmartSander*propose*decompose",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 9,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 9,
+        "character": 9
+      },
+      "end": {
+        "line": 9,
+        "character": 14
+      }
+    },
+    "message": "Invalid enumeration value 'decompose' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  }
+]

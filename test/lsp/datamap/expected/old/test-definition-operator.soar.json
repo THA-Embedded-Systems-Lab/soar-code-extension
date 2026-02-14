@@ -1,0 +1,40 @@
+[
+  {
+    "production": "test*definition*operator",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 3,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 3,
+        "character": 8
+      },
+      "end": {
+        "line": 3,
+        "character": 13
+      }
+    },
+    "message": "Invalid enumeration value 'my-operator' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  },
+  {
+    "production": "test*definition*operator",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 5,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 8
+      },
+      "end": {
+        "line": 5,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  }
+]

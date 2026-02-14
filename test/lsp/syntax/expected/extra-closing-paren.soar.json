@@ -1,0 +1,17 @@
+[
+  {
+    "range": {
+      "start": {
+        "line": 1,
+        "character": 24
+      },
+      "end": {
+        "line": 1,
+        "character": 25
+      }
+    },
+    "message": "Unexpected closing parenthesis",
+    "severity": 1,
+    "source": "soar-parser"
+  }
+]

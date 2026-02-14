@@ -1,0 +1,40 @@
+[
+  {
+    "production": "state*propose*test_operator",
+    "attribute": "attribute",
+    "attributePath": "^attribute",
+    "line": 20,
+    "column": 14,
+    "range": {
+      "start": {
+        "line": 20,
+        "character": 14
+      },
+      "end": {
+        "line": 20,
+        "character": 24
+      }
+    },
+    "message": "Attribute '^attribute' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "state*propose*test_operator",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 23,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 23,
+        "character": 8
+      },
+      "end": {
+        "line": 23,
+        "character": 13
+      }
+    },
+    "message": "Invalid enumeration value 'test_operator' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  }
+]

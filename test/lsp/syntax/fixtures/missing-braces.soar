@@ -1,0 +1,3 @@
+sp {missing2
+  (state <s> ^name test)
+  (<s> ^io <io>)

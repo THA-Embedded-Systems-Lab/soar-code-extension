@@ -1,0 +1,21 @@
+[
+  {
+    "production": "test*definition*attribute",
+    "attribute": "test",
+    "attributePath": "^test",
+    "line": 3,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 3,
+        "character": 9
+      },
+      "end": {
+        "line": 3,
+        "character": 14
+      }
+    },
+    "message": "Attribute '^test' not found in project datamap",
+    "severity": "error"
+  }
+]

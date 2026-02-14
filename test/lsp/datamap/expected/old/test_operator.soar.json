@@ -1,0 +1,78 @@
+[
+  {
+    "production": "elaborate*test_operator*operator",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 12,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 12,
+        "character": 9
+      },
+      "end": {
+        "line": 12,
+        "character": 14
+      }
+    },
+    "message": "Invalid enumeration value 'test_operator' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  },
+  {
+    "production": "elaborate*test_operator*operator",
+    "attribute": "test_operator",
+    "attributePath": "^test_operator",
+    "line": 14,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 14,
+        "character": 8
+      },
+      "end": {
+        "line": 14,
+        "character": 22
+      }
+    },
+    "message": "Attribute '^test_operator' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "propose*test_operator",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 29,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 29,
+        "character": 9
+      },
+      "end": {
+        "line": 29,
+        "character": 14
+      }
+    },
+    "message": "Invalid enumeration value 'test_operator' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  },
+  {
+    "production": "apply*test_operator",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 39,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 39,
+        "character": 9
+      },
+      "end": {
+        "line": 39,
+        "character": 14
+      }
+    },
+    "message": "Invalid enumeration value 'test_operator' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  }
+]

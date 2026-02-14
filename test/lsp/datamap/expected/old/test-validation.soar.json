@@ -1,0 +1,192 @@
+[
+  {
+    "production": "test*invalid*attributes",
+    "attribute": "foo",
+    "attributePath": "^foo",
+    "line": 17,
+    "column": 14,
+    "range": {
+      "start": {
+        "line": 17,
+        "character": 14
+      },
+      "end": {
+        "line": 17,
+        "character": 18
+      }
+    },
+    "message": "Attribute '^foo' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*invalid*attributes",
+    "attribute": "bar",
+    "attributePath": "^bar",
+    "line": 18,
+    "column": 14,
+    "range": {
+      "start": {
+        "line": 18,
+        "character": 14
+      },
+      "end": {
+        "line": 18,
+        "character": 18
+      }
+    },
+    "message": "Attribute '^bar' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*invalid*attributes",
+    "attribute": "baz",
+    "attributePath": "^baz",
+    "line": 19,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 19,
+        "character": 8
+      },
+      "end": {
+        "line": 19,
+        "character": 12
+      }
+    },
+    "message": "Attribute '^baz' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*invalid*attributes",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 21,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 21,
+        "character": 8
+      },
+      "end": {
+        "line": 21,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*invalid*attributes",
+    "attribute": "invalid-output",
+    "attributePath": "^invalid-output",
+    "line": 22,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 22,
+        "character": 8
+      },
+      "end": {
+        "line": 22,
+        "character": 23
+      }
+    },
+    "message": "Attribute '^invalid-output' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*mixed*attributes",
+    "attribute": "unknown",
+    "attributePath": "^unknown",
+    "line": 29,
+    "column": 14,
+    "range": {
+      "start": {
+        "line": 29,
+        "character": 14
+      },
+      "end": {
+        "line": 29,
+        "character": 22
+      }
+    },
+    "message": "Attribute '^unknown' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*mixed*attributes",
+    "attribute": "bad-attr",
+    "attributePath": "^bad-attr",
+    "line": 32,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 32,
+        "character": 9
+      },
+      "end": {
+        "line": 32,
+        "character": 18
+      }
+    },
+    "message": "Attribute '^bad-attr' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*mixed*attributes",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 34,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 34,
+        "character": 8
+      },
+      "end": {
+        "line": 34,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*mixed*attributes",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 34,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 34,
+        "character": 8
+      },
+      "end": {
+        "line": 34,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*negations",
+    "attribute": "ok",
+    "attributePath": "^ok",
+    "line": 42,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 42,
+        "character": 8
+      },
+      "end": {
+        "line": 42,
+        "character": 11
+      }
+    },
+    "message": "Attribute '^ok' not found in project datamap",
+    "severity": "error"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "range": {
+      "start": {
+        "line": 1,
+        "character": 19
+      },
+      "end": {
+        "line": 1,
+        "character": 20
+      }
+    },
+    "message": "Unmatched opening parenthesis (missing closing parenthesis)",
+    "severity": 1,
+    "source": "soar-parser"
+  }
+]

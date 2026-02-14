@@ -1,0 +1,17 @@
+[
+  {
+    "range": {
+      "start": {
+        "line": 0,
+        "character": 0
+      },
+      "end": {
+        "line": 0,
+        "character": 0
+      }
+    },
+    "message": "Production parse error: Production name not found",
+    "severity": 1,
+    "source": "soar-parser"
+  }
+]

@@ -1,0 +1,4 @@
+sp {unmatched-paren
+  (state <s> ^name (test
+  (<s> ^io <io>)
+}

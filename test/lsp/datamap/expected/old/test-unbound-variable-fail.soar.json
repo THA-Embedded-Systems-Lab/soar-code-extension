@@ -1,0 +1,21 @@
+[
+  {
+    "production": "apply*initialize-Invalid-attributes-separated-by-identifier",
+    "attribute": "hello.world",
+    "attributePath": "<il> ^hello.world",
+    "line": 4,
+    "column": 4,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 4
+      },
+      "end": {
+        "line": 4,
+        "character": 8
+      }
+    },
+    "message": "Variable <il> is not bound. Variables must be connected to the state through attribute paths.",
+    "severity": "error"
+  }
+]

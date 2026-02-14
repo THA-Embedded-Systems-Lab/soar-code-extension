@@ -1,0 +1,97 @@
+[
+  {
+    "production": "test*operator-name-initialize",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 11,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 11,
+        "character": 8
+      },
+      "end": {
+        "line": 11,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*operator-name-process",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 19,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 19,
+        "character": 8
+      },
+      "end": {
+        "line": 19,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*operator-name-invalid",
+    "attribute": "name",
+    "attributePath": "^name",
+    "line": 25,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 25,
+        "character": 8
+      },
+      "end": {
+        "line": 25,
+        "character": 13
+      }
+    },
+    "message": "Invalid enumeration value 'foobar' for attribute '^name'. Valid choices: cleanup, generate-output, hello-world, initialize, process-input",
+    "severity": "error"
+  },
+  {
+    "production": "test*operator-name-invalid",
+    "attribute": "result",
+    "attributePath": "^result",
+    "line": 27,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 27,
+        "character": 8
+      },
+      "end": {
+        "line": 27,
+        "character": 15
+      }
+    },
+    "message": "Attribute '^result' not found in project datamap",
+    "severity": "error"
+  },
+  {
+    "production": "test*state-type",
+    "attribute": "initialized",
+    "attributePath": "^initialized",
+    "line": 34,
+    "column": 8,
+    "range": {
+      "start": {
+        "line": 34,
+        "character": 8
+      },
+      "end": {
+        "line": 34,
+        "character": 20
+      }
+    },
+    "message": "Attribute '^initialized' not found in project datamap",
+    "severity": "error"
+  }
+]

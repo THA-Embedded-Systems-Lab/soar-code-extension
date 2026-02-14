@@ -362,8 +362,8 @@
     "check:links": "markdown-link-check README.md && find doc -name '*.md' -exec markdown-link-check {} \\;",
     "format": "prettier --write 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
     "format:check": "prettier --check 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
-    "test": "npm run compile && node ./out/test/runTest.js",
-    "test:ci": "npm run compile && xvfb-run -a node ./out/test/runTest.js",
+    "test": "mocha --ui tdd -r ts-node/register test/helpers/index.ts",
+    "test:ci": "npm run compile && node ./out/test/runTest.js",
     "vsce:package": "vsce package",
     "precommit": "npm run format && npm run lint && npm run lint:md"
   },
@@ -384,7 +384,8 @@
     "mocha": "^10.0.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.1.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
