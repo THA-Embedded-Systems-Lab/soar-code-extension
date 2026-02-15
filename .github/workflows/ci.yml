@@ -38,8 +38,13 @@ jobs:
       - name: Run unit tests
         run: npm run test
 
-      - name: Run integration tests
+      - name: Run integration tests (Ubuntu)
+        run: xvfb-run -a npm run test:ci
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Run integration tests (Windows/macOS)
         run: npm run test:ci
+        if: matrix.os != 'ubuntu-latest'
 
       - name: Package extension
         run: npx vsce package
