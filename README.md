@@ -287,6 +287,35 @@ The extension has two test configurations:
 
 Both test suites run in CI on all platforms (Linux, Windows, macOS).
 
+### Release Process
+
+To create a new release:
+
+1. **Create Git Tag**
+
+   ```bash
+   git tag 1.0.0
+   git push origin 1.0.0
+   ```
+
+   This triggers CI to build, test, and create a GitHub release with the VSIX package.
+
+2. **Generate Changelog**
+
+   ```bash
+   git-cliff > CHANGELOG.md
+   ```
+
+   Updates the changelog based on conventional commits since the last tag.
+
+3. **Commit Changelog**
+
+   ```bash
+   git add CHANGELOG.md
+   git commit -m "chore: update changelog for 1.0.0"
+   git push
+   ```
+
 ### Project Structure
 
 ```
