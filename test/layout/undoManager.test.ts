@@ -253,12 +253,12 @@ suite('UndoManager', () => {
     const childCountBeforeDelete = projectContext.project.layout.children?.length || 0;
 
     // Delete the operator (with undo)
-    await LayoutOperations.deleteNodeWithUndo(
+    await LayoutOperations.deleteNode(
       projectContext,
       operatorNodeId,
       rootNodeId,
-      reloadProject,
-      true // skip confirmation
+      true, // skip confirmation
+      reloadProject
     );
     await reloadProject();
 

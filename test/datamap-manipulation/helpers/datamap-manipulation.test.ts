@@ -77,7 +77,7 @@ export async function addOperator(
   parentNodeId: string,
   operatorName: string
 ): Promise<{ success: boolean; nodeId?: string }> {
-  return await LayoutOperations.addOperatorProgrammatic(context, parentNodeId, operatorName);
+  return await LayoutOperations.addOperatorInternal(context, parentNodeId, operatorName);
 }
 
 /**

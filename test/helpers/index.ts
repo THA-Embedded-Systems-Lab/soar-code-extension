@@ -15,6 +15,7 @@ import '../lsp/datamap/helpers/datamap.test';
 
 // Project layout tests
 import '../layout/projectCreator.test';
+import '../layout/layoutOperations.test';
 import '../layout/undoManager.test';
 
 // Datamap manipulation tests

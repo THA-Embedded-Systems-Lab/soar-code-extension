@@ -82,40 +82,13 @@ sp {apply*${operatorName}
 
   /**
    * Generate impasse operator file
+   * Like VisualSoar, just generates an empty file for users to fill in
    */
   static generateImpasseOperatorFile(impasseName: string, stateName: string): string {
-    // Extract the impasse type from the impasse name
-    // e.g., "Impasse__Operator_Tie" -> "tie"
-    const impasseType = impasseName.replace('Impasse__', '').replace(/_/g, '-').toLowerCase();
-
+    // Generate empty file like VisualSoar - users will add their own impasse handling
     return `###
 ### Impasse handler: ${impasseName}
 ###
-
-sp {${stateName}*elaborate*impasse*${impasseType}
-   "Elaborate impasse ${impasseType}"
-   (state <s> ^superstate <ss>
-              ^impasse ${impasseType.includes('operator') ? 'operator' : 'state'}
-              ^attribute ${impasseType.includes('operator') ? 'operator' : 'state'})
--->
-   (<s> ^name ${impasseName})
-}
-
-sp {${stateName}*propose*${impasseType}*operator
-   "Propose operator for ${impasseType} impasse"
-   (state <s> ^name ${impasseName})
--->
-   (<s> ^operator <op> + =)
-   (<op> ^name resolve-${impasseType})
-}
-
-sp {apply*resolve*${impasseType}
-   "Apply resolution for ${impasseType} impasse"
-   (state <s> ^operator <op>)
-   (<op> ^name resolve-${impasseType})
--->
-   (write (crlf) |Resolving ${impasseType} impasse|)
-}
 `;
   }
 

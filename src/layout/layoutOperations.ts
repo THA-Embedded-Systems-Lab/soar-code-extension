@@ -19,6 +19,7 @@ import {
   FileNode,
   FolderNode,
   hasChildren,
+  DMVertex,
 } from '../server/visualSoarProject';
 import { SoarTemplates } from './soarTemplates';
 import { SourceScriptManager } from './sourceScriptManager';
@@ -38,383 +39,16 @@ interface SourceReference {
 
 export class LayoutOperations {
   /**
-   * Add a new operator (simple operator, not substate)
-   */
-  static async addOperator(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
-    let parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-    if (!parentNode) {
-      vscode.window.showErrorMessage('Parent node not found');
-      return false;
-    }
-
-    // If parent is a regular OPERATOR, convert it to HIGH_LEVEL_OPERATOR first
-    if (parentNode.type === 'OPERATOR') {
-      const converted = await this.convertOperatorToHighLevel(projectContext, parentNodeId);
-      if (!converted) {
-        return false;
-      }
-      // Re-fetch the parent node after conversion
-      parentNode = projectContext.layoutIndex.get(parentNodeId);
-      if (!parentNode) {
-        vscode.window.showErrorMessage('Failed to convert operator to high-level operator');
-        return false;
-      }
-    }
-
-    if (!hasChildren(parentNode)) {
-      vscode.window.showErrorMessage('Can only add operators to folder nodes');
-      return false;
-    }
-
-    // Prompt for operator name
-    const operatorName = await vscode.window.showInputBox({
-      prompt: 'Enter operator name',
-      placeHolder: 'e.g., initialize, move-forward, attack',
-      validateInput: value => {
-        if (!value || value.trim().length === 0) {
-          return 'Operator name cannot be empty';
-        }
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-          return 'Operator name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-        }
-        return null;
-      },
-    });
-
-    if (!operatorName) {
-      return false;
-    }
-
-    // Determine the parent state context (root or substate)
-    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
-
-    // Create operator datamap vertex and add to parent state
-    const operatorDmId = this.addOperatorToDatamap(
-      projectContext,
-      stateContext.datamapId,
-      operatorName
-    );
-    if (!operatorDmId) {
-      vscode.window.showWarningMessage(
-        `Could not add operator '${operatorName}' to datamap. Continuing with file creation.`
-      );
-    }
-
-    // Determine file path
-    // File should be stored relative to the parent node's folder
-    const workspaceFolder = path.dirname(projectContext.projectFile);
-    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
-    const operatorFile = `${operatorName}.soar`; // Just the filename, relative to parent
-    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
-
-    // Check if file already exists
-    if (fs.existsSync(fullPath)) {
-      vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
-      return false;
-    }
-
-    // Create the operator node with dmId
-    const newNodeId = this.generateNodeId(projectContext.project);
-    const newNode: OperatorNode = {
-      type: 'OPERATOR',
-      id: newNodeId,
-      name: operatorName,
-      file: operatorFile,
-      dmId: operatorDmId,
-    };
-
-    // Add to parent's children
-    if (!parentNode.children) {
-      parentNode.children = [];
-    }
-    parentNode.children.push(newNode);
-    projectContext.layoutIndex.set(newNodeId, newNode);
-
-    // Generate file content with proper state name
-    const content = SoarTemplates.generateOperatorFile(operatorName, stateContext.stateName);
-
-    // Create file
-    await fs.promises.writeFile(fullPath, content, 'utf-8');
-
-    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
-    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
-
-    // Save project
-    await this.saveProject(projectContext);
-
-    vscode.window.showInformationMessage(`Created operator '${operatorName}'`);
-
-    // Open the file
-    const doc = await vscode.workspace.openTextDocument(fullPath);
-    await vscode.window.showTextDocument(doc);
-
-    return true;
-  }
-
-  /**
-   * Add a new impasse operator (simple impasse operator, not substate)
-   */
-  static async addImpasseOperator(
-    projectContext: ProjectContext,
-    parentNodeId: string
-  ): Promise<boolean> {
-    let parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-    if (!parentNode) {
-      vscode.window.showErrorMessage('Parent node not found');
-      return false;
-    }
-
-    // If parent is a regular IMPASSE_OPERATOR, convert it to HIGH_LEVEL_IMPASSE_OPERATOR first
-    if (parentNode.type === 'IMPASSE_OPERATOR') {
-      const converted = await this.convertImpasseOperatorToHighLevel(projectContext, parentNodeId);
-      if (!converted) {
-        return false;
-      }
-      // Re-fetch the parent node after conversion
-      parentNode = projectContext.layoutIndex.get(parentNodeId);
-      if (!parentNode) {
-        vscode.window.showErrorMessage(
-          'Failed to convert impasse operator to high-level impasse operator'
-        );
-        return false;
-      }
-    }
-
-    if (!hasChildren(parentNode)) {
-      vscode.window.showErrorMessage('Can only add impasse operators to folder nodes');
-      return false;
-    }
-
-    // Show picker for impasse operator type
-    const impasseTypes: { label: string; value: ImpasseName }[] = [
-      { label: 'Operator Tie', value: 'Impasse__Operator_Tie' },
-      { label: 'Operator Conflict', value: 'Impasse__Operator_Conflict' },
-      { label: 'Operator Constraint-Failure', value: 'Impasse__Operator_Constraint-Failure' },
-      { label: 'State No-Change', value: 'Impasse__State_No-Change' },
-    ];
-
-    const selected = await vscode.window.showQuickPick(impasseTypes, {
-      placeHolder: 'Select impasse type',
-    });
-
-    if (!selected) {
-      return false;
-    }
-
-    const impasseName = selected.value;
-
-    // Determine the parent state context (root or substate)
-    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
-
-    // Determine file path
-    const workspaceFolder = path.dirname(projectContext.projectFile);
-    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
-    const operatorFile = `${impasseName}.soar`;
-    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
-
-    // Check if file already exists
-    if (fs.existsSync(fullPath)) {
-      vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
-      return false;
-    }
-
-    // Create the impasse operator node
-    const newNodeId = this.generateNodeId(projectContext.project);
-    const newNode: ImpasseOperatorNode = {
-      type: 'IMPASSE_OPERATOR',
-      id: newNodeId,
-      name: impasseName,
-      file: operatorFile,
-    };
-
-    // Add to parent's children
-    if (!parentNode.children) {
-      parentNode.children = [];
-    }
-    parentNode.children.push(newNode);
-    projectContext.layoutIndex.set(newNodeId, newNode);
-
-    // Generate file content with proper state name
-    const content = SoarTemplates.generateImpasseOperatorFile(impasseName, stateContext.stateName);
-
-    // Create file
-    await fs.promises.writeFile(fullPath, content, 'utf-8');
-
-    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
-    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
-
-    // Save project
-    await this.saveProject(projectContext);
-
-    vscode.window.showInformationMessage(`Created impasse operator '${impasseName}'`);
-
-    // Open the file
-    const doc = await vscode.workspace.openTextDocument(fullPath);
-    await vscode.window.showTextDocument(doc);
-
-    return true;
-  }
-
-  /**
-   * Add a new file to a folder
-   */
-  static async addFile(
-    projectContext: ProjectContext,
-    parentNodeId: string,
-    parentNodeOverride?: LayoutNode,
-    folderPathOverride?: string
-  ): Promise<boolean> {
-    const parentNode = parentNodeOverride ?? projectContext.layoutIndex.get(parentNodeId);
-
-    if (!parentNode || !hasChildren(parentNode)) {
-      vscode.window.showErrorMessage('Can only add files to folder nodes');
-      return false;
-    }
-
-    // Prompt for file name
-    const fileName = await vscode.window.showInputBox({
-      prompt: 'Enter file name (without .soar extension)',
-      placeHolder: 'e.g., utilities, helpers, common',
-      validateInput: value => {
-        if (!value || value.trim().length === 0) {
-          return 'File name cannot be empty';
-        }
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-          return 'File name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-        }
-        return null;
-      },
-    });
-
-    if (!fileName) {
-      return false;
-    }
-
-    // Determine file path (relative to parent)
-    const workspaceFolder = path.dirname(projectContext.projectFile);
-    const parentFolderPath =
-      folderPathOverride ?? this.getNodeFolderPath(projectContext, parentNodeId, parentNode);
-    const filePath = `${fileName}.soar`; // Just the filename, relative to parent
-    const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
-
-    // Check if file already exists
-    if (fs.existsSync(fullPath)) {
-      vscode.window.showErrorMessage(`File already exists: ${filePath}`);
-      return false;
-    }
-
-    // Create the file node
-    const newNodeId = this.generateNodeId(projectContext.project);
-    const newNode: FileNode = {
-      type: 'FILE',
-      id: newNodeId,
-      name: fileName,
-      file: filePath, // Relative to parent
-    };
-
-    // Add to parent's children
-    if (!parentNode.children) {
-      parentNode.children = [];
-    }
-    parentNode.children.push(newNode);
-    projectContext.layoutIndex.set(newNodeId, newNode);
-
-    // Generate file content
-    const content = SoarTemplates.generateProductionFile(fileName);
-
-    // Create file
-    await fs.promises.writeFile(fullPath, content, 'utf-8');
-
-    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
-    await SourceScriptManager.appendReference(parentFolderAbsolute, filePath);
-
-    // Save project
-    await this.saveProject(projectContext);
-
-    vscode.window.showInformationMessage(`Created file '${fileName}.soar'`);
-
-    // Open the file
-    const doc = await vscode.workspace.openTextDocument(fullPath);
-    await vscode.window.showTextDocument(doc);
-
-    return true;
-  }
-
-  /**
-   * Add a new folder
-   */
-  static async addFolder(projectContext: ProjectContext, parentNodeId: string): Promise<boolean> {
-    const parentNode = projectContext.layoutIndex.get(parentNodeId);
-
-    if (!parentNode || !hasChildren(parentNode)) {
-      vscode.window.showErrorMessage('Can only add folders to folder nodes');
-      return false;
-    }
-
-    // Prompt for folder name
-    const folderName = await vscode.window.showInputBox({
-      prompt: 'Enter folder name',
-      placeHolder: 'e.g., operators, substates, utilities',
-      validateInput: value => {
-        if (!value || value.trim().length === 0) {
-          return 'Folder name cannot be empty';
-        }
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-          return 'Folder name must start with a letter and contain only letters, numbers, hyphens, and underscores';
-        }
-        return null;
-      },
-    });
-
-    if (!folderName) {
-      return false;
-    }
-
-    // Determine folder path (relative to parent)
-    const workspaceFolder = path.dirname(projectContext.projectFile);
-    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
-    const folderPath = folderName; // Just the folder name, relative to parent
-    const fullPath = path.join(workspaceFolder, parentFolderPath, folderPath);
-
-    // Check if folder already exists
-    if (fs.existsSync(fullPath)) {
-      vscode.window.showErrorMessage(`Folder already exists: ${folderPath}`);
-      return false;
-    }
-
-    // Create folder
-    await fs.promises.mkdir(fullPath, { recursive: true });
-
-    // Create the folder node
-    const newNodeId = this.generateNodeId(projectContext.project);
-    const newNode: FolderNode = {
-      type: 'FOLDER',
-      id: newNodeId,
-      name: folderName,
-      folder: folderPath, // Relative to parent
-      children: [],
-    };
-
-    // Add to parent's children
-    if (!parentNode.children) {
-      parentNode.children = [];
-    }
-    parentNode.children.push(newNode);
-    projectContext.layoutIndex.set(newNodeId, newNode);
-
-    // Save project
-    await this.saveProject(projectContext);
-
-    vscode.window.showInformationMessage(`Created folder '${folderName}'`);
-    return true;
-  }
-
-  /**
    * Rename a node (operator, file, or folder)
    */
-  static async renameNode(projectContext: ProjectContext, nodeId: string): Promise<boolean> {
+  static async renameNode(
+    projectContext: ProjectContext,
+    nodeId: string,
+    reloadCallback?: () => Promise<void>
+  ): Promise<boolean> {
+    const undoManager = reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
+
     const node = projectContext.layoutIndex.get(nodeId);
 
     if (!node) {
@@ -451,20 +85,39 @@ export class LayoutOperations {
 
     await this.saveProject(projectContext);
     vscode.window.showInformationMessage(`Renamed to '${newName}'`);
+
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const operation = UndoManager.createSnapshotOperation(
+        'Rename Node',
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     return true;
   }
 
   /**
    * Delete a node (operator, file, folder, or substate)
    * @param skipConfirmation - If true, skips the UI confirmation dialog (useful for testing)
+   * @param reloadCallback - Optional callback to reload the project after deletion (enables undo)
    * @returns boolean for success when called with confirmation, or DeleteResult object when skipConfirmation is true
    */
   static async deleteNode(
     projectContext: ProjectContext,
     nodeId: string,
     parentNodeId: string,
-    skipConfirmation: boolean = false
+    skipConfirmation: boolean = false,
+    reloadCallback?: () => Promise<void>
   ): Promise<boolean | DeleteResult> {
+    const undoManager = reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
+
     const node = projectContext.layoutIndex.get(nodeId);
     const parentNode = projectContext.layoutIndex.get(parentNodeId);
 
@@ -574,6 +227,20 @@ export class LayoutOperations {
 
     await this.saveProject(projectContext);
 
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const nodeName = node ? node.name : 'Node';
+      const operation = UndoManager.createSnapshotOperation(
+        `Delete ${nodeName}`,
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     if (skipConfirmation) {
       return {
         success: true,
@@ -612,16 +279,18 @@ export class LayoutOperations {
     return id.toString();
   }
 
-  /**
-   * Helper: Generate a unique vertex ID
-   */
   private static generateVertexId(project: VisualSoarProject): string {
-    const existingIds = new Set(project.datamap.vertices.map((v: any) => parseInt(v.id, 10)));
-    let id = 1;
-    while (existingIds.has(id)) {
-      id++;
-    }
-    return id.toString();
+    // Generate a unique hex ID matching VisualSoar/ProjectCreator format
+    // Keep generating until we get a unique one (collision is extremely unlikely with hex IDs)
+    const crypto = require('crypto');
+    let id: string;
+    const existingIds = new Set(project.datamap.vertices.map((v: any) => v.id));
+
+    do {
+      id = crypto.randomBytes(16).toString('hex');
+    } while (existingIds.has(id));
+
+    return id;
   }
 
   /**
@@ -643,11 +312,16 @@ export class LayoutOperations {
 
     // Add this node's file if it has one
     if ('file' in node && node.file) {
-      const fullPath = path.join(workspaceFolder, currentFolderPath, node.file);
+      // For HIGH_LEVEL_OPERATOR and HIGH_LEVEL_IMPASSE_OPERATOR, the file stays at parent level
+      const fileFolder =
+        node.type === 'HIGH_LEVEL_OPERATOR' || node.type === 'HIGH_LEVEL_IMPASSE_OPERATOR'
+          ? parentFolderPath
+          : currentFolderPath;
+      const fullPath = path.join(workspaceFolder, fileFolder, node.file);
       files.push(fullPath);
 
       if (sourceRefs && node.file.toLowerCase().endsWith('.soar')) {
-        const folderAbsolute = this.resolveFolderAbsolute(workspaceFolder, currentFolderPath);
+        const folderAbsolute = this.resolveFolderAbsolute(workspaceFolder, fileFolder);
         sourceRefs.push({
           absolutePath: fullPath,
           folderPath: folderAbsolute,
@@ -658,6 +332,16 @@ export class LayoutOperations {
 
     // Add this node's folder if it has one (and it's a HIGH_LEVEL_OPERATOR)
     if ('folder' in node && node.folder && node.type === 'HIGH_LEVEL_OPERATOR') {
+      const fullPath = path.join(workspaceFolder, currentFolderPath);
+      folders.push(fullPath);
+
+      // Add the source file which is not in the layout tree
+      const sourceFile = path.join(fullPath, `${node.name}_source.soar`);
+      files.push(sourceFile);
+    }
+
+    // Add folder for HIGH_LEVEL_IMPASSE_OPERATOR
+    if ('folder' in node && node.folder && node.type === 'HIGH_LEVEL_IMPASSE_OPERATOR') {
       const fullPath = path.join(workspaceFolder, currentFolderPath);
       folders.push(fullPath);
 
@@ -1231,21 +915,35 @@ export class LayoutOperations {
   }
 
   /**
-   * Add a file programmatically (for testing)
+   * Internal implementation for adding a file
+   * Shared by both UI and programmatic methods
    */
-  static async addFileProgrammatic(
+  static async addFileInternal(
     projectContext: ProjectContext,
     parentNodeId: string,
-    fileName: string
-  ): Promise<{ success: boolean; nodeId?: string }> {
+    fileName: string,
+    options: {
+      showMessages?: boolean;
+      openFile?: boolean;
+      reloadCallback?: () => Promise<void>;
+    } = {}
+  ): Promise<{ success: boolean; nodeId?: string; error?: string }> {
+    const undoManager = options.reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
     const parentNode = projectContext.layoutIndex.get(parentNodeId);
 
     if (!parentNode || !hasChildren(parentNode)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Can only add files to folder nodes');
+      }
+      return { success: false, error: 'Parent node not valid' };
     }
 
     if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(fileName)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Invalid file name');
+      }
+      return { success: false, error: 'Invalid file name' };
     }
 
     const workspaceFolder = path.dirname(projectContext.projectFile);
@@ -1254,7 +952,10 @@ export class LayoutOperations {
     const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
 
     if (fs.existsSync(fullPath)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(`File already exists: ${filePath}`);
+      }
+      return { success: false, error: 'File already exists' };
     }
 
     const newNodeId = this.generateNodeId(projectContext.project);
@@ -1282,39 +983,77 @@ export class LayoutOperations {
 
     await this.saveProject(projectContext);
 
+    if (options.showMessages) {
+      vscode.window.showInformationMessage(`Created file '${fileName}.soar'`);
+    }
+
+    if (options.openFile) {
+      const doc = await vscode.workspace.openTextDocument(fullPath);
+      await vscode.window.showTextDocument(doc);
+    }
+
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && options.reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const operation = UndoManager.createSnapshotOperation(
+        'Add File',
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        options.reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     return { success: true, nodeId: newNodeId };
   }
 
   /**
-   * Add an operator programmatically (for testing)
-   * Same as addOperator but takes operatorName as parameter instead of prompting
+   * Internal implementation for adding an operator
+   * Shared by both UI and programmatic methods
    */
-  static async addOperatorProgrammatic(
+  static async addOperatorInternal(
     projectContext: ProjectContext,
     parentNodeId: string,
-    operatorName: string
-  ): Promise<{ success: boolean; nodeId?: string }> {
+    operatorName: string,
+    options: {
+      showMessages?: boolean;
+      openFile?: boolean;
+      reloadCallback?: () => Promise<void>;
+    } = {}
+  ): Promise<{ success: boolean; nodeId?: string; error?: string }> {
+    const undoManager = options.reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
     let parentNode = projectContext.layoutIndex.get(parentNodeId);
 
     if (!parentNode) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Parent node not found');
+      }
+      return { success: false, error: 'Parent node not found' };
     }
 
     // If parent is a regular OPERATOR, convert it to HIGH_LEVEL_OPERATOR first
     if (parentNode.type === 'OPERATOR') {
       const converted = await this.convertOperatorToHighLevel(projectContext, parentNodeId);
       if (!converted) {
-        return { success: false };
+        return { success: false, error: 'Failed to convert to high-level operator' };
       }
       // Re-fetch the parent node after conversion
       parentNode = projectContext.layoutIndex.get(parentNodeId);
       if (!parentNode) {
-        return { success: false };
+        if (options.showMessages) {
+          vscode.window.showErrorMessage('Failed to convert operator to high-level operator');
+        }
+        return { success: false, error: 'Failed to re-fetch parent after conversion' };
       }
     }
 
     if (!hasChildren(parentNode)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Can only add operators to folder nodes');
+      }
+      return { success: false, error: 'Parent cannot have children' };
     }
 
     // Determine the parent state context (root or substate)
@@ -1335,7 +1074,10 @@ export class LayoutOperations {
 
     // Check if file already exists
     if (fs.existsSync(fullPath)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
+      }
+      return { success: false, error: 'File already exists' };
     }
 
     // Create the operator node with dmId
@@ -1367,43 +1109,86 @@ export class LayoutOperations {
     // Save project
     await this.saveProject(projectContext);
 
+    if (options.showMessages) {
+      vscode.window.showInformationMessage(`Created operator '${operatorName}'`);
+    }
+
+    if (options.openFile) {
+      const doc = await vscode.workspace.openTextDocument(fullPath);
+      await vscode.window.showTextDocument(doc);
+    }
+
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && options.reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const operation = UndoManager.createSnapshotOperation(
+        'Add Operator',
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        options.reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     return { success: true, nodeId: newNodeId };
   }
 
   /**
-   * Add an impasse operator programmatically (for testing)
-   * Same as addImpasseOperator but takes impasseName as parameter instead of prompting
+   * Internal implementation for adding an impasse operator
+   * Shared by both UI and programmatic methods
    */
-  static async addImpasseOperatorProgrammatic(
+  static async addImpasseOperatorInternal(
     projectContext: ProjectContext,
     parentNodeId: string,
-    impasseName: ImpasseName
-  ): Promise<{ success: boolean; nodeId?: string }> {
+    impasseName: ImpasseName,
+    options: {
+      showMessages?: boolean;
+      openFile?: boolean;
+      reloadCallback?: () => Promise<void>;
+    } = {}
+  ): Promise<{ success: boolean; nodeId?: string; error?: string }> {
+    const undoManager = options.reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
     let parentNode = projectContext.layoutIndex.get(parentNodeId);
 
     if (!parentNode) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Parent node not found');
+      }
+      return { success: false, error: 'Parent node not found' };
     }
 
     // If parent is a regular IMPASSE_OPERATOR, convert it to HIGH_LEVEL_IMPASSE_OPERATOR first
     if (parentNode.type === 'IMPASSE_OPERATOR') {
       const converted = await this.convertImpasseOperatorToHighLevel(projectContext, parentNodeId);
       if (!converted) {
-        return { success: false };
+        return { success: false, error: 'Failed to convert to high-level impasse operator' };
       }
       // Re-fetch the parent node after conversion
       parentNode = projectContext.layoutIndex.get(parentNodeId);
       if (!parentNode) {
-        return { success: false };
+        if (options.showMessages) {
+          vscode.window.showErrorMessage(
+            'Failed to convert impasse operator to high-level impasse operator'
+          );
+        }
+        return { success: false, error: 'Failed to re-fetch parent after conversion' };
       }
     }
 
     if (!hasChildren(parentNode)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Can only add impasse operators to folder nodes');
+      }
+      return { success: false, error: 'Parent cannot have children' };
     }
 
     // Determine the parent state context (root or substate)
     const stateContext = this.findParentStateContext(projectContext, parentNodeId);
+
+    // Note: Unlike regular operators, impasse operators don't modify the datamap
+    // They generate empty files for users to fill in, similar to VisualSoar
 
     // Determine file path
     const workspaceFolder = path.dirname(projectContext.projectFile);
@@ -1413,7 +1198,10 @@ export class LayoutOperations {
 
     // Check if file already exists
     if (fs.existsSync(fullPath)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
+      }
+      return { success: false, error: 'File already exists' };
     }
 
     // Create the impasse operator node
@@ -1444,25 +1232,60 @@ export class LayoutOperations {
     // Save project
     await this.saveProject(projectContext);
 
+    if (options.showMessages) {
+      vscode.window.showInformationMessage(`Created impasse operator '${impasseName}'`);
+    }
+
+    if (options.openFile) {
+      const doc = await vscode.workspace.openTextDocument(fullPath);
+      await vscode.window.showTextDocument(doc);
+    }
+
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && options.reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const operation = UndoManager.createSnapshotOperation(
+        'Add Impasse Operator',
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        options.reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     return { success: true, nodeId: newNodeId };
   }
 
   /**
-   * Add folder programmatically (for testing)
+   * Internal implementation for adding a folder
+   * Shared by both UI and programmatic methods
    */
-  static async addFolderProgrammatic(
+  static async addFolderInternal(
     projectContext: ProjectContext,
     parentNodeId: string,
-    folderName: string
-  ): Promise<{ success: boolean; nodeId?: string }> {
+    folderName: string,
+    options: {
+      showMessages?: boolean;
+      reloadCallback?: () => Promise<void>;
+    } = {}
+  ): Promise<{ success: boolean; nodeId?: string; error?: string }> {
+    const undoManager = options.reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
     const parentNode = projectContext.layoutIndex.get(parentNodeId);
 
     if (!parentNode || !hasChildren(parentNode)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Can only add folders to folder nodes');
+      }
+      return { success: false, error: 'Parent node not valid' };
     }
 
     if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(folderName)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage('Invalid folder name');
+      }
+      return { success: false, error: 'Invalid folder name' };
     }
 
     const workspaceFolder = path.dirname(projectContext.projectFile);
@@ -1471,7 +1294,10 @@ export class LayoutOperations {
     const fullPath = path.join(workspaceFolder, parentFolderPath, folderPath);
 
     if (fs.existsSync(fullPath)) {
-      return { success: false };
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(`Folder already exists: ${folderPath}`);
+      }
+      return { success: false, error: 'Folder already exists' };
     }
 
     // Create folder
@@ -1495,6 +1321,23 @@ export class LayoutOperations {
 
     await this.saveProject(projectContext);
 
+    if (options.showMessages) {
+      vscode.window.showInformationMessage(`Created folder '${folderName}'`);
+    }
+
+    // Capture undo operation if callback provided
+    if (undoManager && beforeSnapshot && options.reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const operation = UndoManager.createSnapshotOperation(
+        'Add Folder',
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        options.reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
+
     return { success: true, nodeId: newNodeId };
   }
 
@@ -1507,33 +1350,9 @@ export class LayoutOperations {
     operatorName: string,
     reloadCallback: () => Promise<void>
   ): Promise<{ success: boolean; nodeId?: string }> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const result = await this.addOperatorProgrammatic(projectContext, parentNodeId, operatorName);
-
-    if (!result.success) {
-      return result;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Operator',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return result;
+    return await this.addOperatorInternal(projectContext, parentNodeId, operatorName, {
+      reloadCallback,
+    });
   }
 
   /**
@@ -1545,37 +1364,9 @@ export class LayoutOperations {
     impasseName: ImpasseName,
     reloadCallback: () => Promise<void>
   ): Promise<{ success: boolean; nodeId?: string }> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const result = await this.addImpasseOperatorProgrammatic(
-      projectContext,
-      parentNodeId,
-      impasseName
-    );
-
-    if (!result.success) {
-      return result;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Impasse Operator',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return result;
+    return await this.addImpasseOperatorInternal(projectContext, parentNodeId, impasseName, {
+      reloadCallback,
+    });
   }
 
   /**
@@ -1587,33 +1378,9 @@ export class LayoutOperations {
     fileName: string,
     reloadCallback: () => Promise<void>
   ): Promise<{ success: boolean; nodeId?: string }> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const result = await this.addFileProgrammatic(projectContext, parentNodeId, fileName);
-
-    if (!result.success) {
-      return result;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add File',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return result;
+    return await this.addFileInternal(projectContext, parentNodeId, fileName, {
+      reloadCallback,
+    });
   }
 
   /**
@@ -1625,33 +1392,9 @@ export class LayoutOperations {
     folderName: string,
     reloadCallback: () => Promise<void>
   ): Promise<{ success: boolean; nodeId?: string }> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const result = await this.addFolderProgrammatic(projectContext, parentNodeId, folderName);
-
-    if (!result.success) {
-      return result;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Folder',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return result;
+    return await this.addFolderInternal(projectContext, parentNodeId, folderName, {
+      reloadCallback,
+    });
   }
 
   /**
@@ -1962,240 +1705,5 @@ export class LayoutOperations {
   private static async saveProject(projectContext: ProjectContext): Promise<void> {
     const json = JSON.stringify(projectContext.project, null, 2);
     await fs.promises.writeFile(projectContext.projectFile, json, 'utf-8');
-  }
-
-  /**
-   * Add operator with undo support
-   */
-  static async addOperatorWithUndo(
-    projectContext: ProjectContext,
-    parentNodeId: string,
-    reloadCallback: () => Promise<void>
-  ): Promise<boolean> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const success = await this.addOperator(projectContext, parentNodeId);
-
-    if (!success) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Operator',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Add impasse operator with undo support
-   */
-  static async addImpasseOperatorWithUndo(
-    projectContext: ProjectContext,
-    parentNodeId: string,
-    reloadCallback: () => Promise<void>
-  ): Promise<boolean> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const success = await this.addImpasseOperator(projectContext, parentNodeId);
-
-    if (!success) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Impasse Operator',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Add file with undo support
-   */
-  static async addFileWithUndo(
-    projectContext: ProjectContext,
-    parentNodeId: string,
-    reloadCallback: () => Promise<void>,
-    parentNodeOverride?: LayoutNode,
-    folderPathOverride?: string
-  ): Promise<boolean> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const success = await this.addFile(
-      projectContext,
-      parentNodeId,
-      parentNodeOverride,
-      folderPathOverride
-    );
-
-    if (!success) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add File',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Add folder with undo support
-   */
-  static async addFolderWithUndo(
-    projectContext: ProjectContext,
-    parentNodeId: string,
-    reloadCallback: () => Promise<void>
-  ): Promise<boolean> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const success = await this.addFolder(projectContext, parentNodeId);
-
-    if (!success) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Add Folder',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Delete node with undo support
-   */
-  static async deleteNodeWithUndo(
-    projectContext: ProjectContext,
-    nodeId: string,
-    parentNodeId: string,
-    reloadCallback: () => Promise<void>,
-    skipConfirmation: boolean = false
-  ): Promise<boolean | DeleteResult> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const result = await this.deleteNode(projectContext, nodeId, parentNodeId, skipConfirmation);
-
-    if (!result) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Get node name for description
-    const node = projectContext.layoutIndex.get(nodeId);
-    const nodeName = node ? node.name : 'Node';
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      `Delete ${nodeName}`,
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return result;
-  }
-
-  /**
-   * Rename node with undo support
-   */
-  static async renameNodeWithUndo(
-    projectContext: ProjectContext,
-    nodeId: string,
-    reloadCallback: () => Promise<void>
-  ): Promise<boolean> {
-    const undoManager = getUndoManager();
-
-    // Capture state before the operation
-    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Perform the operation
-    const success = await this.renameNode(projectContext, nodeId);
-
-    if (!success) {
-      return false;
-    }
-
-    // Capture state after the operation
-    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
-
-    // Create and push the undoable operation
-    const operation = UndoManager.createSnapshotOperation(
-      'Rename Node',
-      projectContext,
-      beforeSnapshot,
-      afterSnapshot,
-      reloadCallback
-    );
-
-    undoManager.pushOperation(operation);
-
-    return true;
   }
 }

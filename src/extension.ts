@@ -448,13 +448,37 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.addOperatorWithUndo(
+      // Prompt for operator name
+      const operatorName = await vscode.window.showInputBox({
+        prompt: 'Enter operator name',
+        placeHolder: 'e.g., initialize, move-forward, attack',
+        validateInput: value => {
+          if (!value || value.trim().length === 0) {
+            return 'Operator name cannot be empty';
+          }
+          if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+            return 'Operator name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+          }
+          return null;
+        },
+      });
+
+      if (!operatorName) {
+        return;
+      }
+
+      const result = await LayoutOperations.addOperatorInternal(
         projectContext,
         nodeId,
-        reloadViews
+        operatorName,
+        {
+          showMessages: true,
+          openFile: true,
+          reloadCallback: reloadViews,
+        }
       );
 
-      if (success) {
+      if (result.success) {
         await reloadViews();
       }
     })
@@ -476,13 +500,34 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.addImpasseOperatorWithUndo(
+      // Show picker for impasse operator type
+      const impasseTypes: { label: string; value: any }[] = [
+        { label: 'Operator Tie', value: 'Impasse__Operator_Tie' },
+        { label: 'Operator Conflict', value: 'Impasse__Operator_Conflict' },
+        { label: 'Operator Constraint-Failure', value: 'Impasse__Operator_Constraint-Failure' },
+        { label: 'State No-Change', value: 'Impasse__State_No-Change' },
+      ];
+
+      const selected = await vscode.window.showQuickPick(impasseTypes, {
+        placeHolder: 'Select impasse type',
+      });
+
+      if (!selected) {
+        return;
+      }
+
+      const result = await LayoutOperations.addImpasseOperatorInternal(
         projectContext,
         nodeId,
-        reloadViews
+        selected.value,
+        {
+          showMessages: true,
+          openFile: true,
+          reloadCallback: reloadViews,
+        }
       );
 
-      if (success) {
+      if (result.success) {
         await reloadViews();
       }
     })
@@ -505,14 +550,32 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.addFileWithUndo(
-        projectContext,
-        nodeId,
-        reloadViews,
-        treeItem?.node,
-        folderPath
-      );
-      if (success) {
+      // Prompt for file name
+      const fileName = await vscode.window.showInputBox({
+        prompt: 'Enter file name (without .soar extension)',
+        placeHolder: 'e.g., utilities, helpers, common',
+        validateInput: value => {
+          if (!value || value.trim().length === 0) {
+            return 'File name cannot be empty';
+          }
+          if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+            return 'File name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+          }
+          return null;
+        },
+      });
+
+      if (!fileName) {
+        return;
+      }
+
+      const result = await LayoutOperations.addFileInternal(projectContext, nodeId, fileName, {
+        showMessages: true,
+        openFile: true,
+        reloadCallback: reloadViews,
+      });
+
+      if (result.success) {
         await reloadViews();
       }
     })
@@ -534,8 +597,31 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.addFolderWithUndo(projectContext, nodeId, reloadViews);
-      if (success) {
+      // Prompt for folder name
+      const folderName = await vscode.window.showInputBox({
+        prompt: 'Enter folder name',
+        placeHolder: 'e.g., operators, substates, utilities',
+        validateInput: value => {
+          if (!value || value.trim().length === 0) {
+            return 'Folder name cannot be empty';
+          }
+          if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
+            return 'Folder name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+          }
+          return null;
+        },
+      });
+
+      if (!folderName) {
+        return;
+      }
+
+      const result = await LayoutOperations.addFolderInternal(projectContext, nodeId, folderName, {
+        showMessages: true,
+        reloadCallback: reloadViews,
+      });
+
+      if (result.success) {
         await reloadViews();
       }
     })
@@ -555,7 +641,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.renameNodeWithUndo(
+      const success = await LayoutOperations.renameNode(
         projectContext,
         treeItem.node.id,
         reloadViews
@@ -586,10 +672,11 @@ export async function activate(context: vscode.ExtensionContext) {
         await datamapProvider.loadProjectFromFile(projectContext.projectFile);
       };
 
-      const success = await LayoutOperations.deleteNodeWithUndo(
+      const success = await LayoutOperations.deleteNode(
         projectContext,
         treeItem.node.id,
         parentNode.id,
+        false,
         reloadViews
       );
       if (success) {
