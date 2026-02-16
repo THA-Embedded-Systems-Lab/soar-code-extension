@@ -1,0 +1,3 @@
+pushd sub-operator-generation
+source sub-operator-generation_source.soar
+popd

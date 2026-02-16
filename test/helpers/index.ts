@@ -17,5 +17,8 @@ import '../lsp/datamap/helpers/datamap.test';
 import '../layout/projectCreator.test';
 import '../layout/undoManager.test';
 
+// Datamap manipulation tests
+import '../datamap-manipulation/fixtures/sub-operator-generation.test';
+
 // Legacy project validation tests
 import '../legacy-agents/project-validation.test';

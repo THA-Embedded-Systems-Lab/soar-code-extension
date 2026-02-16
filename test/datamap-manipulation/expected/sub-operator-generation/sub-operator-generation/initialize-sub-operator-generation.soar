@@ -1,0 +1,14 @@
+sp {propose*initialize-sub-operator-generation
+   (state <s> ^superstate nil
+             -^name)
+-->
+   (<s> ^operator <o> +)
+   (<o> ^name initialize-sub-operator-generation)
+}
+
+sp {apply*initialize-sub-operator-generation
+   (state <s> ^operator <op>)
+   (<op> ^name initialize-sub-operator-generation)
+-->
+   (<s> ^name sub-operator-generation)
+}

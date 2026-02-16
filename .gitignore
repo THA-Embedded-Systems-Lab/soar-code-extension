@@ -7,6 +7,8 @@ dist
 extension.vsixmanifest
 *~
 
+test-output/
+
 # Logs
 logs
 *.log

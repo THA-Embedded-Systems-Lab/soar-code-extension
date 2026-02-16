@@ -612,39 +612,40 @@ export class LayoutOperations {
     // Get the parent folder path to know where to create the new folder
     const parentId = this.findParentId(projectContext, operatorNodeId);
     if (!parentId) {
-      vscode.window.showErrorMessage('Cannot find parent node');
+      if (vscode.window) {
+        vscode.window.showErrorMessage('Cannot find parent node');
+      }
       return false;
     }
     const parentFolderPath = this.getNodeFolderPath(projectContext, parentId);
     const oldFile = operatorNode.file; // This is relative to parent
-    const oldFullPath = path.join(workspaceFolder, parentFolderPath, oldFile);
 
-    // New folder and file paths (relative to parent)
+    // New folder path (relative to parent)
     const newFolderRelative = operatorName; // Just the folder name
     const newFullFolderPath = path.join(workspaceFolder, parentFolderPath, newFolderRelative);
 
     // Check if folder already exists
     if (fs.existsSync(newFullFolderPath)) {
-      vscode.window.showErrorMessage(`Folder already exists: ${newFolderRelative}`);
+      if (vscode.window) {
+        vscode.window.showErrorMessage(`Folder already exists: ${newFolderRelative}`);
+      }
       return false;
     }
 
     // Create folder structure
     await fs.promises.mkdir(newFullFolderPath, { recursive: true });
 
-    // Move the operator file to the new folder location
-    const newFile = `${operatorName}.soar`; // Relative to the new folder
-    const newFullPath = path.join(newFullFolderPath, newFile);
+    // DO NOT move the original operator file - it stays at the parent level
+    // The original file contains propose/apply rules that fire on the parent state
+    // The folder contains substate-specific files
 
-    if (fs.existsSync(oldFullPath)) {
-      await fs.promises.rename(oldFullPath, newFullPath);
-    }
-
-    // Remove the old source reference from the parent folder
+    // Update source references:
+    // Remove reference to the plain .soar file
     const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
     await SourceScriptManager.removeReference(parentFolderAbsolute, oldFile);
 
-    // Add the new source reference (now it's a _source file in the operator folder)
+    // Add reference to the operator file (keep it) AND the _source file in the folder
+    await SourceScriptManager.appendReference(parentFolderAbsolute, oldFile);
     const newSourceReference = path.join(newFolderRelative, `${operatorName}_source.soar`);
     await SourceScriptManager.appendReference(parentFolderAbsolute, newSourceReference);
 
@@ -658,85 +659,198 @@ export class LayoutOperations {
     const sourceContent = `source elaborations.soar\n`;
     await fs.promises.writeFile(path.join(newFullFolderPath, sourceFile), sourceContent, 'utf-8');
 
-    // Create or reuse datamap vertex for this operator
-    let dmId = 'dmId' in operatorNode ? operatorNode.dmId : undefined;
-    let dmVertex: any;
-
-    if (!dmId) {
-      // If no dmId exists, create a new datamap vertex
-      dmId = this.generateVertexId(projectContext.project);
-      dmVertex = {
-        id: dmId,
-        type: 'SOAR_ID',
-        outEdges: [],
-      };
-      projectContext.project.datamap.vertices.push(dmVertex);
-      projectContext.datamapIndex.set(dmId, dmVertex);
-    } else {
-      dmVertex = projectContext.datamapIndex.get(dmId);
-    }
+    // Create a NEW datamap vertex for the substate (don't reuse the operator's dmId)
+    // The operator vertex stays connected to the parent state via ^operator edge
+    // The substate vertex is the state that is selected when the operator applies
+    const dmId = this.generateVertexId(projectContext.project);
+    const dmVertex: any = {
+      id: dmId,
+      type: 'SOAR_ID',
+      outEdges: [],
+    };
+    projectContext.project.datamap.vertices.push(dmVertex);
+    projectContext.datamapIndex.set(dmId, dmVertex);
 
     // Ensure the datamap has complete substate structure
-    if (dmVertex && dmVertex.type === 'SOAR_ID') {
-      if (!dmVertex.outEdges) {
-        dmVertex.outEdges = [];
-      }
+    if (!dmVertex.outEdges) {
+      dmVertex.outEdges = [];
+    }
 
-      // Helper to check if edge exists
-      const hasEdge = (name: string) => dmVertex.outEdges?.some((e: any) => e.name === name);
+    // Helper to check if edge exists
+    const hasEdge = (name: string) => dmVertex.outEdges?.some((e: any) => e.name === name);
 
-      // Add ^name edge
-      if (!hasEdge('name')) {
-        const nameEnumId = this.generateVertexId(projectContext.project);
-        const nameEnum: any = {
-          id: nameEnumId,
-          type: 'ENUMERATION',
-          choices: [operatorName],
-        };
-        projectContext.project.datamap.vertices.push(nameEnum);
-        projectContext.datamapIndex.set(nameEnumId, nameEnum);
-        dmVertex.outEdges.push({ name: 'name', toId: nameEnumId });
-      }
+    // Add ^name edge (create new enumeration for each state/operator)
+    if (!hasEdge('name')) {
+      const nameEnumId = this.generateVertexId(projectContext.project);
+      const nameEnum: any = {
+        id: nameEnumId,
+        type: 'ENUMERATION',
+        choices: [operatorName],
+      };
+      projectContext.project.datamap.vertices.push(nameEnum);
+      projectContext.datamapIndex.set(nameEnumId, nameEnum);
+      dmVertex.outEdges.push({ name: 'name', toId: nameEnumId });
+    }
 
-      // Add ^type state
-      if (!hasEdge('type')) {
-        let stateEnumVertex = projectContext.project.datamap.vertices.find(
-          (v: any) =>
-            v.type === 'ENUMERATION' && v.choices?.length === 1 && v.choices[0] === 'state'
-        );
-        if (!stateEnumVertex) {
-          const stateEnumId = this.generateVertexId(projectContext.project);
-          stateEnumVertex = {
-            id: stateEnumId,
-            type: 'ENUMERATION',
-            choices: ['state'],
-          };
-          projectContext.project.datamap.vertices.push(stateEnumVertex);
-          projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
-        }
-        dmVertex.outEdges.push({ name: 'type', toId: stateEnumVertex.id });
-      }
+    // Add ^type state (create new enumeration for each state, don't reuse)
+    if (!hasEdge('type')) {
+      const stateEnumId = this.generateVertexId(projectContext.project);
+      const stateEnumVertex: any = {
+        id: stateEnumId,
+        type: 'ENUMERATION',
+        choices: ['state'],
+      };
+      projectContext.project.datamap.vertices.push(stateEnumVertex);
+      projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
+      dmVertex.outEdges.push({ name: 'type', toId: stateEnumVertex.id });
+    }
 
-      // Add ^superstate pointing to root
-      if (!hasEdge('superstate')) {
-        const rootId = projectContext.project.datamap.rootId;
-        dmVertex.outEdges.push({ name: 'superstate', toId: rootId });
-      }
+    // Add ^superstate pointing to root
+    if (!hasEdge('superstate')) {
+      const rootId = projectContext.project.datamap.rootId;
+      dmVertex.outEdges.push({ name: 'superstate', toId: rootId });
+    }
 
-      // Add ^top-state pointing to root
-      if (!hasEdge('top-state')) {
-        const rootId = projectContext.project.datamap.rootId;
-        dmVertex.outEdges.push({ name: 'top-state', toId: rootId });
-      }
+    // Add ^top-state pointing to root
+    if (!hasEdge('top-state')) {
+      const rootId = projectContext.project.datamap.rootId;
+      dmVertex.outEdges.push({ name: 'top-state', toId: rootId });
+    }
+
+    // Add ^impasse
+    if (!hasEdge('impasse')) {
+      const impasseEnumId = this.generateVertexId(projectContext.project);
+      const impasseEnum: any = {
+        id: impasseEnumId,
+        type: 'ENUMERATION',
+        choices: ['conflict', 'constraint-failure', 'no-change', 'tie'],
+      };
+      projectContext.project.datamap.vertices.push(impasseEnum);
+      projectContext.datamapIndex.set(impasseEnumId, impasseEnum);
+      dmVertex.outEdges.push({ name: 'impasse', toId: impasseEnumId });
+    }
+
+    // Add ^choices
+    if (!hasEdge('choices')) {
+      const choicesEnumId = this.generateVertexId(projectContext.project);
+      const choicesEnum: any = {
+        id: choicesEnumId,
+        type: 'ENUMERATION',
+        choices: ['constraint-failure', 'multiple', 'none'],
+      };
+      projectContext.project.datamap.vertices.push(choicesEnum);
+      projectContext.datamapIndex.set(choicesEnumId, choicesEnum);
+      dmVertex.outEdges.push({ name: 'choices', toId: choicesEnumId });
+    }
+
+    // Add ^quiescence
+    if (!hasEdge('quiescence')) {
+      const quiescenceEnumId = this.generateVertexId(projectContext.project);
+      const quiescenceEnum: any = {
+        id: quiescenceEnumId,
+        type: 'ENUMERATION',
+        choices: ['t'],
+      };
+      projectContext.project.datamap.vertices.push(quiescenceEnum);
+      projectContext.datamapIndex.set(quiescenceEnumId, quiescenceEnum);
+      dmVertex.outEdges.push({ name: 'quiescence', toId: quiescenceEnumId });
+    }
+
+    // Add ^epmem
+    if (!hasEdge('epmem')) {
+      const epmemId = this.generateVertexId(projectContext.project);
+      const epmemCommandId = this.generateVertexId(projectContext.project);
+      const epmemPresentIdId = this.generateVertexId(projectContext.project);
+      const epmemResultId = this.generateVertexId(projectContext.project);
+
+      const epmemVertex: any = {
+        id: epmemId,
+        type: 'SOAR_ID',
+        outEdges: [
+          { name: 'command', toId: epmemCommandId },
+          { name: 'present-id', toId: epmemPresentIdId },
+          { name: 'result', toId: epmemResultId },
+        ],
+      };
+      const epmemCommandVertex: any = { id: epmemCommandId, type: 'SOAR_ID', outEdges: [] };
+      const epmemPresentIdVertex: any = { id: epmemPresentIdId, type: 'INTEGER' };
+      const epmemResultVertex: any = { id: epmemResultId, type: 'SOAR_ID', outEdges: [] };
+
+      projectContext.project.datamap.vertices.push(epmemVertex);
+      projectContext.project.datamap.vertices.push(epmemCommandVertex);
+      projectContext.project.datamap.vertices.push(epmemPresentIdVertex);
+      projectContext.project.datamap.vertices.push(epmemResultVertex);
+      projectContext.datamapIndex.set(epmemId, epmemVertex);
+      projectContext.datamapIndex.set(epmemCommandId, epmemCommandVertex);
+      projectContext.datamapIndex.set(epmemPresentIdId, epmemPresentIdVertex);
+      projectContext.datamapIndex.set(epmemResultId, epmemResultVertex);
+
+      dmVertex.outEdges.push({ name: 'epmem', toId: epmemId });
+    }
+
+    // Add ^smem
+    if (!hasEdge('smem')) {
+      const smemId = this.generateVertexId(projectContext.project);
+      const smemCommandId = this.generateVertexId(projectContext.project);
+      const smemResultId = this.generateVertexId(projectContext.project);
+
+      const smemVertex: any = {
+        id: smemId,
+        type: 'SOAR_ID',
+        outEdges: [
+          { name: 'command', toId: smemCommandId },
+          { name: 'result', toId: smemResultId },
+        ],
+      };
+      const smemCommandVertex: any = { id: smemCommandId, type: 'SOAR_ID', outEdges: [] };
+      const smemResultVertex: any = { id: smemResultId, type: 'SOAR_ID', outEdges: [] };
+
+      projectContext.project.datamap.vertices.push(smemVertex);
+      projectContext.project.datamap.vertices.push(smemCommandVertex);
+      projectContext.project.datamap.vertices.push(smemResultVertex);
+      projectContext.datamapIndex.set(smemId, smemVertex);
+      projectContext.datamapIndex.set(smemCommandId, smemCommandVertex);
+      projectContext.datamapIndex.set(smemResultId, smemResultVertex);
+
+      dmVertex.outEdges.push({ name: 'smem', toId: smemId });
+    }
+
+    // Add ^reward-link
+    if (!hasEdge('reward-link')) {
+      const rewardLinkId = this.generateVertexId(projectContext.project);
+      const rewardId = this.generateVertexId(projectContext.project);
+      const rewardValueId = this.generateVertexId(projectContext.project);
+
+      const rewardLinkVertex: any = {
+        id: rewardLinkId,
+        type: 'SOAR_ID',
+        outEdges: [{ name: 'reward', toId: rewardId }],
+      };
+      const rewardVertex: any = {
+        id: rewardId,
+        type: 'SOAR_ID',
+        outEdges: [{ name: 'value', toId: rewardValueId }],
+      };
+      const rewardValueVertex: any = { id: rewardValueId, type: 'FLOAT' };
+
+      projectContext.project.datamap.vertices.push(rewardLinkVertex);
+      projectContext.project.datamap.vertices.push(rewardVertex);
+      projectContext.project.datamap.vertices.push(rewardValueVertex);
+      projectContext.datamapIndex.set(rewardLinkId, rewardLinkVertex);
+      projectContext.datamapIndex.set(rewardId, rewardVertex);
+      projectContext.datamapIndex.set(rewardValueId, rewardValueVertex);
+
+      dmVertex.outEdges.push({ name: 'reward-link', toId: rewardLinkId });
     }
 
     // Convert to HIGH_LEVEL_OPERATOR (matching VisualSoar's structure)
-    // All paths are relative to the parent
+    // The operator .soar file stays at parent level with propose/apply rules
+    // The folder contains substate-specific files
     const highLevelNode: HighLevelOperatorNode = {
       type: 'HIGH_LEVEL_OPERATOR',
       id: operatorNode.id,
       name: operatorName,
-      file: newFile, // Relative to parent: operator-name.soar
+      file: oldFile, // Keep the original file reference (stays at parent level)
       dmId: dmId!,
       folder: newFolderRelative, // Relative to parent: operator-name/
       children: [
@@ -764,7 +878,10 @@ export class LayoutOperations {
     // Save project
     await this.saveProject(projectContext);
 
-    vscode.window.showInformationMessage(`Converted '${operatorName}' to high-level operator`);
+    // Show message only if vscode window is available (not in tests)
+    if (vscode.window) {
+      vscode.window.showInformationMessage(`Converted '${operatorName}' to high-level operator`);
+    }
     return true;
   }
 

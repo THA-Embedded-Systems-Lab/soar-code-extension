@@ -1,0 +1,441 @@
+{
+  "datamap": {
+    "rootId": "16f2a442240b481faea3b88cd186c183",
+    "vertices": [
+      {
+        "choices": ["initialize-sub-operator-generation"],
+        "id": "0beeef8d2e7b4761b8b6ad50ce0bf485",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "0f9b77a404904fb1a7f9334dbd8fd902",
+        "outEdges": [
+          {
+            "name": "value",
+            "toId": "869f4925829a43acae67c74ed32fdac6"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "12e156c8b190416abbac775b39d1fc5d",
+        "outEdges": [
+          {
+            "name": "input-link",
+            "toId": "8ef55411d1354428909759f120b105b6"
+          },
+          {
+            "name": "output-link",
+            "toId": "eadf5f9c338f431690f31409cb8bd0f5"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "16f2a442240b481faea3b88cd186c183",
+        "outEdges": [
+          {
+            "name": "epmem",
+            "toId": "70abc26b73bb474c99a4f20aa97cc514"
+          },
+          {
+            "name": "io",
+            "toId": "12e156c8b190416abbac775b39d1fc5d"
+          },
+          {
+            "name": "name",
+            "toId": "25bc25ac734c41b78718a71bfe97dc57"
+          },
+          {
+            "name": "operator",
+            "toId": "57fc729b92f245babd571fd106fde5e7"
+          },
+          {
+            "name": "operator",
+            "toId": "5b1246f0d93f4977866f7f11908e772f"
+          },
+          {
+            "name": "reward-link",
+            "toId": "f6592e6322934bc8b3b189763cd443c1"
+          },
+          {
+            "name": "smem",
+            "toId": "c80ea6a95e4f4aec9553101a5fc6d46a"
+          },
+          {
+            "name": "superstate",
+            "toId": "1b268b47972047f3b17932b96b4befd5"
+          },
+          {
+            "name": "top-state",
+            "toId": "16f2a442240b481faea3b88cd186c183"
+          },
+          {
+            "name": "type",
+            "toId": "52b5f2a1f56a443f8b3cb18ba0cc0c79"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["nil"],
+        "id": "1b268b47972047f3b17932b96b4befd5",
+        "type": "ENUMERATION"
+      },
+      {
+        "choices": ["sub-operator-generation"],
+        "id": "25bc25ac734c41b78718a71bfe97dc57",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "29d1569b29fc4f08a6749fe82f7860b9",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "2d9a721064684c67b8ce0ff2515a93bc",
+        "outEdges": [
+          {
+            "name": "reward",
+            "toId": "0f9b77a404904fb1a7f9334dbd8fd902"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["state"],
+        "id": "370a828887344c6882da2d6ec00c7084",
+        "type": "ENUMERATION"
+      },
+      {
+        "choices": ["state"],
+        "id": "52b5f2a1f56a443f8b3cb18ba0cc0c79",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "54d4bb645cd54401a63c609ee26dcfdf",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "c7aa7078c49942a5b920b61f6919520e"
+          },
+          {
+            "name": "result",
+            "toId": "e69348569b8d4f56b864ca660f11c1b3"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "5661d91a2b1b4a72a3445df1c868c5a5",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "57fc729b92f245babd571fd106fde5e7",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "e98e5a5c5e2f43afa4ada122e0033742"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "589856d6b93a47d08016cba2b3835af8",
+        "outEdges": [
+          {
+            "name": "value",
+            "toId": "deb9f78bc6f746fba0323620d38f7371"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["t"],
+        "id": "59c655b008624c87bd743a37ed7de761",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "5b1246f0d93f4977866f7f11908e772f",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "0beeef8d2e7b4761b8b6ad50ce0bf485"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "63ce09f0f0a6402e9a70bcc6072be8b7",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "68f31282f2004d76805cafca17c89b06",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "8c08135220d34bacab67ed490ea14151"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "70abc26b73bb474c99a4f20aa97cc514",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "7d8e4c7424064eacbe85c07b8a43663c"
+          },
+          {
+            "name": "present-id",
+            "toId": "a214df2c5fd04d3db62baeca12c9aa53"
+          },
+          {
+            "name": "result",
+            "toId": "abb3b9f74d33466581b98c554e00fdff"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "7d8e4c7424064eacbe85c07b8a43663c",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "869f4925829a43acae67c74ed32fdac6",
+        "type": "FLOAT"
+      },
+      {
+        "choices": ["sub-sub-operator"],
+        "id": "8c08135220d34bacab67ed490ea14151",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "8ef55411d1354428909759f120b105b6",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["sub-operator"],
+        "id": "8f1c33959d1149f39effe390272eefef",
+        "type": "ENUMERATION"
+      },
+      {
+        "choices": ["constraint-failure", "multiple", "none"],
+        "id": "906f95c83b034426899d0cd1af406c93",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "999820b6c7584832b99048725fe68bfa",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "a214df2c5fd04d3db62baeca12c9aa53",
+        "type": "INTEGER"
+      },
+      {
+        "id": "a25b191db26441beb1b990f9e0f8f70f",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "999820b6c7584832b99048725fe68bfa"
+          },
+          {
+            "name": "present-id",
+            "toId": "d2131d4ad6e44a9f8020b4db17863674"
+          },
+          {
+            "name": "result",
+            "toId": "29d1569b29fc4f08a6749fe82f7860b9"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "abb3b9f74d33466581b98c554e00fdff",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "c7aa7078c49942a5b920b61f6919520e",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "c80ea6a95e4f4aec9553101a5fc6d46a",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "63ce09f0f0a6402e9a70bcc6072be8b7"
+          },
+          {
+            "name": "result",
+            "toId": "5661d91a2b1b4a72a3445df1c868c5a5"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "d2131d4ad6e44a9f8020b4db17863674",
+        "type": "INTEGER"
+      },
+      {
+        "id": "deb9f78bc6f746fba0323620d38f7371",
+        "type": "FLOAT"
+      },
+      {
+        "choices": ["conflict", "constraint-failure", "no-change", "tie"],
+        "id": "e14bbceb6b2e404eb29a99bfca1ce53f",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "e69348569b8d4f56b864ca660f11c1b3",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "choices": ["sub-operator"],
+        "id": "e98e5a5c5e2f43afa4ada122e0033742",
+        "type": "ENUMERATION"
+      },
+      {
+        "id": "eadf5f9c338f431690f31409cb8bd0f5",
+        "outEdges": [],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "f1e7f5a7adca414788f5fb17fc77ce7c",
+        "outEdges": [
+          {
+            "name": "choices",
+            "toId": "906f95c83b034426899d0cd1af406c93"
+          },
+          {
+            "name": "epmem",
+            "toId": "a25b191db26441beb1b990f9e0f8f70f"
+          },
+          {
+            "name": "impasse",
+            "toId": "e14bbceb6b2e404eb29a99bfca1ce53f"
+          },
+          {
+            "name": "name",
+            "toId": "8f1c33959d1149f39effe390272eefef"
+          },
+          {
+            "name": "operator",
+            "toId": "68f31282f2004d76805cafca17c89b06"
+          },
+          {
+            "name": "quiescence",
+            "toId": "59c655b008624c87bd743a37ed7de761"
+          },
+          {
+            "name": "reward-link",
+            "toId": "2d9a721064684c67b8ce0ff2515a93bc"
+          },
+          {
+            "name": "smem",
+            "toId": "54d4bb645cd54401a63c609ee26dcfdf"
+          },
+          {
+            "name": "superstate",
+            "toId": "16f2a442240b481faea3b88cd186c183"
+          },
+          {
+            "name": "top-state",
+            "toId": "16f2a442240b481faea3b88cd186c183"
+          },
+          {
+            "name": "type",
+            "toId": "370a828887344c6882da2d6ec00c7084"
+          }
+        ],
+        "type": "SOAR_ID"
+      },
+      {
+        "id": "f6592e6322934bc8b3b189763cd443c1",
+        "outEdges": [
+          {
+            "name": "reward",
+            "toId": "589856d6b93a47d08016cba2b3835af8"
+          }
+        ],
+        "type": "SOAR_ID"
+      }
+    ]
+  },
+  "layout": {
+    "folder": "sub-operator-generation",
+    "id": "cf6aa5459bf843a0a6b984a412201ba4",
+    "name": "sub-operator-generation",
+    "type": "OPERATOR_ROOT",
+    "children": [
+      {
+        "file": "_firstload.soar",
+        "id": "fe4b84d9863d4bde861fffd9c62e4951",
+        "name": "_firstload",
+        "type": "FILE_OPERATOR"
+      },
+      {
+        "folder": "all",
+        "id": "fc233879312d40a09d0fcc90099e25bf",
+        "name": "all",
+        "type": "FOLDER"
+      },
+      {
+        "folder": "elaborations",
+        "id": "1b2a7119a6f049c4aef3ad69ade599d4",
+        "name": "elaborations",
+        "type": "FOLDER",
+        "children": [
+          {
+            "file": "_all.soar",
+            "id": "7b4ac1dabef74cfaa3a001619d5961b3",
+            "name": "_all",
+            "type": "FILE_OPERATOR"
+          },
+          {
+            "file": "top-state.soar",
+            "id": "3d120748de324698996b2c8a4821a49d",
+            "name": "top-state",
+            "type": "FILE_OPERATOR"
+          }
+        ]
+      },
+      {
+        "file": "initialize-sub-operator-generation.soar",
+        "id": "933df32b30864a23a97e0b95ebee4590",
+        "name": "initialize-sub-operator-generation",
+        "type": "OPERATOR"
+      },
+      {
+        "dmId": "f1e7f5a7adca414788f5fb17fc77ce7c",
+        "file": "sub-operator.soar",
+        "folder": "sub-operator",
+        "id": "690f3fa4ad7d4152ac65e863fac47526",
+        "name": "sub-operator",
+        "type": "HIGH_LEVEL_OPERATOR",
+        "children": [
+          {
+            "file": "elaborations.soar",
+            "id": "e0b5465c83784f029059724e93399420",
+            "name": "elaborations",
+            "type": "FILE_OPERATOR"
+          },
+          {
+            "file": "sub-sub-operator.soar",
+            "id": "9b70adbe5604499aa6f8f39058e1b9e7",
+            "name": "sub-sub-operator",
+            "type": "OPERATOR"
+          }
+        ]
+      }
+    ]
+  },
+  "version": "6"
+}

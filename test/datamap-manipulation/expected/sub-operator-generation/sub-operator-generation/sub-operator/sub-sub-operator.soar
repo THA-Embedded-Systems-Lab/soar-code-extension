@@ -1,0 +1,14 @@
+
+sp {sub-operator*propose*sub-sub-operator
+   (state <s> ^name sub-operator)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name sub-sub-operator)
+}
+
+sp {apply*sub-sub-operator
+   (state <s> ^operator <op>)
+   (<op> ^name sub-sub-operator)
+-->
+   (<s>)
+}
