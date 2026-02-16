@@ -1,3 +1,29 @@
+## [0.5.0] - 2026-02-16
+
+### Features
+
+- Add impasse operator creation
+
+### Bug Fixes
+
+- Update iconography ([#1](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/issues/1))
+
+### Refactor
+
+- _(layout)_ Consolidate code and add tests
+
+### Documentation
+
+- Update changelog
+
+### Testing
+
+- Add datamap manipulation test
+
+### Miscellaneous Tasks
+
+- Prepare 0.5.0 release
+
 ## [0.4.1] - 2026-02-16
 
 ### Testing
