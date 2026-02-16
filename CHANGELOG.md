@@ -1,3 +1,14 @@
+## [0.4.1] - 2026-02-16
+
+### Testing
+
+- Extend timeout for undo manager test
+
+### Miscellaneous Tasks
+
+- Add changelog and create changelog configuration
+- Release 0.4.1
+
 ## [0.4.0] - 2026-02-15
 
 ### Features
