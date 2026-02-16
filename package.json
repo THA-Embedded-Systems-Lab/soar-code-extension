@@ -161,6 +161,12 @@
         "icon": "$(symbol-method)"
       },
       {
+        "command": "soar.addImpasseOperator",
+        "title": "Add Impasse Operator",
+        "category": "Soar",
+        "icon": "$(symbol-interface)"
+      },
+      {
         "command": "soar.addFile",
         "title": "Add File",
         "category": "Soar",
@@ -326,17 +332,22 @@
         },
         {
           "command": "soar.addOperator",
-          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|operator|high-level-operator|high-level-file-operator)$/",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|operator|high-level-operator|high-level-file-operator|impasse-operator|high-level-impasse-operator)$/",
           "group": "1_add@1"
         },
         {
-          "command": "soar.addFile",
-          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "command": "soar.addImpasseOperator",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|operator|high-level-operator|high-level-file-operator|impasse-operator|high-level-impasse-operator)$/",
           "group": "1_add@2"
         },
         {
+          "command": "soar.addFile",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator|high-level-impasse-operator)$/",
+          "group": "1_add@3"
+        },
+        {
           "command": "soar.addFolder",
-          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator)$/",
+          "when": "view == soarLayout && viewItem =~ /^layout-(operator-root|folder|high-level-operator|high-level-file-operator|high-level-impasse-operator)$/",
           "group": "1_add@4"
         },
         {

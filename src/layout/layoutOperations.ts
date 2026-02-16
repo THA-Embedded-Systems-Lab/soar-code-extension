@@ -13,6 +13,9 @@ import {
   ProjectContext,
   OperatorNode,
   HighLevelOperatorNode,
+  ImpasseOperatorNode,
+  HighLevelImpasseOperatorNode,
+  ImpasseName,
   FileNode,
   FolderNode,
   hasChildren,
@@ -141,6 +144,111 @@ export class LayoutOperations {
     await this.saveProject(projectContext);
 
     vscode.window.showInformationMessage(`Created operator '${operatorName}'`);
+
+    // Open the file
+    const doc = await vscode.workspace.openTextDocument(fullPath);
+    await vscode.window.showTextDocument(doc);
+
+    return true;
+  }
+
+  /**
+   * Add a new impasse operator (simple impasse operator, not substate)
+   */
+  static async addImpasseOperator(
+    projectContext: ProjectContext,
+    parentNodeId: string
+  ): Promise<boolean> {
+    let parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode) {
+      vscode.window.showErrorMessage('Parent node not found');
+      return false;
+    }
+
+    // If parent is a regular IMPASSE_OPERATOR, convert it to HIGH_LEVEL_IMPASSE_OPERATOR first
+    if (parentNode.type === 'IMPASSE_OPERATOR') {
+      const converted = await this.convertImpasseOperatorToHighLevel(projectContext, parentNodeId);
+      if (!converted) {
+        return false;
+      }
+      // Re-fetch the parent node after conversion
+      parentNode = projectContext.layoutIndex.get(parentNodeId);
+      if (!parentNode) {
+        vscode.window.showErrorMessage(
+          'Failed to convert impasse operator to high-level impasse operator'
+        );
+        return false;
+      }
+    }
+
+    if (!hasChildren(parentNode)) {
+      vscode.window.showErrorMessage('Can only add impasse operators to folder nodes');
+      return false;
+    }
+
+    // Show picker for impasse operator type
+    const impasseTypes: { label: string; value: ImpasseName }[] = [
+      { label: 'Operator Tie', value: 'Impasse__Operator_Tie' },
+      { label: 'Operator Conflict', value: 'Impasse__Operator_Conflict' },
+      { label: 'Operator Constraint-Failure', value: 'Impasse__Operator_Constraint-Failure' },
+      { label: 'State No-Change', value: 'Impasse__State_No-Change' },
+    ];
+
+    const selected = await vscode.window.showQuickPick(impasseTypes, {
+      placeHolder: 'Select impasse type',
+    });
+
+    if (!selected) {
+      return false;
+    }
+
+    const impasseName = selected.value;
+
+    // Determine the parent state context (root or substate)
+    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
+
+    // Determine file path
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const operatorFile = `${impasseName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    // Check if file already exists
+    if (fs.existsSync(fullPath)) {
+      vscode.window.showErrorMessage(`File already exists: ${operatorFile}`);
+      return false;
+    }
+
+    // Create the impasse operator node
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: ImpasseOperatorNode = {
+      type: 'IMPASSE_OPERATOR',
+      id: newNodeId,
+      name: impasseName,
+      file: operatorFile,
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Generate file content with proper state name
+    const content = SoarTemplates.generateImpasseOperatorFile(impasseName, stateContext.stateName);
+
+    // Create file
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    vscode.window.showInformationMessage(`Created impasse operator '${impasseName}'`);
 
     // Open the file
     const doc = await vscode.workspace.openTextDocument(fullPath);
@@ -886,6 +994,183 @@ export class LayoutOperations {
   }
 
   /**
+   * Convert a regular IMPASSE_OPERATOR to a HIGH_LEVEL_IMPASSE_OPERATOR
+   * Creates folder structure and moves the impasse operator file
+   */
+  private static async convertImpasseOperatorToHighLevel(
+    projectContext: ProjectContext,
+    operatorNodeId: string
+  ): Promise<boolean> {
+    const operatorNode = projectContext.layoutIndex.get(operatorNodeId);
+
+    if (!operatorNode || operatorNode.type !== 'IMPASSE_OPERATOR') {
+      return false;
+    }
+
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const impasseName = operatorNode.name;
+
+    // Get the parent folder path to know where to create the new folder
+    const parentId = this.findParentId(projectContext, operatorNodeId);
+    if (!parentId) {
+      if (vscode.window) {
+        vscode.window.showErrorMessage('Cannot find parent node');
+      }
+      return false;
+    }
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentId);
+    const oldFile = operatorNode.file; // This is relative to parent
+
+    // New folder path (relative to parent)
+    const newFolderRelative = impasseName; // Just the folder name
+    const newFullFolderPath = path.join(workspaceFolder, parentFolderPath, newFolderRelative);
+
+    // Check if folder already exists
+    if (fs.existsSync(newFullFolderPath)) {
+      if (vscode.window) {
+        vscode.window.showErrorMessage(`Folder already exists: ${newFolderRelative}`);
+      }
+      return false;
+    }
+
+    // Create folder structure
+    await fs.promises.mkdir(newFullFolderPath, { recursive: true });
+
+    // Create elaborations file
+    const elabFile = 'elaborations.soar';
+    const elabContent = ''; // Empty file like VisualSoar
+    await fs.promises.writeFile(path.join(newFullFolderPath, elabFile), elabContent, 'utf-8');
+
+    // Create source file for loading
+    const sourceFile = `${impasseName}_source.soar`;
+    const sourceContent = `source elaborations.soar\n`;
+    await fs.promises.writeFile(path.join(newFullFolderPath, sourceFile), sourceContent, 'utf-8');
+
+    // Create a NEW datamap vertex for the impasse substate
+    const dmId = this.generateVertexId(projectContext.project);
+    const dmVertex: any = {
+      id: dmId,
+      type: 'SOAR_ID',
+      outEdges: [],
+    };
+    projectContext.project.datamap.vertices.push(dmVertex);
+    projectContext.datamapIndex.set(dmId, dmVertex);
+
+    // Ensure the datamap has complete substate structure
+    if (!dmVertex.outEdges) {
+      dmVertex.outEdges = [];
+    }
+
+    // Helper to check if edge exists
+    const hasEdge = (name: string) => dmVertex.outEdges?.some((e: any) => e.name === name);
+
+    // Add ^name edge
+    if (!hasEdge('name')) {
+      const nameEnumId = this.generateVertexId(projectContext.project);
+      const nameEnum: any = {
+        id: nameEnumId,
+        type: 'ENUMERATION',
+        choices: [impasseName],
+      };
+      projectContext.project.datamap.vertices.push(nameEnum);
+      projectContext.datamapIndex.set(nameEnumId, nameEnum);
+      dmVertex.outEdges.push({ name: 'name', toId: nameEnumId });
+    }
+
+    // Add ^type state
+    if (!hasEdge('type')) {
+      const stateEnumId = this.generateVertexId(projectContext.project);
+      const stateEnumVertex: any = {
+        id: stateEnumId,
+        type: 'ENUMERATION',
+        choices: ['state'],
+      };
+      projectContext.project.datamap.vertices.push(stateEnumVertex);
+      projectContext.datamapIndex.set(stateEnumId, stateEnumVertex);
+      dmVertex.outEdges.push({ name: 'type', toId: stateEnumVertex.id });
+    }
+
+    // Add ^superstate pointing to root
+    if (!hasEdge('superstate')) {
+      const rootId = projectContext.project.datamap.rootId;
+      dmVertex.outEdges.push({ name: 'superstate', toId: rootId });
+    }
+
+    // Add ^top-state pointing to root
+    if (!hasEdge('top-state')) {
+      const rootId = projectContext.project.datamap.rootId;
+      dmVertex.outEdges.push({ name: 'top-state', toId: rootId });
+    }
+
+    // Add ^impasse attribute
+    if (!hasEdge('impasse')) {
+      const impasseEnumId = this.generateVertexId(projectContext.project);
+      const impasseEnum: any = {
+        id: impasseEnumId,
+        type: 'ENUMERATION',
+        choices: ['conflict', 'constraint-failure', 'no-change', 'tie'],
+      };
+      projectContext.project.datamap.vertices.push(impasseEnum);
+      projectContext.datamapIndex.set(impasseEnumId, impasseEnum);
+      dmVertex.outEdges.push({ name: 'impasse', toId: impasseEnumId });
+    }
+
+    // Add ^attribute
+    if (!hasEdge('attribute')) {
+      const attributeEnumId = this.generateVertexId(projectContext.project);
+      const attributeEnum: any = {
+        id: attributeEnumId,
+        type: 'ENUMERATION',
+        choices: ['operator', 'state'],
+      };
+      projectContext.project.datamap.vertices.push(attributeEnum);
+      projectContext.datamapIndex.set(attributeEnumId, attributeEnum);
+      dmVertex.outEdges.push({ name: 'attribute', toId: attributeEnumId });
+    }
+
+    // Convert to HIGH_LEVEL_IMPASSE_OPERATOR
+    const highLevelNode: HighLevelImpasseOperatorNode = {
+      type: 'HIGH_LEVEL_IMPASSE_OPERATOR',
+      id: operatorNode.id,
+      name: impasseName,
+      file: oldFile, // Keep the original file reference
+      dmId: dmId!,
+      folder: newFolderRelative,
+      children: [
+        {
+          type: 'FILE_OPERATOR',
+          id: this.generateNodeId(projectContext.project),
+          name: 'elaborations',
+          file: elabFile,
+        },
+      ],
+    };
+
+    // Replace the node in the parent's children
+    const parent = this.findParentNode(projectContext.project.layout, operatorNodeId);
+    if (parent && hasChildren(parent) && parent.children) {
+      const index = parent.children.findIndex((n: LayoutNode) => n.id === operatorNodeId);
+      if (index !== -1) {
+        parent.children[index] = highLevelNode;
+      }
+    }
+
+    // Update in the index
+    projectContext.layoutIndex.set(operatorNodeId, highLevelNode);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    // Show message only if vscode window is available (not in tests)
+    if (vscode.window) {
+      vscode.window.showInformationMessage(
+        `Converted '${impasseName}' to high-level impasse operator`
+      );
+    }
+    return true;
+  }
+
+  /**
    * Helper: Find the parent state context for adding an operator
    * Traverses up the layout tree to find the nearest HIGH_LEVEL_OPERATOR or root
    */
@@ -896,9 +1181,14 @@ export class LayoutOperations {
     let currentNodeId = nodeId;
     let currentNode = projectContext.layoutIndex.get(currentNodeId);
 
-    // Traverse up the tree to find a HIGH_LEVEL_OPERATOR or root
+    // Traverse up the tree to find a HIGH_LEVEL_OPERATOR, HIGH_LEVEL_IMPASSE_OPERATOR, or root
     while (currentNode) {
-      if (currentNode.type === 'HIGH_LEVEL_OPERATOR' && 'dmId' in currentNode && currentNode.dmId) {
+      if (
+        (currentNode.type === 'HIGH_LEVEL_OPERATOR' ||
+          currentNode.type === 'HIGH_LEVEL_IMPASSE_OPERATOR') &&
+        'dmId' in currentNode &&
+        currentNode.dmId
+      ) {
         // We're in a substate - use the substate's name and datamap ID
         return {
           stateName: currentNode.name,
@@ -1081,6 +1371,83 @@ export class LayoutOperations {
   }
 
   /**
+   * Add an impasse operator programmatically (for testing)
+   * Same as addImpasseOperator but takes impasseName as parameter instead of prompting
+   */
+  static async addImpasseOperatorProgrammatic(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    impasseName: ImpasseName
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    let parentNode = projectContext.layoutIndex.get(parentNodeId);
+
+    if (!parentNode) {
+      return { success: false };
+    }
+
+    // If parent is a regular IMPASSE_OPERATOR, convert it to HIGH_LEVEL_IMPASSE_OPERATOR first
+    if (parentNode.type === 'IMPASSE_OPERATOR') {
+      const converted = await this.convertImpasseOperatorToHighLevel(projectContext, parentNodeId);
+      if (!converted) {
+        return { success: false };
+      }
+      // Re-fetch the parent node after conversion
+      parentNode = projectContext.layoutIndex.get(parentNodeId);
+      if (!parentNode) {
+        return { success: false };
+      }
+    }
+
+    if (!hasChildren(parentNode)) {
+      return { success: false };
+    }
+
+    // Determine the parent state context (root or substate)
+    const stateContext = this.findParentStateContext(projectContext, parentNodeId);
+
+    // Determine file path
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
+    const operatorFile = `${impasseName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    // Check if file already exists
+    if (fs.existsSync(fullPath)) {
+      return { success: false };
+    }
+
+    // Create the impasse operator node
+    const newNodeId = this.generateNodeId(projectContext.project);
+    const newNode: ImpasseOperatorNode = {
+      type: 'IMPASSE_OPERATOR',
+      id: newNodeId,
+      name: impasseName,
+      file: operatorFile,
+    };
+
+    // Add to parent's children
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+    parentNode.children.push(newNode);
+    projectContext.layoutIndex.set(newNodeId, newNode);
+
+    // Generate file content with proper state name
+    const content = SoarTemplates.generateImpasseOperatorFile(impasseName, stateContext.stateName);
+
+    // Create file
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
+
+    // Save project
+    await this.saveProject(projectContext);
+
+    return { success: true, nodeId: newNodeId };
+  }
+
+  /**
    * Add folder programmatically (for testing)
    */
   static async addFolderProgrammatic(
@@ -1158,6 +1525,48 @@ export class LayoutOperations {
     // Create and push the undoable operation
     const operation = UndoManager.createSnapshotOperation(
       'Add Operator',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return result;
+  }
+
+  /**
+   * Add impasse operator programmatically with undo support (for testing)
+   */
+  static async addImpasseOperatorProgrammaticWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    impasseName: ImpasseName,
+    reloadCallback: () => Promise<void>
+  ): Promise<{ success: boolean; nodeId?: string }> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const result = await this.addImpasseOperatorProgrammatic(
+      projectContext,
+      parentNodeId,
+      impasseName
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Impasse Operator',
       projectContext,
       beforeSnapshot,
       afterSnapshot,
@@ -1581,6 +1990,43 @@ export class LayoutOperations {
     // Create and push the undoable operation
     const operation = UndoManager.createSnapshotOperation(
       'Add Operator',
+      projectContext,
+      beforeSnapshot,
+      afterSnapshot,
+      reloadCallback
+    );
+
+    undoManager.pushOperation(operation);
+
+    return true;
+  }
+
+  /**
+   * Add impasse operator with undo support
+   */
+  static async addImpasseOperatorWithUndo(
+    projectContext: ProjectContext,
+    parentNodeId: string,
+    reloadCallback: () => Promise<void>
+  ): Promise<boolean> {
+    const undoManager = getUndoManager();
+
+    // Capture state before the operation
+    const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Perform the operation
+    const success = await this.addImpasseOperator(projectContext, parentNodeId);
+
+    if (!success) {
+      return false;
+    }
+
+    // Capture state after the operation
+    const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+
+    // Create and push the undoable operation
+    const operation = UndoManager.createSnapshotOperation(
+      'Add Impasse Operator',
       projectContext,
       beforeSnapshot,
       afterSnapshot,

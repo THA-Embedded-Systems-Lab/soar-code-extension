@@ -461,6 +461,34 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('soar.addImpasseOperator', async treeItem => {
+      const projectContext = layoutProvider.getProjectContext();
+      if (!projectContext) {
+        vscode.window.showWarningMessage('No project loaded');
+        return;
+      }
+
+      const nodeId = treeItem?.node?.id || projectContext.project.layout.id;
+
+      // Use undoable version
+      const reloadViews = async () => {
+        await layoutProvider.loadProjectFromFile(projectContext.projectFile);
+        await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+      };
+
+      const success = await LayoutOperations.addImpasseOperatorWithUndo(
+        projectContext,
+        nodeId,
+        reloadViews
+      );
+
+      if (success) {
+        await reloadViews();
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('soar.addFile', async (treeItem?: LayoutTreeItem) => {
       const projectContext = layoutProvider.getProjectContext();
       if (!projectContext) {
