@@ -192,13 +192,15 @@ export class ProjectLoader {
     const layoutIndex = new Map<string, LayoutNode>();
     this.indexLayout(project.layout, layoutIndex);
 
-    return {
+    const context: ProjectContext = {
       projectFile,
       project,
       datamapIndex,
       layoutIndex,
       validationErrors,
     };
+
+    return context;
   }
 
   /**

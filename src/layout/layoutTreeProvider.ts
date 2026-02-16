@@ -97,20 +97,23 @@ export class LayoutTreeItem extends vscode.TreeItem {
   private getIconForNodeType(type: string): vscode.ThemeIcon {
     switch (type) {
       case 'OPERATOR_ROOT':
-        return new vscode.ThemeIcon('folder-library');
-      case 'HIGH_LEVEL_OPERATOR':
-      case 'HIGH_LEVEL_FILE_OPERATOR':
-        return new vscode.ThemeIcon('symbol-operator', new vscode.ThemeColor('charts.blue'));
+        return new vscode.ThemeIcon('bracket-dot');
       case 'OPERATOR':
-      case 'FILE_OPERATOR':
-        return new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor('charts.green'));
+        return new vscode.ThemeIcon('bracket');
+      case 'HIGH_LEVEL_OPERATOR':
+        return new vscode.ThemeIcon('bracket', new vscode.ThemeColor('charts.blue'));
       case 'IMPASSE_OPERATOR':
+        return new vscode.ThemeIcon('bracket-error');
       case 'HIGH_LEVEL_IMPASSE_OPERATOR':
-        return new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.orange'));
-      case 'FOLDER':
-        return new vscode.ThemeIcon('folder');
+        return new vscode.ThemeIcon('bracket-error', new vscode.ThemeColor('charts.blue'));
       case 'FILE':
         return new vscode.ThemeIcon('file-code');
+      case 'FILE_OPERATOR':
+        return new vscode.ThemeIcon('file-code', new vscode.ThemeColor('charts.green'));
+      case 'HIGH_LEVEL_FILE_OPERATOR':
+        return new vscode.ThemeIcon('file-code', new vscode.ThemeColor('charts.blue'));
+      case 'FOLDER':
+        return new vscode.ThemeIcon('folder');
       case 'LINK':
         return new vscode.ThemeIcon('link');
       default:
