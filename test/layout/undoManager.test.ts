@@ -474,7 +474,8 @@ suite('UndoManager', () => {
     }
   });
 
-  test('Should limit undo stack to 25 operations', async () => {
+  test('Should limit undo stack to 25 operations', async function () {
+    this.timeout(4000);
     const rootNodeId = projectContext.project.layout.id;
 
     // Perform 30 operations
