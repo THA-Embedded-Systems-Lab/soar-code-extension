@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 const SOAR_MCP_SERVER_KEY = 'soar';
+const soarMcpWorkspaceEnvKey = 'SOAR_MCP_WORKSPACE';
 
 interface WorkspaceMcpConfig {
   servers?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
@@ -55,7 +56,7 @@ export async function ensureWorkspaceMcpRegistration(extensionPath: string): Pro
           command: commandSpec.command,
           args: commandSpec.args,
           env: {
-            SOAR_MCP_WORKSPACE: folder.uri.fsPath,
+            [soarMcpWorkspaceEnvKey]: folder.uri.fsPath,
           },
         },
       },

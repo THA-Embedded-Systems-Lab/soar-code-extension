@@ -24,12 +24,12 @@ export class ProjectManager {
   private activeProject: SoarProjectInfo | null = null;
   private discoveredProjects: SoarProjectInfo[] = [];
   private statusBarItem: vscode.StatusBarItem;
-  private readonly ACTIVE_PROJECT_KEY = 'soar.activeProject';
+  private readonly activeProjectKey = 'soar.activeProject';
   private diagnosticCollection: vscode.DiagnosticCollection;
   private readonly activeProjectEmitter = new vscode.EventEmitter<SoarProjectInfo | null>();
   readonly onDidChangeActiveProject = this.activeProjectEmitter.event;
   private projectFileWatcher: vscode.FileSystemWatcher | null = null;
-  private readonly ACTIVE_PROJECT_STATE_FILE = path.join('.vscode', 'soar-active-project.json');
+  private readonly activeProjectStateFile = path.join('.vscode', 'soar-active-project.json');
 
   private constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -140,7 +140,7 @@ export class ProjectManager {
     this.activeProject = project;
 
     // Save to workspace state
-    await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, project.projectFile);
+    await this.context.workspaceState.update(this.activeProjectKey, project.projectFile);
     await this.persistActiveProjectState(project);
     console.log('Workspace state updated');
 
@@ -205,17 +205,17 @@ export class ProjectManager {
   private async validateProjectFiles(project: SoarProjectInfo): Promise<void> {
     try {
       // Load the project using ProjectLoader to get full context
-      const { ProjectLoader } = await import('./server/projectLoader');
-      const projectLoader = new ProjectLoader();
+      const { ProjectLoader: projectLoaderClass } = await import('./server/projectLoader');
+      const projectLoader = new projectLoaderClass();
       const projectContext = await projectLoader.loadProject(project.projectFile);
 
       // Import ProjectSync
-      const { ProjectSync } = await import('./layout/projectSync');
+      const { ProjectSync: projectSync } = await import('./layout/projectSync');
 
       // Check for orphaned and missing files in parallel
       const [orphanedFiles, missingFiles] = await Promise.all([
-        ProjectSync.findOrphanedFiles(projectContext),
-        ProjectSync.findMissingFiles(projectContext),
+        projectSync.findOrphanedFiles(projectContext),
+        projectSync.findMissingFiles(projectContext),
       ]);
 
       // Create diagnostics for the Problems window
@@ -351,7 +351,7 @@ export class ProjectManager {
    */
   async clearActiveProject(): Promise<void> {
     this.activeProject = null;
-    await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, undefined);
+    await this.context.workspaceState.update(this.activeProjectKey, undefined);
     await this.clearPersistedActiveProjectState();
     this.updateStatusBar();
 
@@ -371,7 +371,7 @@ export class ProjectManager {
    * Restore the previously active project from workspace state
    */
   async restoreActiveProject(): Promise<void> {
-    const savedProjectFile = this.context.workspaceState.get<string>(this.ACTIVE_PROJECT_KEY);
+    const savedProjectFile = this.context.workspaceState.get<string>(this.activeProjectKey);
 
     if (!savedProjectFile) {
       return;
@@ -476,7 +476,7 @@ export class ProjectManager {
   }
 
   private async persistActiveProjectState(project: SoarProjectInfo): Promise<void> {
-    const statePath = path.join(project.workspaceFolder.uri.fsPath, this.ACTIVE_PROJECT_STATE_FILE);
+    const statePath = path.join(project.workspaceFolder.uri.fsPath, this.activeProjectStateFile);
     try {
       await fs.promises.mkdir(path.dirname(statePath), { recursive: true });
       await fs.promises.writeFile(
@@ -503,7 +503,7 @@ export class ProjectManager {
 
     await Promise.all(
       vscode.workspace.workspaceFolders.map(async folder => {
-        const statePath = path.join(folder.uri.fsPath, this.ACTIVE_PROJECT_STATE_FILE);
+        const statePath = path.join(folder.uri.fsPath, this.activeProjectStateFile);
         try {
           await fs.promises.rm(statePath, { force: true });
         } catch (error) {

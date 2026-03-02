@@ -89,7 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register create project command
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.createProject', async () => {
-      const { ProjectCreator } = await import('./layout/projectCreator');
+      const { ProjectCreator: projectCreator } = await import('./layout/projectCreator');
 
       // Get directory from user
       const directoryUri = await vscode.window.showOpenDialog({
@@ -126,7 +126,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       try {
-        const projectFilePath = await ProjectCreator.createProject({
+        const projectFilePath = await projectCreator.createProject({
           directory,
           agentName,
         });
