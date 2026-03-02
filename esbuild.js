@@ -55,12 +55,28 @@ async function main() {
     plugins: [esbuildProblemMatcherPlugin],
   });
 
+  // Build MCP server
+  const mcpServerCtx = await esbuild.context({
+    entryPoints: ['src/mcp/soarMcpServer.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'dist/mcpServer.js',
+    external: ['vscode'],
+    logLevel: 'silent',
+    plugins: [esbuildProblemMatcherPlugin],
+  });
+
   if (watch) {
-    await Promise.all([extensionCtx.watch(), serverCtx.watch()]);
+    await Promise.all([extensionCtx.watch(), serverCtx.watch(), mcpServerCtx.watch()]);
   } else {
-    await Promise.all([extensionCtx.rebuild(), serverCtx.rebuild()]);
+    await Promise.all([extensionCtx.rebuild(), serverCtx.rebuild(), mcpServerCtx.rebuild()]);
     await extensionCtx.dispose();
     await serverCtx.dispose();
+    await mcpServerCtx.dispose();
   }
 }
 

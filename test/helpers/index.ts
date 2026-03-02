@@ -23,3 +23,7 @@ import '../datamap-manipulation/fixtures/sub-operator-generation.test';
 
 // Legacy project validation tests
 import '../legacy-agents/project-validation.test';
+
+// MCP tests
+import '../mcp/helpers/tool-detection.test';
+import '../mcp/helpers/active-project.test';

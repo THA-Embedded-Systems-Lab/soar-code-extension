@@ -8,6 +8,7 @@ extension.vsixmanifest
 *~
 
 test-output/
+*/.vscode/*
 
 # Logs
 logs

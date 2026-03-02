@@ -29,6 +29,7 @@ export class ProjectManager {
   private readonly activeProjectEmitter = new vscode.EventEmitter<SoarProjectInfo | null>();
   readonly onDidChangeActiveProject = this.activeProjectEmitter.event;
   private projectFileWatcher: vscode.FileSystemWatcher | null = null;
+  private readonly ACTIVE_PROJECT_STATE_FILE = path.join('.vscode', 'soar-active-project.json');
 
   private constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -140,6 +141,7 @@ export class ProjectManager {
 
     // Save to workspace state
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, project.projectFile);
+    await this.persistActiveProjectState(project);
     console.log('Workspace state updated');
 
     this.updateStatusBar();
@@ -350,6 +352,7 @@ export class ProjectManager {
   async clearActiveProject(): Promise<void> {
     this.activeProject = null;
     await this.context.workspaceState.update(this.ACTIVE_PROJECT_KEY, undefined);
+    await this.clearPersistedActiveProjectState();
     this.updateStatusBar();
 
     // Dispose of project file watcher
@@ -470,5 +473,43 @@ export class ProjectManager {
       this.projectFileWatcher = null;
     }
     this.statusBarItem.dispose();
+  }
+
+  private async persistActiveProjectState(project: SoarProjectInfo): Promise<void> {
+    const statePath = path.join(project.workspaceFolder.uri.fsPath, this.ACTIVE_PROJECT_STATE_FILE);
+    try {
+      await fs.promises.mkdir(path.dirname(statePath), { recursive: true });
+      await fs.promises.writeFile(
+        statePath,
+        JSON.stringify(
+          {
+            projectFile: project.projectFile,
+            updatedAt: new Date().toISOString(),
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      );
+    } catch (error) {
+      console.warn('Failed to persist active project state for MCP:', error);
+    }
+  }
+
+  private async clearPersistedActiveProjectState(): Promise<void> {
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      vscode.workspace.workspaceFolders.map(async folder => {
+        const statePath = path.join(folder.uri.fsPath, this.ACTIVE_PROJECT_STATE_FILE);
+        try {
+          await fs.promises.rm(statePath, { force: true });
+        } catch (error) {
+          console.warn('Failed to clear active project state for MCP:', error);
+        }
+      })
+    );
   }
 }

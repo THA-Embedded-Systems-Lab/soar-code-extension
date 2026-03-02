@@ -1,0 +1,9 @@
+[
+  "datamap_get",
+  "datamap_create_attribute",
+  "datamap_create_linked_attribute",
+  "datamap_update_attribute",
+  "datamap_delete_attribute",
+  "project_validate_against_datamap",
+  "project_get_active"
+]

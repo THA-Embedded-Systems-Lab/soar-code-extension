@@ -9,6 +9,14 @@ import { ProjectContext } from '../server/visualSoarProject';
 import { SoarDocument, SoarProduction, SoarAttribute } from '../server/soarTypes';
 import { DatamapMetadataCache } from './datamapMetadata';
 
+const vscodeApi: typeof import('vscode') | undefined = (() => {
+  try {
+    return require('vscode') as typeof import('vscode');
+  } catch {
+    return undefined;
+  }
+})();
+
 export interface ValidationError {
   production: string;
   attribute: string;
@@ -803,9 +811,13 @@ export class DatamapValidator {
    * Generate a diagnostic collection for VS Code
    */
   createDiagnostics(errors: ValidationError[], document: vscode.TextDocument): vscode.Diagnostic[] {
+    if (!vscodeApi) {
+      return [];
+    }
+
     return errors.map(error => {
       // Use the range from the parser which has the correct line/column positions
-      const range = new vscode.Range(
+      const range = new vscodeApi.Range(
         error.range.start.line,
         error.range.start.character,
         error.range.end.line,
@@ -814,12 +826,12 @@ export class DatamapValidator {
 
       const severity =
         error.severity === 'error'
-          ? vscode.DiagnosticSeverity.Error
+          ? vscodeApi.DiagnosticSeverity.Error
           : error.severity === 'warning'
-            ? vscode.DiagnosticSeverity.Warning
-            : vscode.DiagnosticSeverity.Information;
+            ? vscodeApi.DiagnosticSeverity.Warning
+            : vscodeApi.DiagnosticSeverity.Information;
 
-      const diagnostic = new vscode.Diagnostic(range, error.message, severity);
+      const diagnostic = new vscodeApi.Diagnostic(range, error.message, severity);
 
       diagnostic.source = 'soar-datamap';
       return diagnostic;

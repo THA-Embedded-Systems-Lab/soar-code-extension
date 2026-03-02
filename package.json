@@ -219,6 +219,12 @@
         "title": "View Root Datamap",
         "category": "Soar",
         "icon": "$(home)"
+      },
+      {
+        "command": "soar.setupMcpServer",
+        "title": "Setup MCP Server",
+        "category": "Soar",
+        "icon": "$(plug)"
       }
     ],
     "viewsContainers": {
@@ -399,6 +405,16 @@
           ],
           "default": "off",
           "description": "Traces the communication between VS Code and the language server"
+        },
+        "soar.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Soar MCP server integration"
+        },
+        "soar.mcp.autoRegister": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically register the Soar MCP server in .vscode/mcp.json"
         }
       }
     }
@@ -441,10 +457,11 @@
     "mocha": "^10.0.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.1.0",
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"

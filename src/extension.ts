@@ -12,6 +12,7 @@ import { SoarParser } from './server/soarParser';
 import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
 import { getUndoManager, resetUndoManager } from './layout/undoManager';
+import { ensureWorkspaceMcpRegistration } from './mcp/mcpRegistration';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -36,6 +37,15 @@ export function getProjectManager(): ProjectManager {
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Soar extension is now active');
 
+  const mcpEnabled = vscode.workspace.getConfiguration('soar').get<boolean>('mcp.enabled', true);
+  if (mcpEnabled) {
+    try {
+      await ensureWorkspaceMcpRegistration(context.extensionPath);
+    } catch (error: any) {
+      console.warn(`Failed to auto-register Soar MCP server: ${error.message}`);
+    }
+  }
+
   // Initialize project manager
   projectManager = ProjectManager.getInstance(context);
   context.subscriptions.push(projectManager);
@@ -52,6 +62,17 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage('Hello from Soar Extension!');
   });
   context.subscriptions.push(disposable);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.setupMcpServer', async () => {
+      try {
+        await ensureWorkspaceMcpRegistration(context.extensionPath);
+        vscode.window.showInformationMessage('Soar MCP server registration updated for workspace.');
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to configure Soar MCP server: ${error.message}`);
+      }
+    })
+  );
 
   // Initialize LSP client (Phase 3)
   // Wait for the LSP client to be fully initialized before continuing
