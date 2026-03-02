@@ -275,7 +275,9 @@ export class SoarMcpCore {
 
       const fileText = await fs.promises.readFile(absolutePath, 'utf-8');
       const soarDoc = this.parser.parse(absolutePath, fileText, 1);
-      const errors = this.validator.validateDocument(soarDoc, context, fileText);
+      const errors = this.validator.validateDocument(soarDoc, context, fileText, {
+        sourceFilePath: absolutePath,
+      });
 
       if (errors.length > 0) {
         filesWithIssues += 1;

@@ -51,6 +51,8 @@ Soar language support in VS Code with:
   - validates Soar attributes against datamap
   - variable binding/path checks
   - enum value validation
+  - infers `<s>` state context from explicit `^name` tests and, when needed,
+    from layout file location (high-level operator substate ancestry)
   - VS Code diagnostics creation (with non-VSCode-safe fallback used by MCP)
 
 ### Layout / project structure editing
@@ -58,6 +60,8 @@ Soar language support in VS Code with:
 - `src/layout/layoutTreeProvider.ts`
 - `src/layout/layoutOperations.ts`
 - `src/layout/projectSync.ts`
+  - shared project-file gathering helpers (including existing `.soar`
+    collection) reused by project-wide datamap validation flows
 - `src/layout/projectCreator.ts`
 - `src/layout/undoManager.ts`
 

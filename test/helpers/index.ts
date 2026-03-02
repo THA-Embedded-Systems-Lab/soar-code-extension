@@ -22,7 +22,7 @@ import '../layout/undoManager.test';
 import '../datamap-manipulation/fixtures/sub-operator-generation.test';
 
 // Legacy project validation tests
-import '../legacy-agents/project-validation.test';
+import '../legacy-agents/helpers/project-validation.test';
 
 // MCP tests
 import '../mcp/helpers/tool-detection.test';

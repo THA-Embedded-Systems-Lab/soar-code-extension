@@ -8,14 +8,19 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ProjectLoader } from '../../src/server/projectLoader';
+import { ProjectLoader } from '../../../src/server/projectLoader';
+import { SoarParser } from '../../../src/server/soarParser';
+import { DatamapValidator } from '../../../src/datamap/datamapValidator';
+import { ProjectSync } from '../../../src/layout/projectSync';
 
 suite('Legacy Project Validation', () => {
   const projectLoader = new ProjectLoader();
-  const testProjectsDir = path.resolve(__dirname, '.');
+  const parser = new SoarParser();
+  const validator = new DatamapValidator();
+  const fixturesDir = path.resolve(__dirname, '..', 'fixtures');
 
   /**
-   * Recursively find all .vsa.json project files in test/legacy-agents/
+   * Recursively find all .vsa.json project files in test/legacy-agents/fixtures/
    */
   function findProjectFiles(dir: string): string[] {
     const results: string[] = [];
@@ -33,12 +38,12 @@ suite('Legacy Project Validation', () => {
     return results;
   }
 
-  const projectFiles = findProjectFiles(testProjectsDir);
+  const projectFiles = findProjectFiles(fixturesDir);
 
   // Auto-generate tests for all discovered projects
   for (const projectFile of projectFiles) {
     const projectName = path.basename(projectFile, '.vsa.json');
-    const relativePath = path.relative(testProjectsDir, projectFile);
+    const relativePath = path.relative(fixturesDir, projectFile);
 
     test(`${projectName} should load without validation errors`, async () => {
       const projectContext = await projectLoader.loadProject(projectFile);
@@ -109,12 +114,56 @@ suite('Legacy Project Validation', () => {
       // Verify root layout is indexed
       assert.ok(projectContext.layoutIndex.get(layout.id), 'Root layout node should be indexed');
     });
+
+    test(`${projectName} validates all Soar files against datamap`, async () => {
+      const projectContext = await projectLoader.loadProject(projectFile);
+      const projectDir = path.dirname(projectContext.projectFile);
+      const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
+
+      assert.ok(
+        soarFiles.length > 0,
+        `${projectName} should reference at least one existing .soar file`
+      );
+
+      const validationErrorsByFile: Array<{ filePath: string; errors: string[] }> = [];
+
+      for (const soarFile of soarFiles) {
+        const content = fs.readFileSync(soarFile, 'utf8');
+        const doc = parser.parse(soarFile, content, 0);
+
+        const errors = validator.validateDocument(doc, projectContext, content, {
+          sourceFilePath: soarFile,
+        });
+
+        if (errors.length > 0) {
+          validationErrorsByFile.push({
+            filePath: path.relative(projectDir, soarFile),
+            errors: errors.map(error => `${error.attributePath}: ${error.message}`),
+          });
+        }
+      }
+
+      if (validationErrorsByFile.length > 0) {
+        const formatted = validationErrorsByFile
+          .map(fileResult =>
+            [
+              `- ${fileResult.filePath}`,
+              ...fileResult.errors.map(message => `    • ${message}`),
+            ].join('\n')
+          )
+          .join('\n');
+
+        assert.fail(
+          `${projectName} contains datamap validation errors when validating all project Soar files:\n${formatted}`
+        );
+      }
+    });
   }
 
   test('At least one legacy project exists for testing', () => {
     assert.ok(
       projectFiles.length > 0,
-      'test/legacy-agents/ should contain at least one .vsa.json project file'
+      'test/legacy-agents/fixtures/ should contain at least one .vsa.json project file'
     );
   });
 });

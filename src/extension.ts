@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
@@ -992,7 +991,9 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
     const soarDoc = parser.parse(document.uri.toString(), documentText, document.version);
 
     // Validate against datamap
-    const errors = validator.validateDocument(soarDoc, projectContext, documentText);
+    const errors = validator.validateDocument(soarDoc, projectContext, documentText, {
+      sourceFilePath: document.fileName,
+    });
 
     // Create diagnostics
     const diagnostics = validator.createDiagnostics(errors, document);
@@ -1056,31 +1057,8 @@ async function validateSelectedProject(): Promise<void> {
     return;
   }
 
-  // Get the project directory
-  const projectDir = path.dirname(projectContext.projectFile);
-
-  // Collect all files referenced in the project layout
-  const projectFiles = ProjectSync['collectProjectFiles'](projectContext.project.layout);
-
-  if (projectFiles.length === 0) {
-    vscode.window.showInformationMessage('No Soar files found in project');
-    return;
-  }
-
-  // Convert relative paths to absolute URIs
-  const soarFileUris: vscode.Uri[] = [];
-  for (const relPath of projectFiles) {
-    if (relPath.endsWith('.soar')) {
-      const absPath = path.resolve(projectDir, relPath);
-      try {
-        // Check if file exists before adding
-        await fs.promises.access(absPath);
-        soarFileUris.push(vscode.Uri.file(absPath));
-      } catch (error) {
-        console.warn(`Project file not found: ${absPath}`);
-      }
-    }
-  }
+  const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
+  const soarFileUris = soarFiles.map(filePath => vscode.Uri.file(filePath));
 
   if (soarFileUris.length === 0) {
     vscode.window.showInformationMessage('No Soar files found in project');

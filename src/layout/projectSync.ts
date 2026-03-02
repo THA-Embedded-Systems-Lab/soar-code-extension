@@ -23,6 +23,32 @@ export interface MissingFile {
 
 export class ProjectSync {
   /**
+   * Collect all existing .soar files referenced by the project layout.
+   * Paths returned are absolute.
+   */
+  static async collectExistingSoarFiles(projectContext: ProjectContext): Promise<string[]> {
+    const projectDir = path.dirname(projectContext.projectFile);
+    const projectFiles = this.collectProjectFiles(projectContext.project.layout);
+
+    const soarFiles: string[] = [];
+    for (const relativePath of projectFiles) {
+      if (!relativePath.endsWith('.soar')) {
+        continue;
+      }
+
+      const absolutePath = path.resolve(projectDir, relativePath);
+      try {
+        await fs.promises.access(absolutePath, fs.constants.F_OK);
+        soarFiles.push(absolutePath);
+      } catch {
+        // Ignore missing files; they are surfaced via findMissingFiles()
+      }
+    }
+
+    return soarFiles;
+  }
+
+  /**
    * Find all .soar files that exist in the file system but are not in the project
    */
   static async findOrphanedFiles(projectContext: ProjectContext): Promise<OrphanedFile[]> {
@@ -164,7 +190,7 @@ export class ProjectSync {
   /**
    * Collect all file paths referenced in the project layout
    */
-  private static collectProjectFiles(node: LayoutNode, parentFolder: string = ''): string[] {
+  static collectProjectFiles(node: LayoutNode, parentFolder: string = ''): string[] {
     const files: string[] = [];
 
     // Determine the current folder path

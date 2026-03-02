@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ProjectContext } from '../server/visualSoarProject';
 import { SoarDocument, SoarProduction, SoarAttribute } from '../server/soarTypes';
 import { DatamapMetadataCache } from './datamapMetadata';
@@ -28,6 +29,10 @@ export interface ValidationError {
   severity: 'error' | 'warning' | 'info';
 }
 
+export interface DatamapValidationContext {
+  sourceFilePath?: string;
+}
+
 export class DatamapValidator {
   /**
    * Validate a parsed Soar document against the project datamap
@@ -35,12 +40,18 @@ export class DatamapValidator {
   validateDocument(
     document: SoarDocument,
     projectContext: ProjectContext,
-    documentText?: string
+    documentText?: string,
+    validationContext: DatamapValidationContext = {}
   ): ValidationError[] {
     const errors: ValidationError[] = [];
 
     for (const production of document.productions) {
-      const productionErrors = this.validateProduction(production, projectContext, documentText);
+      const productionErrors = this.validateProduction(
+        production,
+        projectContext,
+        documentText,
+        validationContext
+      );
       errors.push(...productionErrors);
     }
 
@@ -53,16 +64,21 @@ export class DatamapValidator {
   private validateProduction(
     production: SoarProduction,
     projectContext: ProjectContext,
-    documentText?: string
+    documentText?: string,
+    validationContext: DatamapValidationContext = {}
   ): ValidationError[] {
     const errors: ValidationError[] = [];
 
     // Build a map of variable bindings to their potential vertex IDs
     const variableBindings = new Map<string, Set<string>>();
 
-    // Start with common root bindings
-    const rootId = projectContext.project.datamap.rootId;
-    variableBindings.set('s', new Set([rootId])); // <s> typically binds to root state
+    // Start with the best available state binding for <s>
+    const initialStateBindings = this.resolveInitialStateBindings(
+      production,
+      projectContext,
+      validationContext
+    );
+    variableBindings.set('s', new Set(initialStateBindings));
 
     // First pass: build variable bindings by following attribute paths with variable values
     for (const attr of production.attributes) {
@@ -150,6 +166,245 @@ export class DatamapValidator {
     }
 
     return errors;
+  }
+
+  /**
+   * Resolve the initial datamap vertex binding for <s>.
+   *
+   * Priority:
+   * 1. Explicit (state <s> ^name X) tests in the production
+   * 2. Layout/file context (the file's nearest high-level ancestor state)
+   * 3. Root datamap state
+   */
+  private resolveInitialStateBindings(
+    production: SoarProduction,
+    projectContext: ProjectContext,
+    validationContext: DatamapValidationContext
+  ): string[] {
+    const explicitStateNames = this.getExplicitStateNames(production);
+    const explicitCandidates = this.resolveStateCandidatesByName(
+      explicitStateNames,
+      projectContext
+    );
+    if (explicitCandidates.length > 0) {
+      return explicitCandidates;
+    }
+
+    if (validationContext.sourceFilePath) {
+      const fileContextState = this.resolveStateBindingFromFilePath(
+        validationContext.sourceFilePath,
+        projectContext
+      );
+      if (fileContextState) {
+        return [fileContextState];
+      }
+    }
+
+    return [projectContext.project.datamap.rootId];
+  }
+
+  private getExplicitStateNames(production: SoarProduction): string[] {
+    const names = new Set<string>();
+
+    for (const attr of production.attributes) {
+      if (attr.isNegated || attr.parentId !== 's' || attr.name !== 'name' || !attr.value) {
+        continue;
+      }
+
+      if (attr.value.startsWith('<')) {
+        continue;
+      }
+
+      const normalized = this.normalizeSoarConstant(attr.value);
+      if (normalized.length > 0) {
+        names.add(normalized);
+      }
+    }
+
+    return Array.from(names);
+  }
+
+  private normalizeSoarConstant(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return '';
+    }
+
+    if (
+      (trimmed.startsWith('|') && trimmed.endsWith('|')) ||
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      return trimmed.slice(1, -1).trim();
+    }
+
+    return trimmed;
+  }
+
+  private resolveStateCandidatesByName(
+    stateNames: string[],
+    projectContext: ProjectContext
+  ): string[] {
+    if (stateNames.length === 0) {
+      return [];
+    }
+
+    const candidates = new Set<string>();
+    const rootId = projectContext.project.datamap.rootId;
+
+    for (const stateName of stateNames) {
+      if (this.rootStateNameIncludes(stateName, projectContext)) {
+        candidates.add(rootId);
+      }
+
+      for (const node of projectContext.layoutIndex.values()) {
+        if (!('name' in node) || node.name !== stateName || !('dmId' in node) || !node.dmId) {
+          continue;
+        }
+
+        if (
+          node.type === 'HIGH_LEVEL_OPERATOR' ||
+          node.type === 'HIGH_LEVEL_FILE_OPERATOR' ||
+          node.type === 'HIGH_LEVEL_IMPASSE_OPERATOR'
+        ) {
+          candidates.add(node.dmId);
+        }
+      }
+    }
+
+    return Array.from(candidates);
+  }
+
+  private rootStateNameIncludes(stateName: string, projectContext: ProjectContext): boolean {
+    const rootVertex = projectContext.datamapIndex.get(projectContext.project.datamap.rootId);
+    if (!rootVertex || rootVertex.type !== 'SOAR_ID') {
+      return false;
+    }
+
+    const nameEdges = rootVertex.outEdges?.filter(edge => edge.name === 'name') || [];
+    for (const edge of nameEdges) {
+      const target = projectContext.datamapIndex.get(edge.toId);
+      if (
+        target &&
+        target.type === 'ENUMERATION' &&
+        target.choices.some(choice => this.normalizeSoarConstant(choice) === stateName)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private resolveStateBindingFromFilePath(
+    sourceFilePath: string,
+    projectContext: ProjectContext
+  ): string | undefined {
+    const nodeId = this.findLayoutNodeIdByFilePath(sourceFilePath, projectContext);
+    if (!nodeId) {
+      return undefined;
+    }
+
+    return this.findNearestAncestorStateDatamapId(projectContext, nodeId, true);
+  }
+
+  private findLayoutNodeIdByFilePath(
+    sourceFilePath: string,
+    projectContext: ProjectContext
+  ): string | undefined {
+    const projectDir = path.dirname(projectContext.projectFile);
+    const relativeFilePath = path.normalize(path.relative(projectDir, sourceFilePath));
+    if (!relativeFilePath || relativeFilePath.startsWith('..')) {
+      return undefined;
+    }
+
+    const normalizedTarget = relativeFilePath.split(path.sep).join('/');
+
+    const walk = (node: any, parentFolder: string = ''): string | undefined => {
+      let currentFolder = parentFolder;
+      if (typeof node.folder === 'string' && node.folder.length > 0) {
+        currentFolder = parentFolder ? path.join(parentFolder, node.folder) : node.folder;
+      }
+
+      if (typeof node.file === 'string' && node.file.length > 0) {
+        const filePath =
+          node.type === 'HIGH_LEVEL_OPERATOR' ||
+          node.type === 'HIGH_LEVEL_FILE_OPERATOR' ||
+          node.type === 'HIGH_LEVEL_IMPASSE_OPERATOR'
+            ? parentFolder
+              ? path.join(parentFolder, node.file)
+              : node.file
+            : currentFolder
+              ? path.join(currentFolder, node.file)
+              : node.file;
+
+        if (filePath.split(path.sep).join('/') === normalizedTarget) {
+          return node.id;
+        }
+      }
+
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          const found = walk(child, currentFolder);
+          if (found) {
+            return found;
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    return walk(projectContext.project.layout);
+  }
+
+  private findNearestAncestorStateDatamapId(
+    projectContext: ProjectContext,
+    nodeId: string,
+    excludeSelf: boolean
+  ): string {
+    let currentNodeId: string | null = excludeSelf
+      ? this.findParentNodeId(projectContext.project.layout, nodeId)
+      : nodeId;
+
+    while (currentNodeId) {
+      const currentNode = projectContext.layoutIndex.get(currentNodeId);
+      if (
+        currentNode &&
+        'dmId' in currentNode &&
+        currentNode.dmId &&
+        (currentNode.type === 'HIGH_LEVEL_OPERATOR' ||
+          currentNode.type === 'HIGH_LEVEL_FILE_OPERATOR' ||
+          currentNode.type === 'HIGH_LEVEL_IMPASSE_OPERATOR')
+      ) {
+        return currentNode.dmId;
+      }
+
+      currentNodeId = this.findParentNodeId(projectContext.project.layout, currentNodeId);
+    }
+
+    return projectContext.project.datamap.rootId;
+  }
+
+  private findParentNodeId(
+    node: any,
+    targetId: string,
+    parentId: string | null = null
+  ): string | null {
+    if (node.id === targetId) {
+      return parentId;
+    }
+
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        const found = this.findParentNodeId(child, targetId, node.id);
+        if (found !== null) {
+          return found;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
