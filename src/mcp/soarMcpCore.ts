@@ -4,6 +4,7 @@ import { DatamapMetadataCache, DatamapProjectContext } from '../datamap/datamapM
 import { SoarTemplates } from '../layout/soarTemplates';
 import { SourceScriptManager } from '../layout/sourceScriptManager';
 import { DatamapValidator, ValidationError } from '../datamap/datamapValidator';
+import { generateVertexId } from '../server/idGeneration';
 import { ProjectLoader } from '../server/projectLoader';
 import { SoarParser } from '../server/soarParser';
 import {
@@ -122,7 +123,7 @@ export class SoarMcpCore {
       throw new Error(`Attribute '${input.attributeName}' already exists on parent '${parent.id}'`);
     }
 
-    const newVertexId = this.generateVertexId(context);
+    const newVertexId = generateVertexId(context.project.datamap.vertices.map(vertex => vertex.id));
     const newVertex: DMVertex = {
       id: newVertexId,
       type: input.type,
@@ -625,17 +626,6 @@ export class SoarMcpCore {
     return normalized;
   }
 
-  private generateVertexId(context: DatamapProjectContext): string {
-    let maxNumericId = 0;
-    for (const vertex of context.project.datamap.vertices) {
-      const numericId = Number.parseInt(vertex.id, 10);
-      if (!Number.isNaN(numericId) && numericId > maxNumericId) {
-        maxNumericId = numericId;
-      }
-    }
-    return String(maxNumericId + 1);
-  }
-
   private removeVertexRecursive(context: DatamapProjectContext, vertexId: string): void {
     const vertex = context.datamapIndex.get(vertexId);
     if (!vertex) {
@@ -860,13 +850,7 @@ export class SoarMcpCore {
     };
 
     collectIds(projectContext.project.layout);
-
-    let candidate = 1;
-    while (existingIds.has(String(candidate))) {
-      candidate += 1;
-    }
-
-    return String(candidate);
+    return generateVertexId(existingIds);
   }
 
   private addOperatorToDatamap(
@@ -908,16 +892,16 @@ export class SoarMcpCore {
       }
     }
 
-    const operatorVertexId = this.generateVertexId(
-      projectContext as unknown as DatamapProjectContext
-    );
+    const existingIds = new Set(projectContext.project.datamap.vertices.map(vertex => vertex.id));
+    const operatorVertexId = generateVertexId(existingIds);
+    existingIds.add(operatorVertexId);
     const operatorVertex: any = {
       id: operatorVertexId,
       type: 'SOAR_ID',
       outEdges: [],
     };
 
-    const nameVertexId = this.generateVertexId(projectContext as unknown as DatamapProjectContext);
+    const nameVertexId = generateVertexId(existingIds);
     const nameVertex: any = {
       id: nameVertexId,
       type: 'ENUMERATION',

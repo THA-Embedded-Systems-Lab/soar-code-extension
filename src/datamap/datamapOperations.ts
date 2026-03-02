@@ -13,6 +13,7 @@ import {
   SoarIdVertex,
   EnumerationVertex,
 } from '../server/visualSoarProject';
+import { generateVertexId } from '../server/idGeneration';
 import { DatamapProjectContext, DatamapMetadataCache, InboundEdgeInfo } from './datamapMetadata';
 
 export class DatamapOperations {
@@ -214,7 +215,9 @@ export class DatamapOperations {
     });
 
     // Generate new vertex ID
-    const newVertexId = this.generateVertexId(projectContext.project);
+    const newVertexId = generateVertexId(
+      projectContext.project.datamap.vertices.map(vertex => vertex.id)
+    );
 
     // Create new vertex
     const newVertex: DMVertex = {
@@ -558,25 +561,6 @@ export class DatamapOperations {
     await this.saveProject(projectContext);
     vscode.window.showInformationMessage(`Changed type to ${newType.label}`);
     return true;
-  }
-
-  /**
-   * Helper: Generate a unique vertex ID
-   * Always generates IDs sequentially, never reusing deleted IDs
-   */
-  private static generateVertexId(project: VisualSoarProject): string {
-    // Find the highest numeric ID (including deleted ones)
-    let maxNumericId = 0;
-    for (const vertex of project.datamap.vertices) {
-      const numericId = parseInt(vertex.id, 10);
-      if (!isNaN(numericId) && numericId > maxNumericId) {
-        maxNumericId = numericId;
-      }
-    }
-
-    // Always return next sequential ID
-    // This ensures we never reuse IDs, even if they were deleted
-    return (maxNumericId + 1).toString();
   }
 
   /**

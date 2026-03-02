@@ -23,6 +23,8 @@ Soar language support in VS Code with:
   - MCP auto-registration hook
 - Types and project schema model: `src/server/visualSoarProject.ts`
 - Project load/save + schema validation: `src/server/projectLoader.ts`
+- Shared ID generation helper: `src/server/idGeneration.ts`
+  - canonical `generateVertexId` used across datamap/layout/MCP flows
 
 ## Feature map: where to look for specific code
 
@@ -41,6 +43,7 @@ Soar language support in VS Code with:
 - `src/datamap/datamapOperations.ts`
   - add/edit/delete attributes
   - linked attribute operations
+  - uses shared `generateVertexId` for new datamap vertices
   - datamap persistence and metadata refresh
 - `src/datamap/datamapMetadata.ts`
   - ownership/link metadata, inbound edge maps, path/attribute helpers
@@ -59,6 +62,7 @@ Soar language support in VS Code with:
 
 - `src/layout/layoutTreeProvider.ts`
 - `src/layout/layoutOperations.ts`
+  - uses shared `generateVertexId` when creating datamap vertices for layout-driven edits
 - `src/layout/projectSync.ts`
   - shared project-file gathering helpers (including existing `.soar`
     collection) reused by project-wide datamap validation flows
@@ -81,6 +85,8 @@ Soar language support in VS Code with:
     concurrent load/modify/save races
 - `src/mcp/soarMcpCore.ts`
   - reusable core operations invoked by MCP tools
+  - generates VisualSoar-style hex string IDs for new datamap vertices and
+    layout nodes
 - `src/mcp/toolExecutionQueue.ts`
   - keyed async execution queue used by MCP server for safe parallelism
 - `src/mcp/mcpRegistration.ts`
@@ -117,6 +123,7 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 - Test bootstrap: `test/helpers/index.ts`
 - MCP tests: `test/mcp/helpers/*`
   - includes queue safety coverage in `tool-execution-queue.test.ts`
+  - includes ID format regression checks in `id-generation.test.ts`
 - Datamap validation fixtures: `test/lsp/datamap/*`
 - Layout/undo tests: `test/layout/*`
 - Datamap manipulation scenarios: `test/datamap-manipulation/*`

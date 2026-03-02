@@ -21,6 +21,7 @@ import {
   hasChildren,
   DMVertex,
 } from '../server/visualSoarProject';
+import { generateVertexId } from '../server/idGeneration';
 import { SoarTemplates } from './soarTemplates';
 import { SourceScriptManager } from './sourceScriptManager';
 import { UndoManager, getUndoManager } from './undoManager';
@@ -279,20 +280,6 @@ export class LayoutOperations {
     return id.toString();
   }
 
-  private static generateVertexId(project: VisualSoarProject): string {
-    // Generate a unique hex ID matching VisualSoar/ProjectCreator format
-    // Keep generating until we get a unique one (collision is extremely unlikely with hex IDs)
-    const crypto = require('crypto');
-    let id: string;
-    const existingIds = new Set(project.datamap.vertices.map((v: any) => v.id));
-
-    do {
-      id = crypto.randomBytes(16).toString('hex');
-    } while (existingIds.has(id));
-
-    return id;
-  }
-
   /**
    * Helper: Collect all files and folders associated with a node and its children
    */
@@ -454,7 +441,7 @@ export class LayoutOperations {
     // Create a NEW datamap vertex for the substate (don't reuse the operator's dmId)
     // The operator vertex stays connected to the parent state via ^operator edge
     // The substate vertex is the state that is selected when the operator applies
-    const dmId = this.generateVertexId(projectContext.project);
+    const dmId = generateVertexId(projectContext.project.datamap.vertices.map(vertex => vertex.id));
     const dmVertex: any = {
       id: dmId,
       type: 'SOAR_ID',
@@ -473,7 +460,9 @@ export class LayoutOperations {
 
     // Add ^name edge (create new enumeration for each state/operator)
     if (!hasEdge('name')) {
-      const nameEnumId = this.generateVertexId(projectContext.project);
+      const nameEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const nameEnum: any = {
         id: nameEnumId,
         type: 'ENUMERATION',
@@ -486,7 +475,9 @@ export class LayoutOperations {
 
     // Add ^type state (create new enumeration for each state, don't reuse)
     if (!hasEdge('type')) {
-      const stateEnumId = this.generateVertexId(projectContext.project);
+      const stateEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const stateEnumVertex: any = {
         id: stateEnumId,
         type: 'ENUMERATION',
@@ -511,7 +502,9 @@ export class LayoutOperations {
 
     // Add ^impasse
     if (!hasEdge('impasse')) {
-      const impasseEnumId = this.generateVertexId(projectContext.project);
+      const impasseEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const impasseEnum: any = {
         id: impasseEnumId,
         type: 'ENUMERATION',
@@ -524,7 +517,9 @@ export class LayoutOperations {
 
     // Add ^choices
     if (!hasEdge('choices')) {
-      const choicesEnumId = this.generateVertexId(projectContext.project);
+      const choicesEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const choicesEnum: any = {
         id: choicesEnumId,
         type: 'ENUMERATION',
@@ -537,7 +532,9 @@ export class LayoutOperations {
 
     // Add ^quiescence
     if (!hasEdge('quiescence')) {
-      const quiescenceEnumId = this.generateVertexId(projectContext.project);
+      const quiescenceEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const quiescenceEnum: any = {
         id: quiescenceEnumId,
         type: 'ENUMERATION',
@@ -550,10 +547,18 @@ export class LayoutOperations {
 
     // Add ^epmem
     if (!hasEdge('epmem')) {
-      const epmemId = this.generateVertexId(projectContext.project);
-      const epmemCommandId = this.generateVertexId(projectContext.project);
-      const epmemPresentIdId = this.generateVertexId(projectContext.project);
-      const epmemResultId = this.generateVertexId(projectContext.project);
+      const epmemId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const epmemCommandId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const epmemPresentIdId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const epmemResultId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
 
       const epmemVertex: any = {
         id: epmemId,
@@ -582,9 +587,15 @@ export class LayoutOperations {
 
     // Add ^smem
     if (!hasEdge('smem')) {
-      const smemId = this.generateVertexId(projectContext.project);
-      const smemCommandId = this.generateVertexId(projectContext.project);
-      const smemResultId = this.generateVertexId(projectContext.project);
+      const smemId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const smemCommandId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const smemResultId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
 
       const smemVertex: any = {
         id: smemId,
@@ -609,9 +620,15 @@ export class LayoutOperations {
 
     // Add ^reward-link
     if (!hasEdge('reward-link')) {
-      const rewardLinkId = this.generateVertexId(projectContext.project);
-      const rewardId = this.generateVertexId(projectContext.project);
-      const rewardValueId = this.generateVertexId(projectContext.project);
+      const rewardLinkId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const rewardId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
+      const rewardValueId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
 
       const rewardLinkVertex: any = {
         id: rewardLinkId,
@@ -731,7 +748,7 @@ export class LayoutOperations {
     await fs.promises.writeFile(path.join(newFullFolderPath, sourceFile), sourceContent, 'utf-8');
 
     // Create a NEW datamap vertex for the impasse substate
-    const dmId = this.generateVertexId(projectContext.project);
+    const dmId = generateVertexId(projectContext.project.datamap.vertices.map(vertex => vertex.id));
     const dmVertex: any = {
       id: dmId,
       type: 'SOAR_ID',
@@ -750,7 +767,9 @@ export class LayoutOperations {
 
     // Add ^name edge
     if (!hasEdge('name')) {
-      const nameEnumId = this.generateVertexId(projectContext.project);
+      const nameEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const nameEnum: any = {
         id: nameEnumId,
         type: 'ENUMERATION',
@@ -763,7 +782,9 @@ export class LayoutOperations {
 
     // Add ^type state
     if (!hasEdge('type')) {
-      const stateEnumId = this.generateVertexId(projectContext.project);
+      const stateEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const stateEnumVertex: any = {
         id: stateEnumId,
         type: 'ENUMERATION',
@@ -788,7 +809,9 @@ export class LayoutOperations {
 
     // Add ^impasse attribute
     if (!hasEdge('impasse')) {
-      const impasseEnumId = this.generateVertexId(projectContext.project);
+      const impasseEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const impasseEnum: any = {
         id: impasseEnumId,
         type: 'ENUMERATION',
@@ -801,7 +824,9 @@ export class LayoutOperations {
 
     // Add ^attribute
     if (!hasEdge('attribute')) {
-      const attributeEnumId = this.generateVertexId(projectContext.project);
+      const attributeEnumId = generateVertexId(
+        projectContext.project.datamap.vertices.map(vertex => vertex.id)
+      );
       const attributeEnum: any = {
         id: attributeEnumId,
         type: 'ENUMERATION',
@@ -1440,7 +1465,9 @@ export class LayoutOperations {
     }
 
     // Create operator vertex (SOAR_ID)
-    const operatorVertexId = this.generateVertexId(projectContext.project);
+    const operatorVertexId = generateVertexId(
+      projectContext.project.datamap.vertices.map(vertex => vertex.id)
+    );
     const operatorVertex: any = {
       id: operatorVertexId,
       type: 'SOAR_ID',
@@ -1450,7 +1477,9 @@ export class LayoutOperations {
     projectContext.datamapIndex.set(operatorVertexId, operatorVertex);
 
     // Create name enumeration vertex for this operator
-    const nameVertexId = this.generateVertexId(projectContext.project);
+    const nameVertexId = generateVertexId(
+      projectContext.project.datamap.vertices.map(vertex => vertex.id)
+    );
     const nameVertex: any = {
       id: nameVertexId,
       type: 'ENUMERATION',

@@ -28,3 +28,4 @@ import '../legacy-agents/helpers/project-validation.test';
 import '../mcp/helpers/tool-detection.test';
 import '../mcp/helpers/active-project.test';
 import '../mcp/helpers/tool-execution-queue.test';
+import '../mcp/helpers/id-generation.test';
