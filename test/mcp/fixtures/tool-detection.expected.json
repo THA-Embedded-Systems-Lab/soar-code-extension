@@ -5,5 +5,9 @@
   "datamap_update_attribute",
   "datamap_delete_attribute",
   "project_validate_against_datamap",
-  "project_get_active"
+  "project_get_active",
+  "layout_add_operator",
+  "layout_add_impasse_operator",
+  "layout_add_file",
+  "layout_add_folder"
 ]

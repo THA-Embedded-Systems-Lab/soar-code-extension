@@ -81,6 +81,9 @@ Soar language support in VS Code with:
 For MCP details (tool names, payloads, logging, and active-project behavior),
 start in these four files.
 
+Current MCP coverage includes datamap CRUD, project-vs-datamap validation,
+active-project lookup, and layout additions (operator/impasse operator/file/folder).
+
 ## User commands and settings (key extension contract)
 
 See `package.json` (contributes/commands/configuration) and `src/extension.ts`

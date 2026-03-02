@@ -1,10 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { DatamapMetadataCache, DatamapProjectContext } from '../datamap/datamapMetadata';
+import { SoarTemplates } from '../layout/soarTemplates';
+import { SourceScriptManager } from '../layout/sourceScriptManager';
 import { DatamapValidator, ValidationError } from '../datamap/datamapValidator';
 import { ProjectLoader } from '../server/projectLoader';
 import { SoarParser } from '../server/soarParser';
-import { DMVertex, OutEdge, SoarIdVertex } from '../server/visualSoarProject';
+import {
+  DMVertex,
+  ImpasseName,
+  LayoutNode,
+  OutEdge,
+  ProjectContext,
+  SoarIdVertex,
+  hasChildren,
+} from '../server/visualSoarProject';
 
 export type DatamapValueType = 'SOAR_ID' | 'ENUMERATION' | 'INTEGER' | 'FLOAT' | 'STRING';
 
@@ -52,6 +62,30 @@ export interface ValidateProjectInput {
 
 export interface GetActiveProjectInput {
   workspaceRoot?: string;
+}
+
+export interface AddLayoutOperatorInput {
+  projectFile: string;
+  parentNodeId: string;
+  operatorName: string;
+}
+
+export interface AddLayoutImpasseOperatorInput {
+  projectFile: string;
+  parentNodeId: string;
+  impasseName: ImpasseName;
+}
+
+export interface AddLayoutFileInput {
+  projectFile: string;
+  parentNodeId: string;
+  fileName: string;
+}
+
+export interface AddLayoutFolderInput {
+  projectFile: string;
+  parentNodeId: string;
+  folderName: string;
 }
 
 export interface ValidationSummary {
@@ -300,6 +334,255 @@ export class SoarMcpCore {
     };
   }
 
+  async addLayoutOperator(input: AddLayoutOperatorInput): Promise<{
+    nodeId: string;
+    parentNodeId: string;
+    operatorName: string;
+    filePath: string;
+    datamapId?: string;
+  }> {
+    const context = await this.loadProjectContext(input.projectFile);
+    this.assertAttributeName(input.operatorName);
+
+    const parentNode = context.layoutIndex.get(input.parentNodeId);
+    if (!parentNode || !hasChildren(parentNode)) {
+      throw new Error(
+        `Parent node '${input.parentNodeId}' cannot contain child operators. Choose a folder/high-level node.`
+      );
+    }
+
+    const workspaceFolder = path.dirname(context.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(context, input.parentNodeId);
+    const operatorFile = `${input.operatorName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    if (fs.existsSync(fullPath)) {
+      throw new Error(`Operator file already exists: ${operatorFile}`);
+    }
+
+    const stateContext = this.findParentStateContext(context, input.parentNodeId);
+    const operatorDmId = this.addOperatorToDatamap(
+      context,
+      stateContext.datamapId,
+      input.operatorName
+    );
+
+    const nodeId = this.generateLayoutNodeId(context);
+    const newNode: any = {
+      type: 'OPERATOR',
+      id: nodeId,
+      name: input.operatorName,
+      file: operatorFile,
+      dmId: operatorDmId,
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+
+    parentNode.children.push(newNode);
+    context.layoutIndex.set(nodeId, newNode);
+
+    await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(
+      fullPath,
+      SoarTemplates.generateOperatorFile(input.operatorName, stateContext.stateName),
+      'utf-8'
+    );
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
+
+    await this.loader.saveProject(context);
+
+    return {
+      nodeId,
+      parentNodeId: input.parentNodeId,
+      operatorName: input.operatorName,
+      filePath: fullPath,
+      datamapId: operatorDmId,
+    };
+  }
+
+  async addLayoutImpasseOperator(input: AddLayoutImpasseOperatorInput): Promise<{
+    nodeId: string;
+    parentNodeId: string;
+    impasseName: ImpasseName;
+    filePath: string;
+  }> {
+    const context = await this.loadProjectContext(input.projectFile);
+    const allowedImpasseNames: ImpasseName[] = [
+      'Impasse__Operator_Tie',
+      'Impasse__Operator_Conflict',
+      'Impasse__Operator_Constraint-Failure',
+      'Impasse__State_No-Change',
+    ];
+
+    if (!allowedImpasseNames.includes(input.impasseName)) {
+      throw new Error(`Invalid impasse name '${input.impasseName}'`);
+    }
+
+    const parentNode = context.layoutIndex.get(input.parentNodeId);
+    if (!parentNode || !hasChildren(parentNode)) {
+      throw new Error(
+        `Parent node '${input.parentNodeId}' cannot contain child operators. Choose a folder/high-level node.`
+      );
+    }
+
+    const workspaceFolder = path.dirname(context.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(context, input.parentNodeId);
+    const operatorFile = `${input.impasseName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, operatorFile);
+
+    if (fs.existsSync(fullPath)) {
+      throw new Error(`Impasse operator file already exists: ${operatorFile}`);
+    }
+
+    const stateContext = this.findParentStateContext(context, input.parentNodeId);
+
+    const nodeId = this.generateLayoutNodeId(context);
+    const newNode: any = {
+      type: 'IMPASSE_OPERATOR',
+      id: nodeId,
+      name: input.impasseName,
+      file: operatorFile,
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+
+    parentNode.children.push(newNode);
+    context.layoutIndex.set(nodeId, newNode);
+
+    await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(
+      fullPath,
+      SoarTemplates.generateImpasseOperatorFile(input.impasseName, stateContext.stateName),
+      'utf-8'
+    );
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, operatorFile);
+
+    await this.loader.saveProject(context);
+
+    return {
+      nodeId,
+      parentNodeId: input.parentNodeId,
+      impasseName: input.impasseName,
+      filePath: fullPath,
+    };
+  }
+
+  async addLayoutFile(input: AddLayoutFileInput): Promise<{
+    nodeId: string;
+    parentNodeId: string;
+    fileName: string;
+    filePath: string;
+  }> {
+    const context = await this.loadProjectContext(input.projectFile);
+    this.assertAttributeName(input.fileName);
+
+    const parentNode = context.layoutIndex.get(input.parentNodeId);
+    if (!parentNode || !hasChildren(parentNode)) {
+      throw new Error(`Parent node '${input.parentNodeId}' cannot contain files.`);
+    }
+
+    const workspaceFolder = path.dirname(context.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(context, input.parentNodeId);
+    const filePath = `${input.fileName}.soar`;
+    const fullPath = path.join(workspaceFolder, parentFolderPath, filePath);
+
+    if (fs.existsSync(fullPath)) {
+      throw new Error(`File already exists: ${filePath}`);
+    }
+
+    const nodeId = this.generateLayoutNodeId(context);
+    const newNode: any = {
+      type: 'FILE',
+      id: nodeId,
+      name: input.fileName,
+      file: filePath,
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+
+    parentNode.children.push(newNode);
+    context.layoutIndex.set(nodeId, newNode);
+
+    await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(
+      fullPath,
+      SoarTemplates.generateProductionFile(input.fileName),
+      'utf-8'
+    );
+
+    const parentFolderAbsolute = this.resolveFolderAbsolute(workspaceFolder, parentFolderPath);
+    await SourceScriptManager.appendReference(parentFolderAbsolute, filePath);
+
+    await this.loader.saveProject(context);
+
+    return {
+      nodeId,
+      parentNodeId: input.parentNodeId,
+      fileName: `${input.fileName}.soar`,
+      filePath: fullPath,
+    };
+  }
+
+  async addLayoutFolder(input: AddLayoutFolderInput): Promise<{
+    nodeId: string;
+    parentNodeId: string;
+    folderName: string;
+    folderPath: string;
+  }> {
+    const context = await this.loadProjectContext(input.projectFile);
+    this.assertAttributeName(input.folderName);
+
+    const parentNode = context.layoutIndex.get(input.parentNodeId);
+    if (!parentNode || !hasChildren(parentNode)) {
+      throw new Error(`Parent node '${input.parentNodeId}' cannot contain folders.`);
+    }
+
+    const workspaceFolder = path.dirname(context.projectFile);
+    const parentFolderPath = this.getNodeFolderPath(context, input.parentNodeId);
+    const fullPath = path.join(workspaceFolder, parentFolderPath, input.folderName);
+
+    if (fs.existsSync(fullPath)) {
+      throw new Error(`Folder already exists: ${input.folderName}`);
+    }
+
+    await fs.promises.mkdir(fullPath, { recursive: true });
+
+    const nodeId = this.generateLayoutNodeId(context);
+    const newNode: any = {
+      type: 'FOLDER',
+      id: nodeId,
+      name: input.folderName,
+      folder: input.folderName,
+      children: [],
+    };
+
+    if (!parentNode.children) {
+      parentNode.children = [];
+    }
+
+    parentNode.children.push(newNode);
+    context.layoutIndex.set(nodeId, newNode);
+
+    await this.loader.saveProject(context);
+
+    return {
+      nodeId,
+      parentNodeId: input.parentNodeId,
+      folderName: input.folderName,
+      folderPath: fullPath,
+    };
+  }
+
   private async loadDatamapContext(projectFile: string): Promise<DatamapProjectContext> {
     const base = await this.loader.loadProject(projectFile);
     const datamapMetadata = DatamapMetadataCache.build(base.project, base.datamapIndex);
@@ -451,5 +734,216 @@ export class SoarMcpCore {
     }
 
     return process.cwd();
+  }
+
+  private async loadProjectContext(projectFile: string): Promise<ProjectContext> {
+    return this.loader.loadProject(projectFile);
+  }
+
+  private findParentStateContext(
+    projectContext: ProjectContext,
+    nodeId: string
+  ): { stateName: string; datamapId: string } {
+    let currentNodeId = nodeId;
+    let currentNode = projectContext.layoutIndex.get(currentNodeId);
+
+    while (currentNode) {
+      if (
+        (currentNode.type === 'HIGH_LEVEL_OPERATOR' ||
+          currentNode.type === 'HIGH_LEVEL_IMPASSE_OPERATOR') &&
+        'dmId' in currentNode &&
+        currentNode.dmId
+      ) {
+        return {
+          stateName: currentNode.name,
+          datamapId: currentNode.dmId,
+        };
+      }
+
+      const parent = this.findParentNode(projectContext.project.layout, currentNodeId);
+      if (!parent) {
+        break;
+      }
+
+      currentNodeId = parent.id;
+      currentNode = parent;
+    }
+
+    return {
+      stateName: projectContext.project.layout.name || 'root',
+      datamapId: projectContext.project.datamap.rootId,
+    };
+  }
+
+  private findParentNode(node: LayoutNode, targetId: string): LayoutNode | null {
+    if (hasChildren(node) && node.children) {
+      for (const child of node.children) {
+        if (child.id === targetId) {
+          return node;
+        }
+        const found = this.findParentNode(child, targetId);
+        if (found) {
+          return found;
+        }
+      }
+    }
+    return null;
+  }
+
+  private findParentId(projectContext: ProjectContext, nodeId: string): string | null {
+    const findParent = (
+      node: LayoutNode,
+      targetId: string,
+      parentId: string | null = null
+    ): string | null => {
+      if (node.id === targetId) {
+        return parentId;
+      }
+
+      if (hasChildren(node) && node.children) {
+        for (const child of node.children) {
+          const found = findParent(child, targetId, node.id);
+          if (found !== null) {
+            return found;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    return findParent(projectContext.project.layout, nodeId, null);
+  }
+
+  private getNodeFolderPath(
+    projectContext: ProjectContext,
+    nodeId: string,
+    nodeOverride?: LayoutNode
+  ): string {
+    const pathParts: string[] = [];
+    let currentId: string | null = nodeId;
+    let currentNode: LayoutNode | undefined =
+      nodeOverride ?? projectContext.layoutIndex.get(nodeId);
+
+    while (currentId && currentNode) {
+      if ('folder' in currentNode && currentNode.folder) {
+        pathParts.unshift(currentNode.folder);
+      }
+
+      const parentId = this.findParentId(projectContext, currentId);
+      currentId = parentId;
+      currentNode = parentId ? projectContext.layoutIndex.get(parentId) : undefined;
+    }
+
+    return path.join(...pathParts);
+  }
+
+  private resolveFolderAbsolute(workspaceFolder: string, relativeFolderPath: string): string {
+    if (!relativeFolderPath) {
+      return workspaceFolder;
+    }
+    return path.join(workspaceFolder, relativeFolderPath);
+  }
+
+  private generateLayoutNodeId(projectContext: ProjectContext): string {
+    const existingIds = new Set<string>();
+
+    const collectIds = (node: LayoutNode): void => {
+      existingIds.add(node.id);
+      if (hasChildren(node) && node.children) {
+        for (const child of node.children) {
+          collectIds(child);
+        }
+      }
+    };
+
+    collectIds(projectContext.project.layout);
+
+    let candidate = 1;
+    while (existingIds.has(String(candidate))) {
+      candidate += 1;
+    }
+
+    return String(candidate);
+  }
+
+  private addOperatorToDatamap(
+    projectContext: ProjectContext,
+    stateVertexId: string,
+    operatorName: string
+  ): string | undefined {
+    const stateVertex = projectContext.datamapIndex.get(stateVertexId);
+    if (!stateVertex || stateVertex.type !== 'SOAR_ID') {
+      return undefined;
+    }
+
+    if (stateVertex.outEdges) {
+      for (const edge of stateVertex.outEdges) {
+        if (edge.name !== 'operator') {
+          continue;
+        }
+
+        const existingOperatorVertex = projectContext.datamapIndex.get(edge.toId);
+        if (!existingOperatorVertex || existingOperatorVertex.type !== 'SOAR_ID') {
+          continue;
+        }
+
+        const nameEdge = existingOperatorVertex.outEdges?.find(
+          candidate => candidate.name === 'name'
+        );
+        if (!nameEdge) {
+          continue;
+        }
+
+        const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+        if (
+          nameVertex &&
+          nameVertex.type === 'ENUMERATION' &&
+          nameVertex.choices?.includes(operatorName)
+        ) {
+          return existingOperatorVertex.id;
+        }
+      }
+    }
+
+    const operatorVertexId = this.generateVertexId(
+      projectContext as unknown as DatamapProjectContext
+    );
+    const operatorVertex: any = {
+      id: operatorVertexId,
+      type: 'SOAR_ID',
+      outEdges: [],
+    };
+
+    const nameVertexId = this.generateVertexId(projectContext as unknown as DatamapProjectContext);
+    const nameVertex: any = {
+      id: nameVertexId,
+      type: 'ENUMERATION',
+      choices: [operatorName],
+    };
+
+    operatorVertex.outEdges.push({ name: 'name', toId: nameVertexId });
+
+    projectContext.project.datamap.vertices.push(operatorVertex);
+    projectContext.project.datamap.vertices.push(nameVertex);
+    projectContext.datamapIndex.set(operatorVertexId, operatorVertex);
+    projectContext.datamapIndex.set(nameVertexId, nameVertex);
+
+    if (!stateVertex.outEdges) {
+      stateVertex.outEdges = [];
+    }
+
+    const edgeExists = stateVertex.outEdges.some(
+      edge => edge.name === 'operator' && edge.toId === operatorVertexId
+    );
+
+    if (!edgeExists) {
+      stateVertex.outEdges.push({
+        name: 'operator',
+        toId: operatorVertexId,
+      });
+    }
+
+    return operatorVertexId;
   }
 }

@@ -2,6 +2,10 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import {
+  AddLayoutFileInput,
+  AddLayoutFolderInput,
+  AddLayoutImpasseOperatorInput,
+  AddLayoutOperatorInput,
   CreateAttributeInput,
   CreateLinkedAttributeInput,
   DeleteAttributeInput,
@@ -235,6 +239,69 @@ async function main() {
             durationMs: Date.now() - startedAt,
             source: result.source,
             hasProject: result.projectFile !== null,
+          });
+          return asJsonToolResult({ ok: true, result });
+        }
+
+        case SOAR_MCP_TOOL_NAMES.layoutAddOperator: {
+          const input: AddLayoutOperatorInput = {
+            projectFile: assertString(args.projectFile, 'projectFile'),
+            parentNodeId: assertString(args.parentNodeId, 'parentNodeId'),
+            operatorName: assertString(args.operatorName, 'operatorName'),
+          };
+          const result = await core.addLayoutOperator(input);
+          log('info', 'Tool call succeeded', {
+            toolName,
+            durationMs: Date.now() - startedAt,
+            nodeId: result.nodeId,
+          });
+          return asJsonToolResult({ ok: true, result });
+        }
+
+        case SOAR_MCP_TOOL_NAMES.layoutAddImpasseOperator: {
+          const input: AddLayoutImpasseOperatorInput = {
+            projectFile: assertString(args.projectFile, 'projectFile'),
+            parentNodeId: assertString(args.parentNodeId, 'parentNodeId'),
+            impasseName: assertString(
+              args.impasseName,
+              'impasseName'
+            ) as AddLayoutImpasseOperatorInput['impasseName'],
+          };
+          const result = await core.addLayoutImpasseOperator(input);
+          log('info', 'Tool call succeeded', {
+            toolName,
+            durationMs: Date.now() - startedAt,
+            nodeId: result.nodeId,
+          });
+          return asJsonToolResult({ ok: true, result });
+        }
+
+        case SOAR_MCP_TOOL_NAMES.layoutAddFile: {
+          const input: AddLayoutFileInput = {
+            projectFile: assertString(args.projectFile, 'projectFile'),
+            parentNodeId: assertString(args.parentNodeId, 'parentNodeId'),
+            fileName: assertString(args.fileName, 'fileName'),
+          };
+          const result = await core.addLayoutFile(input);
+          log('info', 'Tool call succeeded', {
+            toolName,
+            durationMs: Date.now() - startedAt,
+            nodeId: result.nodeId,
+          });
+          return asJsonToolResult({ ok: true, result });
+        }
+
+        case SOAR_MCP_TOOL_NAMES.layoutAddFolder: {
+          const input: AddLayoutFolderInput = {
+            projectFile: assertString(args.projectFile, 'projectFile'),
+            parentNodeId: assertString(args.parentNodeId, 'parentNodeId'),
+            folderName: assertString(args.folderName, 'folderName'),
+          };
+          const result = await core.addLayoutFolder(input);
+          log('info', 'Tool call succeeded', {
+            toolName,
+            durationMs: Date.now() - startedAt,
+            nodeId: result.nodeId,
           });
           return asJsonToolResult({ ok: true, result });
         }

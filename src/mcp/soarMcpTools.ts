@@ -6,6 +6,10 @@ export const SOAR_MCP_TOOL_NAMES = {
   datamapDeleteAttribute: 'datamap_delete_attribute',
   projectValidateAgainstDatamap: 'project_validate_against_datamap',
   projectGetActive: 'project_get_active',
+  layoutAddOperator: 'layout_add_operator',
+  layoutAddImpasseOperator: 'layout_add_impasse_operator',
+  layoutAddFile: 'layout_add_file',
+  layoutAddFolder: 'layout_add_folder',
 } as const;
 
 export const SOAR_MCP_TOOLS = [
@@ -101,6 +105,66 @@ export const SOAR_MCP_TOOLS = [
       type: 'object',
       properties: {
         workspaceRoot: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.layoutAddOperator,
+    description: 'Add an operator node/file under a layout parent node and update datamap',
+    inputSchema: {
+      type: 'object',
+      required: ['projectFile', 'parentNodeId', 'operatorName'],
+      properties: {
+        projectFile: { type: 'string' },
+        parentNodeId: { type: 'string' },
+        operatorName: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.layoutAddImpasseOperator,
+    description: 'Add an impasse operator node/file under a layout parent node',
+    inputSchema: {
+      type: 'object',
+      required: ['projectFile', 'parentNodeId', 'impasseName'],
+      properties: {
+        projectFile: { type: 'string' },
+        parentNodeId: { type: 'string' },
+        impasseName: {
+          type: 'string',
+          enum: [
+            'Impasse__Operator_Tie',
+            'Impasse__Operator_Conflict',
+            'Impasse__Operator_Constraint-Failure',
+            'Impasse__State_No-Change',
+          ],
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.layoutAddFile,
+    description: 'Add a production file node/file under a layout parent node',
+    inputSchema: {
+      type: 'object',
+      required: ['projectFile', 'parentNodeId', 'fileName'],
+      properties: {
+        projectFile: { type: 'string' },
+        parentNodeId: { type: 'string' },
+        fileName: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.layoutAddFolder,
+    description: 'Add a folder node/directory under a layout parent node',
+    inputSchema: {
+      type: 'object',
+      required: ['projectFile', 'parentNodeId', 'folderName'],
+      properties: {
+        projectFile: { type: 'string' },
+        parentNodeId: { type: 'string' },
+        folderName: { type: 'string' },
       },
     },
   },
