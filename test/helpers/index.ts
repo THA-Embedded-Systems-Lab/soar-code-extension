@@ -27,3 +27,4 @@ import '../legacy-agents/helpers/project-validation.test';
 // MCP tests
 import '../mcp/helpers/tool-detection.test';
 import '../mcp/helpers/active-project.test';
+import '../mcp/helpers/tool-execution-queue.test';

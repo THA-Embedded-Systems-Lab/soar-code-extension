@@ -77,8 +77,12 @@ Soar language support in VS Code with:
   - MCP tool definitions and schemas
 - `src/mcp/soarMcpServer.ts`
   - MCP stdio server and request handlers
+  - project-scoped tool calls are serialized per `projectFile` to prevent
+    concurrent load/modify/save races
 - `src/mcp/soarMcpCore.ts`
   - reusable core operations invoked by MCP tools
+- `src/mcp/toolExecutionQueue.ts`
+  - keyed async execution queue used by MCP server for safe parallelism
 - `src/mcp/mcpRegistration.ts`
   - workspace MCP registration (`.vscode/mcp.json`)
 
@@ -112,6 +116,7 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 
 - Test bootstrap: `test/helpers/index.ts`
 - MCP tests: `test/mcp/helpers/*`
+  - includes queue safety coverage in `tool-execution-queue.test.ts`
 - Datamap validation fixtures: `test/lsp/datamap/*`
 - Layout/undo tests: `test/layout/*`
 - Datamap manipulation scenarios: `test/datamap-manipulation/*`
