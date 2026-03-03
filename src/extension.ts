@@ -12,6 +12,15 @@ import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
 import { getUndoManager, resetUndoManager } from './layout/undoManager';
 import { ensureWorkspaceMcpRegistration } from './mcp/mcpRegistration';
+import {
+  SoarSmlDebugAdapterDescriptorFactory,
+  SoarSmlDebugConfigurationProvider,
+} from './debug/soarSmlDebugAdapter';
+import {
+  StopPhase,
+  StopPhaseTreeProvider,
+  parseStopPhaseText,
+} from './debug/stopPhaseTreeProvider';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -61,6 +70,99 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage('Hello from Soar Extension!');
   });
   context.subscriptions.push(disposable);
+
+  const debugConfigurationProvider = new SoarSmlDebugConfigurationProvider();
+  const debugAdapterFactory = new SoarSmlDebugAdapterDescriptorFactory();
+  context.subscriptions.push(
+    vscode.debug.registerDebugConfigurationProvider('soar-sml', debugConfigurationProvider)
+  );
+  context.subscriptions.push(
+    vscode.debug.registerDebugAdapterDescriptorFactory('soar-sml', debugAdapterFactory)
+  );
+
+  const stopPhaseProvider = new StopPhaseTreeProvider();
+  const stopPhaseTreeView = vscode.window.createTreeView('soarStopPhase', {
+    treeDataProvider: stopPhaseProvider,
+    showCollapseAll: false,
+  });
+  context.subscriptions.push(stopPhaseTreeView);
+
+  const syncStopPhaseFromDebugSession = async (): Promise<void> => {
+    const session = vscode.debug.activeDebugSession;
+    if (!session || session.type !== 'soar-sml') {
+      return;
+    }
+
+    try {
+      const response = (await session.customRequest('evaluate', {
+        expression: 'soar stop-phase',
+        context: 'repl',
+      })) as { result?: string };
+
+      const parsedPhase = parseStopPhaseText(response?.result);
+      if (parsedPhase) {
+        stopPhaseProvider.setSelectedPhase(parsedPhase);
+      }
+    } catch {
+      // Keep existing selection if sync fails
+    }
+  };
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.setStopPhase', async (phase: StopPhase) => {
+      const session = vscode.debug.activeDebugSession;
+      if (!session || session.type !== 'soar-sml') {
+        vscode.window.showWarningMessage(
+          'No active Soar SML debug session. Start debugging before setting stop phase.'
+        );
+        return;
+      }
+
+      const commandText = `soar stop-phase ${phase}`;
+
+      try {
+        const response = (await session.customRequest('evaluate', {
+          expression: commandText,
+          context: 'repl',
+        })) as { result?: string };
+
+        const parsedPhase = parseStopPhaseText(response?.result);
+        stopPhaseProvider.setSelectedPhase(parsedPhase ?? phase);
+        const details = response?.result?.trim();
+        if (details && details.length > 0) {
+          vscode.window.showInformationMessage(`Stop phase set to '${phase}': ${details}`);
+        } else {
+          vscode.window.showInformationMessage(`Stop phase set to '${phase}'.`);
+        }
+      } catch (error: any) {
+        vscode.window.showErrorMessage(
+          `Failed to set stop phase '${phase}': ${error?.message ?? String(error)}`
+        );
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.refreshStopPhaseView', async () => {
+      await syncStopPhaseFromDebugSession();
+      stopPhaseProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.debug.onDidStartDebugSession(async session => {
+      if (session.type === 'soar-sml') {
+        await syncStopPhaseFromDebugSession();
+      }
+      stopPhaseProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession(() => {
+      stopPhaseProvider.refresh();
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.setupMcpServer', async () => {

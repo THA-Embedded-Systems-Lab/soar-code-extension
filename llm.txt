@@ -13,6 +13,7 @@ Soar language support in VS Code with:
 - VisualSoar project structure editing
 - project creation/sync/validation
 - MCP server for LLM/agent workflows
+- socket-based debug adapter integration for remote Soar kernel control (SML XML)
 
 ## Core architecture (where to start)
 
@@ -75,6 +76,39 @@ Soar language support in VS Code with:
 - `src/server/soarLanguageServer.ts`
 - `src/client/lspClient.ts`
 
+### Debug adapter (SML socket transport)
+
+- `src/debug/smlSocketClient.ts`
+  - strongly typed SML XML socket client
+  - 4-byte big-endian length framing
+  - call/response correlation via `ack`
+  - auto-reply for inbound `doctype=call` messages
+  - persistent socket behavior (no user-configurable idle timeout)
+- `src/debug/soarSmlDebugAdapter.ts`
+  - inline DAP adapter implementation (`vscode.DebugAdapter`)
+  - DAP→SML mapping for initialize/launch/threads/stackTrace/scopes/variables/
+    continue/next/stepIn/stepOut/pause/evaluate/disconnect
+  - DAP thread model maps one thread per Soar agent discovered from `get_agent_list`
+  - DAP call stack maps to goal-stack states per selected thread/agent and is recomputed on stop/stack requests; frames are returned current→root so VS Code auto-selects current state
+  - stable identity maps preserve deterministic IDs across session lifetime: agent→threadId, state→frameId, objectKey→variablesReference
+  - advertises DAP `supportsInvalidatedEvent` and emits `invalidated` (`all`) after each stop to force Watch/Variables/UI refresh
+  - `scopes` returns `Working Memory` and `Operator` scopes for each selected state frame
+  - `variables` resolves structured WMEs (identifier-expansion via stable references) from state/operator/identifier contexts
+  - always emits an initial `stopped` event on connect to select first stack frame automatically
+  - stop transitions (`entry`/`step`/`pause`) emit `preserveFocusHint: false` so VS Code focuses the newest selected frame
+  - no editable Variables entries; command interaction is handled via Watch/Debug Console evaluate requests
+  - applies configurable `printDepth` (`-d`) and `printTree` (`-t`) formatting to Variables and Watch print rendering
+  - watch evaluation is frame-context aware (`frameId`→state) and returns stable identifier references when possible
+  - watch evaluation is fault-tolerant: retries once on transient post-step failures and returns `<unavailable: ...>` value (success response) instead of DAP error
+  - execution mapping uses `cmdline run` for continue and `cmdline stop` on pause when session is running
+  - `evaluate` forwards Debug Console (`repl` context) input directly as Soar CLI command text and resolves non-REPL expressions in frame context
+  - debug configuration provider + descriptor factory for debug type `soar-sml`
+- `src/debug/stopPhaseTreeProvider.ts`
+  - sidebar tree data provider for stop-phase selection with phases `input`, `proposal`, `decision`, `apply`, `output`
+  - defaults selection to `apply` (Soar default stop-before phase)
+  - parses status output from `soar stop-phase` (`Stop before <phase>`) for UI synchronization
+  - tracks selected phase in-view and executes `soar.setStopPhase` command from tree items
+
 ### MCP / LLM integration
 
 - `src/mcp/soarMcpTools.ts`
@@ -103,6 +137,19 @@ active-project lookup, and layout additions (operator/impasse operator/file/fold
 See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 (runtime command wiring).
 
+Debug contract additions:
+
+- `package.json` contributes debugger type `soar-sml` with launch attributes:
+  `host`, `port`, `agent`, `printDepth`, `printTree`, `stopOnEntry` (`stopOnEntry` retained for compatibility; adapter auto-stops on connect)
+- `src/extension.ts` registers debug configuration provider and debug adapter
+  descriptor factory for `soar-sml`
+- `package.json` contributes `soarStopPhase` sidebar view and commands
+  `soar.setStopPhase` / `soar.refreshStopPhaseView`
+- `soarStopPhase` is contributed to VS Code's built-in Debug view container (not the custom Soar activity container)
+- `src/extension.ts` wires stop-phase selection to active `soar-sml` sessions via
+  DAP `evaluate` with `context: repl`, issuing `soar stop-phase <phase>`
+  and queries `soar stop-phase` on debug-start/refresh to reflect current kernel state
+
 ## Data and persistence locations
 
 - Project file format: `.vsa.json` (VisualSoar-compatible)
@@ -121,6 +168,8 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 ## Test index (where behavior is validated)
 
 - Test bootstrap: `test/helpers/index.ts`
+- Manual debug launch setups: `test/.vscode/launch.json`
+  - includes Extension Host launch and `soar-sml` socket debug configuration for local end-to-end adapter checks
 - MCP tests: `test/mcp/helpers/*`
   - includes queue safety coverage in `tool-execution-queue.test.ts`
   - includes ID format regression checks in `id-generation.test.ts`

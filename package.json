@@ -54,6 +54,106 @@
         "path": "./snippets/soar.json"
       }
     ],
+    "debuggers": [
+      {
+        "type": "soar-sml",
+        "label": "Soar (SML Socket)",
+        "languages": [
+          "soar"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "request",
+              "type",
+              "name"
+            ],
+            "properties": {
+              "request": {
+                "type": "string",
+                "enum": [
+                  "launch",
+                  "attach"
+                ],
+                "default": "launch",
+                "description": "Debug request type. launch and attach both connect to an already running Soar kernel listener."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "soar-sml"
+                ],
+                "description": "Debugger type identifier."
+              },
+              "name": {
+                "type": "string",
+                "description": "Configuration name shown in debug dropdown."
+              },
+              "host": {
+                "type": "string",
+                "default": "127.0.0.1",
+                "description": "Host of Soar SML listener socket."
+              },
+              "port": {
+                "type": "number",
+                "default": 12121,
+                "description": "Port of Soar SML listener socket."
+              },
+              "agent": {
+                "type": "string",
+                "default": "soar",
+                "description": "Agent name to target for cmdline-based stepping and evaluation."
+              },
+              "printDepth": {
+                "type": "number",
+                "default": 2,
+                "description": "Adds -d <number> to print commands used for Variables and Watch rendering."
+              },
+              "printTree": {
+                "type": "boolean",
+                "default": true,
+                "description": "Adds -t to print commands used for Variables and Watch rendering."
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "default": true,
+                "description": "Deprecated: debugger now always emits an initial stopped event after connecting to select the first stack frame."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "soar-sml",
+            "request": "launch",
+            "name": "Soar: Connect SML Socket",
+            "host": "127.0.0.1",
+            "port": 12121,
+            "agent": "soar",
+            "printDepth": 2,
+            "printTree": true,
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Soar SML Socket",
+            "description": "Connect to a running Soar kernel via SML XML socket transport",
+            "body": {
+              "type": "soar-sml",
+              "request": "launch",
+              "name": "Soar: Connect SML Socket",
+              "host": "127.0.0.1",
+              "port": 12121,
+              "agent": "soar",
+              "printDepth": 2,
+              "printTree": true,
+              "stopOnEntry": true
+            }
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "soar.helloWorld",
@@ -225,6 +325,18 @@
         "title": "Setup MCP Server",
         "category": "Soar",
         "icon": "$(plug)"
+      },
+      {
+        "command": "soar.setStopPhase",
+        "title": "Set Stop Phase",
+        "category": "Soar",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "soar.refreshStopPhaseView",
+        "title": "Refresh Stop Phase View",
+        "category": "Soar",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -249,6 +361,14 @@
           "name": "Datamap",
           "icon": "$(type-hierarchy)",
           "contextualTitle": "Soar Datamap"
+        }
+      ],
+      "debug": [
+        {
+          "id": "soarStopPhase",
+          "name": "Soar Stop Phase",
+          "icon": "$(debug-pause)",
+          "contextualTitle": "Soar Stop Phase"
         }
       ]
     },
@@ -303,6 +423,11 @@
           "command": "soar.syncProjectFiles",
           "when": "view == soarLayout",
           "group": "navigation@3"
+        },
+        {
+          "command": "soar.refreshStopPhaseView",
+          "when": "view == soarStopPhase",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
