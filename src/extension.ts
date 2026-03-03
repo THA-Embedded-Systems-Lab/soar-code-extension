@@ -150,6 +150,57 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('soar.setVariableViewDepth', async () => {
+      const session = vscode.debug.activeDebugSession;
+      if (!session || session.type !== 'soar-sml') {
+        vscode.window.showWarningMessage(
+          'No active Soar SML debug session. Start debugging before setting variable depth.'
+        );
+        return;
+      }
+
+      const configuredDepth =
+        typeof session.configuration?.printDepth === 'number' &&
+        Number.isFinite(session.configuration.printDepth)
+          ? Math.max(0, Math.floor(session.configuration.printDepth))
+          : 2;
+
+      const input = await vscode.window.showInputBox({
+        prompt: 'Set Variables view depth (-d)',
+        placeHolder: 'Enter a non-negative integer (e.g. 2)',
+        value: String(configuredDepth),
+        validateInput: value => {
+          const parsed = Number(value);
+          if (!Number.isFinite(parsed) || parsed < 0 || Math.floor(parsed) !== parsed) {
+            return 'Depth must be a non-negative integer.';
+          }
+          return undefined;
+        },
+      });
+
+      if (input === undefined) {
+        return;
+      }
+
+      const depth = Math.max(0, Math.floor(Number(input)));
+      try {
+        const response = (await session.customRequest('soarSetVariablesDepth', {
+          depth,
+        })) as { depth?: number };
+        const effectiveDepth =
+          typeof response?.depth === 'number' && Number.isFinite(response.depth)
+            ? response.depth
+            : depth;
+        vscode.window.showInformationMessage(`Variables depth set to ${effectiveDepth}.`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(
+          `Failed to set variables depth: ${error?.message ?? String(error)}`
+        );
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.debug.onDidStartDebugSession(async session => {
       if (session.type === 'soar-sml') {
         await syncStopPhaseFromDebugSession();

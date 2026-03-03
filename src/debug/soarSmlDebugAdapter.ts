@@ -74,6 +74,10 @@ interface DapScopesArguments {
   readonly frameId?: number;
 }
 
+interface DapSetVariablesDepthArguments {
+  readonly depth?: number;
+}
+
 interface DapVariable {
   readonly name: string;
   readonly value: string;
@@ -116,7 +120,7 @@ interface FrameContext {
 }
 
 interface VariableReferenceContext {
-  readonly kind: 'scope-wm' | 'scope-operator' | 'identifier';
+  readonly kind: 'scope-wm' | 'scope-operator' | 'scope-io' | 'identifier';
   readonly agentName: string;
   readonly stateId?: string;
   readonly identifier?: string;
@@ -216,6 +220,9 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
           return;
         case 'evaluate':
           await this.handleEvaluate(request as DapRequest<DapEvaluateArguments>);
+          return;
+        case 'soarSetVariablesDepth':
+          this.handleSetVariablesDepth(request as DapRequest<DapSetVariablesDepthArguments>);
           return;
         case 'disconnect':
           this.handleDisconnect(request);
@@ -353,6 +360,14 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
         stateId: frame.stateId,
       }
     );
+    const ioRef = this.getOrCreateVariablesReference(
+      `scope:io:${frame.agentName}:${frame.stateId}`,
+      {
+        kind: 'scope-io',
+        agentName: frame.agentName,
+        stateId: frame.stateId,
+      }
+    );
 
     const scopes: DapScope[] = [
       {
@@ -363,6 +378,11 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
       {
         name: 'Operator',
         variablesReference: opRef,
+        expensive: false,
+      },
+      {
+        name: 'IO Link',
+        variablesReference: ioRef,
         expensive: false,
       },
     ];
@@ -451,6 +471,26 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
     this.clearSessionIdentityCaches();
     this.sendResponse(request, {});
     this.sendEvent('terminated');
+  }
+
+  private handleSetVariablesDepth(request: DapRequest<DapSetVariablesDepthArguments>): void {
+    const rawDepth = request.arguments?.depth;
+    if (typeof rawDepth !== 'number' || !Number.isFinite(rawDepth)) {
+      this.sendErrorResponse(request, 'Invalid variables depth. Provide a finite number.');
+      return;
+    }
+
+    this.printDepth = Math.max(0, Math.floor(rawDepth));
+
+    this.sendResponse(request, {
+      depth: this.printDepth,
+    });
+
+    const threadId = this.getOrCreateAgentThreadId(this.currentAgent);
+    this.sendEvent('invalidated', {
+      areas: ['variables'],
+      threadId,
+    });
   }
 
   private async runCmdline(line: string, agentOverride?: string): Promise<string> {
@@ -669,37 +709,41 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
   private async resolveVariablesForReference(
     context: VariableReferenceContext
   ): Promise<readonly DapVariable[]> {
+    const variablesDepth = this.getVariablesDepth();
+
     if (context.kind === 'scope-wm') {
-      return await this.listIdentifierVariables(context.agentName, context.stateId);
+      return await this.listVariablesForTarget(context.agentName, context.stateId, variablesDepth);
     }
 
     if (context.kind === 'scope-operator') {
-      if (!context.stateId) {
-        return [];
-      }
-
-      const snapshot = await this.getStateSnapshot(context.agentName, context.stateId);
-      if (!snapshot.operatorId) {
-        return [];
-      }
-
-      return await this.listIdentifierVariables(context.agentName, snapshot.operatorId);
+      return await this.listVariablesForTarget(context.agentName, '<o>', variablesDepth);
     }
 
-    return await this.listIdentifierVariables(context.agentName, context.identifier);
+    if (context.kind === 'scope-io') {
+      return await this.listVariablesForTarget(context.agentName, 'I1', variablesDepth);
+    }
+
+    return await this.listVariablesForTarget(context.agentName, context.identifier, 1);
   }
 
-  private async listIdentifierVariables(
+  private async listVariablesForTarget(
     agentName: string,
-    identifier: string | undefined
+    target: string | undefined,
+    depth: number
   ): Promise<readonly DapVariable[]> {
-    if (!identifier) {
+    if (!target) {
       return [];
     }
 
-    const command = this.applyPrintOptionsToCommand(`print ${identifier} -d 1`);
+    const command = `print ${target} -d ${depth} -t`;
     const output = await this.runCmdline(command, agentName);
-    const wmes = this.parseWmes(output).filter(wme => wme.lhs === identifier);
+    const parsedWmes = this.parseWmes(output);
+    if (parsedWmes.length === 0) {
+      return [];
+    }
+
+    const rootIdentifier = parsedWmes[0].lhs;
+    const wmes = parsedWmes.filter(wme => wme.lhs === rootIdentifier);
     return wmes.map(wme => {
       const childReference = this.looksLikeIdentifier(wme.rhs)
         ? this.getOrCreateIdentifierReference(agentName, wme.rhs)
@@ -894,6 +938,10 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
     await new Promise<void>(resolve => {
       setTimeout(resolve, milliseconds);
     });
+  }
+
+  private getVariablesDepth(): number {
+    return Math.max(0, this.printDepth);
   }
 
   private buildPrintCommand(target: string): string {

@@ -92,8 +92,10 @@ Soar language support in VS Code with:
   - DAP call stack maps to goal-stack states per selected thread/agent and is recomputed on stop/stack requests; frames are returned current→root so VS Code auto-selects current state
   - stable identity maps preserve deterministic IDs across session lifetime: agent→threadId, state→frameId, objectKey→variablesReference
   - advertises DAP `supportsInvalidatedEvent` and emits `invalidated` (`all`) after each stop to force Watch/Variables/UI refresh
-  - `scopes` returns `Working Memory` and `Operator` scopes for each selected state frame
-  - `variables` resolves structured WMEs (identifier-expansion via stable references) from state/operator/identifier contexts
+  - `scopes` returns `Working Memory`, `Operator`, and `IO Link` sections for each selected state frame
+  - Variables section targets: `Working Memory` uses `print <state> -d <printDepth> -t`, `Operator` uses `print <o> -d <printDepth> -t`, and `IO Link` uses `print I1 -d <printDepth> -t`
+  - Variables depth is user-configurable via debug configuration `printDepth`
+  - `variables` resolves structured WMEs (identifier-expansion via stable references) from section/identifier contexts
   - always emits an initial `stopped` event on connect to select first stack frame automatically
   - stop transitions (`entry`/`step`/`pause`) emit `preserveFocusHint: false` so VS Code focuses the newest selected frame
   - no editable Variables entries; command interaction is handled via Watch/Debug Console evaluate requests
@@ -102,6 +104,7 @@ Soar language support in VS Code with:
   - watch evaluation is fault-tolerant: retries once on transient post-step failures and returns `<unavailable: ...>` value (success response) instead of DAP error
   - execution mapping uses `cmdline run` for continue and `cmdline stop` on pause when session is running
   - `evaluate` forwards Debug Console (`repl` context) input directly as Soar CLI command text and resolves non-REPL expressions in frame context
+  - supports custom request `soarSetVariablesDepth` to update Variables depth at runtime and emit `invalidated` for variables
   - debug configuration provider + descriptor factory for debug type `soar-sml`
 - `src/debug/stopPhaseTreeProvider.ts`
   - sidebar tree data provider for stop-phase selection with phases `input`, `proposal`, `decision`, `apply`, `output`
@@ -144,11 +147,13 @@ Debug contract additions:
 - `src/extension.ts` registers debug configuration provider and debug adapter
   descriptor factory for `soar-sml`
 - `package.json` contributes `soarStopPhase` sidebar view and commands
-  `soar.setStopPhase` / `soar.refreshStopPhaseView`
+  `soar.setStopPhase` / `soar.refreshStopPhaseView` / `soar.setVariableViewDepth`
 - `soarStopPhase` is contributed to VS Code's built-in Debug view container (not the custom Soar activity container)
 - `src/extension.ts` wires stop-phase selection to active `soar-sml` sessions via
   DAP `evaluate` with `context: repl`, issuing `soar stop-phase <phase>`
   and queries `soar stop-phase` on debug-start/refresh to reflect current kernel state
+- `src/extension.ts` exposes runtime Variables depth control (`soar.setVariableViewDepth`) via
+  custom request `soarSetVariablesDepth` on the active `soar-sml` session
 
 ## Data and persistence locations
 

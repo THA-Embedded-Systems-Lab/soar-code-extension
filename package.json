@@ -337,6 +337,12 @@
         "title": "Refresh Stop Phase View",
         "category": "Soar",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "soar.setVariableViewDepth",
+        "title": "Set Variables View Depth",
+        "category": "Soar",
+        "icon": "$(symbol-number)"
       }
     ],
     "viewsContainers": {
@@ -428,6 +434,11 @@
           "command": "soar.refreshStopPhaseView",
           "when": "view == soarStopPhase",
           "group": "navigation@1"
+        },
+        {
+          "command": "soar.setVariableViewDepth",
+          "when": "view == soarStopPhase",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
