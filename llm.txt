@@ -46,6 +46,9 @@ Soar language support in VS Code with:
 - `src/datamap/datamapOperations.ts`
   - add/edit/delete attributes
   - edit flow supports updating enumeration values (e.g., `^impasse` choices)
+  - edit flow supports parent reassignment:
+    - `Change Parent`: move attribute (and referenced subtree) to a new SOAR_ID parent
+    - `Change Parent + Link`: move ownership and keep a linked reference on previous parent
   - linked attribute operations
   - uses shared `generateVertexId` for new datamap vertices
   - datamap persistence and metadata refresh
@@ -219,6 +222,8 @@ Debug contract additions:
 - Datamap validation fixtures: `test/lsp/datamap/*`
 - Layout/undo tests: `test/layout/*`
 - Datamap manipulation scenarios: `test/datamap-manipulation/*`
+  - includes parent reassignment coverage in
+    `test/datamap-manipulation/fixtures/parent-reassignment.test.ts`
 - Legacy project compatibility: `test/legacy-agents/*`
 
 ## Agent usage guidance

@@ -303,9 +303,18 @@ export class DatamapOperations {
         { label: 'Rename', description: 'Change attribute name' },
         { label: 'Edit Comment', description: 'Change or add a comment' },
         { label: 'Change Type', description: 'Change the attribute type (careful!)' },
+        { label: 'Change Parent', description: 'Move attribute and children to a new parent' },
       ].concat(
         targetVertex.type === 'ENUMERATION'
           ? [{ label: 'Edit Values', description: 'Update enumeration values' }]
+          : [],
+        targetVertex.type === 'SOAR_ID'
+          ? [
+              {
+                label: 'Change Parent + Link',
+                description: 'Move to new parent and keep a linked reference here',
+              },
+            ]
           : []
       ),
       {
@@ -326,6 +335,10 @@ export class DatamapOperations {
         return await this.changeAttributeType(targetVertex, edge, projectContext);
       case 'Edit Values':
         return await this.editEnumerationValues(targetVertex, edge, projectContext);
+      case 'Change Parent':
+        return await this.changeParent(parentVertex, edge, targetVertex, projectContext);
+      case 'Change Parent + Link':
+        return await this.changeParentAndLink(parentVertex, edge, targetVertex, projectContext);
     }
 
     return false;
@@ -615,6 +628,224 @@ export class DatamapOperations {
     await this.saveProject(projectContext);
     vscode.window.showInformationMessage(`Updated values for '^${edge.name}'`);
     return true;
+  }
+
+  private static async changeParent(
+    currentParent: SoarIdVertex,
+    edge: OutEdge,
+    targetVertex: DMVertex,
+    projectContext: DatamapProjectContext
+  ): Promise<boolean> {
+    const newParent = await this.selectNewParent(
+      projectContext,
+      currentParent,
+      edge,
+      targetVertex,
+      'Select the new parent for this attribute'
+    );
+
+    if (!newParent) {
+      return false;
+    }
+
+    if (!currentParent.outEdges) {
+      vscode.window.showErrorMessage('Current parent has no attributes to move');
+      return false;
+    }
+
+    const edgeIndex = currentParent.outEdges.findIndex(
+      candidate => candidate.name === edge.name && candidate.toId === edge.toId
+    );
+
+    if (edgeIndex === -1) {
+      vscode.window.showErrorMessage('Could not find attribute edge to move');
+      return false;
+    }
+
+    currentParent.outEdges.splice(edgeIndex, 1);
+
+    if (!newParent.outEdges) {
+      newParent.outEdges = [];
+    }
+
+    newParent.outEdges.push({
+      name: edge.name,
+      toId: edge.toId,
+      comment: edge.comment,
+    });
+
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(`Moved '^${edge.name}' to parent ${newParent.id}`);
+    return true;
+  }
+
+  private static async changeParentAndLink(
+    currentParent: SoarIdVertex,
+    edge: OutEdge,
+    targetVertex: DMVertex,
+    projectContext: DatamapProjectContext
+  ): Promise<boolean> {
+    if (targetVertex.type !== 'SOAR_ID') {
+      vscode.window.showErrorMessage('Change Parent + Link is only available for SOAR_ID targets');
+      return false;
+    }
+
+    const newParent = await this.selectNewParent(
+      projectContext,
+      currentParent,
+      edge,
+      targetVertex,
+      'Select the new owner parent (current parent keeps a link)'
+    );
+
+    if (!newParent) {
+      return false;
+    }
+
+    if (!currentParent.outEdges) {
+      vscode.window.showErrorMessage('Current parent has no attributes to move');
+      return false;
+    }
+
+    const edgeIndex = currentParent.outEdges.findIndex(
+      candidate => candidate.name === edge.name && candidate.toId === edge.toId
+    );
+
+    if (edgeIndex === -1) {
+      vscode.window.showErrorMessage('Could not find attribute edge to move');
+      return false;
+    }
+
+    currentParent.outEdges.splice(edgeIndex, 1);
+
+    if (!newParent.outEdges) {
+      newParent.outEdges = [];
+    }
+
+    newParent.outEdges.push({
+      name: edge.name,
+      toId: edge.toId,
+      comment: edge.comment,
+    });
+
+    currentParent.outEdges.push({
+      name: edge.name,
+      toId: edge.toId,
+      comment: edge.comment,
+    });
+
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(
+      `Moved '^${edge.name}' to parent ${newParent.id} and kept link on ${currentParent.id}`
+    );
+    return true;
+  }
+
+  private static async selectNewParent(
+    projectContext: DatamapProjectContext,
+    currentParent: SoarIdVertex,
+    edge: OutEdge,
+    targetVertex: DMVertex,
+    placeHolder: string
+  ): Promise<SoarIdVertex | undefined> {
+    const parentOptions: Array<{ label: string; description: string; vertexId: string }> = [];
+
+    for (const vertex of projectContext.project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID') {
+        continue;
+      }
+
+      const candidateParent = vertex as SoarIdVertex;
+
+      if (candidateParent.id === currentParent.id) {
+        continue;
+      }
+
+      if (candidateParent.outEdges?.some(candidate => candidate.name === edge.name)) {
+        continue;
+      }
+
+      if (
+        targetVertex.type === 'SOAR_ID' &&
+        (candidateParent.id === targetVertex.id ||
+          this.isReachableFrom(targetVertex.id, candidateParent.id, projectContext, new Set()))
+      ) {
+        continue;
+      }
+
+      parentOptions.push({
+        label: this.getParentDisplayName(candidateParent.id, projectContext),
+        description: candidateParent.id,
+        vertexId: candidateParent.id,
+      });
+    }
+
+    if (parentOptions.length === 0) {
+      vscode.window.showWarningMessage('No valid parent candidates available for this move');
+      return undefined;
+    }
+
+    const selectedParent = await vscode.window.showQuickPick(parentOptions, {
+      placeHolder,
+      matchOnDescription: true,
+    });
+
+    if (!selectedParent) {
+      return undefined;
+    }
+
+    const parentVertex = projectContext.datamapIndex.get(selectedParent.vertexId);
+    if (!parentVertex || parentVertex.type !== 'SOAR_ID') {
+      vscode.window.showErrorMessage('Selected parent is not a valid SOAR_ID vertex');
+      return undefined;
+    }
+
+    return parentVertex;
+  }
+
+  private static getParentDisplayName(
+    vertexId: string,
+    projectContext: DatamapProjectContext
+  ): string {
+    if (vertexId === projectContext.project.datamap.rootId) {
+      return `${projectContext.project.layout.name || 'root'} (root)`;
+    }
+
+    const inboundEdges = projectContext.datamapMetadata.getInboundReferences(vertexId);
+    if (inboundEdges.length > 0) {
+      return `${inboundEdges[0].edgeName} (${vertexId})`;
+    }
+
+    return vertexId;
+  }
+
+  private static isReachableFrom(
+    fromVertexId: string,
+    targetVertexId: string,
+    projectContext: DatamapProjectContext,
+    visited: Set<string>
+  ): boolean {
+    if (fromVertexId === targetVertexId) {
+      return true;
+    }
+
+    if (visited.has(fromVertexId)) {
+      return false;
+    }
+    visited.add(fromVertexId);
+
+    const vertex = projectContext.datamapIndex.get(fromVertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+      return false;
+    }
+
+    for (const childEdge of vertex.outEdges) {
+      if (this.isReachableFrom(childEdge.toId, targetVertexId, projectContext, visited)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

@@ -29,6 +29,13 @@
     Information: 2,
     Hint: 3,
   },
+  window: {
+    showQuickPick: async () => undefined,
+    showInputBox: async () => undefined,
+    showInformationMessage: async () => undefined,
+    showWarningMessage: async () => undefined,
+    showErrorMessage: async () => undefined,
+  },
   EventEmitter: class EventEmitter<T> {
     private listeners: Array<(e: T) => any> = [];
 

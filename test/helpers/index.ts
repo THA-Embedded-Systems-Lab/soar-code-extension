@@ -23,6 +23,7 @@ import '../layout/undoManager.test';
 
 // Datamap manipulation tests
 import '../datamap-manipulation/fixtures/sub-operator-generation.test';
+import '../datamap-manipulation/fixtures/parent-reassignment.test';
 
 // Legacy project validation tests
 import '../legacy-agents/helpers/project-validation.test';
