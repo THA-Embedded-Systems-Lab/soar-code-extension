@@ -67,7 +67,7 @@ export const SOAR_MCP_TOOLS = [
   },
   {
     name: SOAR_MCP_TOOL_NAMES.datamapUpdateAttribute,
-    description: 'Update attribute name and/or comment',
+    description: 'Update attribute name/comment, and enumeration values when applicable',
     inputSchema: {
       type: 'object',
       required: ['projectFile', 'parentVertexId', 'attributeName'],
@@ -77,6 +77,7 @@ export const SOAR_MCP_TOOLS = [
         attributeName: { type: 'string' },
         newAttributeName: { type: 'string' },
         comment: { type: ['string', 'null'] },
+        enumChoices: { type: 'array', items: { type: 'string' } },
       },
     },
   },

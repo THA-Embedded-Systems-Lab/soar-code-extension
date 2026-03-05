@@ -43,6 +43,7 @@ export interface UpdateAttributeInput {
   attributeName: string;
   newAttributeName?: string;
   comment?: string | null;
+  enumChoices?: string[];
 }
 
 export interface DeleteAttributeInput {
@@ -249,13 +250,31 @@ export class SoarMcpCore {
         input.comment === null || input.comment.trim().length === 0 ? undefined : input.comment;
     }
 
+    if (input.enumChoices !== undefined) {
+      const targetVertex = context.datamapIndex.get(edge.toId);
+      if (!targetVertex) {
+        throw new Error(`Target vertex '${edge.toId}' was not found for attribute '${edge.name}'`);
+      }
+      if (targetVertex.type !== 'ENUMERATION') {
+        throw new Error(
+          `Attribute '${edge.name}' is type '${targetVertex.type}' and does not support enum choices`
+        );
+      }
+
+      targetVertex.choices = this.normalizeEnumChoices(input.enumChoices);
+    }
+
     await this.saveContext(context);
+
+    const resultVertex = context.datamapIndex.get(edge.toId);
 
     return {
       parentVertexId: parent.id,
       attributeName: edge.name,
       targetVertexId: edge.toId,
       comment: edge.comment ?? null,
+      enumChoices:
+        resultVertex && resultVertex.type === 'ENUMERATION' ? (resultVertex.choices ?? []) : null,
     };
   }
 
@@ -385,7 +404,10 @@ export class SoarMcpCore {
     const requestedAgent = input.agent?.trim();
 
     const reconnectNeeded =
-      !this.debugClient || !this.debugSession || this.debugSession.host !== host || this.debugSession.port !== port;
+      !this.debugClient ||
+      !this.debugSession ||
+      this.debugSession.host !== host ||
+      this.debugSession.port !== port;
 
     if (reconnectNeeded) {
       this.debugClient?.disconnect();
@@ -955,7 +977,10 @@ export class SoarMcpCore {
     return port;
   }
 
-  private normalizePositiveInteger(value: number | undefined, fieldName: string): number | undefined {
+  private normalizePositiveInteger(
+    value: number | undefined,
+    fieldName: string
+  ): number | undefined {
     if (value === undefined) {
       return undefined;
     }

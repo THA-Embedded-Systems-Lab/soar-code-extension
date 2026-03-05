@@ -233,6 +233,7 @@ async function main() {
               attributeName: assertString(args.attributeName, 'attributeName'),
               newAttributeName: asStringOrUndefined(args.newAttributeName),
               comment: asStringOrNull(args.comment),
+              enumChoices: asStringArray(args.enumChoices),
             };
             const result = await core.updateAttribute(input);
             log('info', 'Tool call succeeded', {

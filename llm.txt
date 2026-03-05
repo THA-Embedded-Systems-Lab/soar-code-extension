@@ -45,6 +45,7 @@ Soar language support in VS Code with:
   - datamap tree rendering and root switching
 - `src/datamap/datamapOperations.ts`
   - add/edit/delete attributes
+  - edit flow supports updating enumeration values (e.g., `^impasse` choices)
   - linked attribute operations
   - uses shared `generateVertexId` for new datamap vertices
   - datamap persistence and metadata refresh
@@ -134,6 +135,8 @@ Soar language support in VS Code with:
     concurrent load/modify/save races
 - `src/mcp/soarMcpCore.ts`
   - reusable core operations invoked by MCP tools
+  - `datamap_update_attribute_edge` supports enum value updates via optional
+    `enumChoices` for enumeration targets (including impasse value sets)
   - generates VisualSoar-style hex string IDs for new datamap vertices and
     layout nodes
   - owns persistent SML runtime bridge state for MCP (`agent_runtime_connect` lifecycle,
@@ -207,6 +210,7 @@ Debug contract additions:
 - MCP tests: `test/mcp/helpers/*`
   - includes queue safety coverage in `tool-execution-queue.test.ts`
   - includes ID format regression checks in `id-generation.test.ts`
+  - includes datamap attribute enum update coverage in `update-attribute.test.ts`
 - Datamap validation fixtures: `test/lsp/datamap/*`
 - Layout/undo tests: `test/layout/*`
 - Datamap manipulation scenarios: `test/datamap-manipulation/*`

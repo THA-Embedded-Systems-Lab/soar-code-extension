@@ -303,7 +303,11 @@ export class DatamapOperations {
         { label: 'Rename', description: 'Change attribute name' },
         { label: 'Edit Comment', description: 'Change or add a comment' },
         { label: 'Change Type', description: 'Change the attribute type (careful!)' },
-      ],
+      ].concat(
+        targetVertex.type === 'ENUMERATION'
+          ? [{ label: 'Edit Values', description: 'Update enumeration values' }]
+          : []
+      ),
       {
         placeHolder: 'What would you like to edit?',
       }
@@ -320,6 +324,8 @@ export class DatamapOperations {
         return await this.editAttributeComment(edge, projectContext);
       case 'Change Type':
         return await this.changeAttributeType(targetVertex, edge, projectContext);
+      case 'Edit Values':
+        return await this.editEnumerationValues(targetVertex, edge, projectContext);
     }
 
     return false;
@@ -560,6 +566,54 @@ export class DatamapOperations {
 
     await this.saveProject(projectContext);
     vscode.window.showInformationMessage(`Changed type to ${newType.label}`);
+    return true;
+  }
+
+  /**
+   * Helper: Edit enumeration values
+   */
+  private static async editEnumerationValues(
+    vertex: DMVertex,
+    edge: OutEdge,
+    projectContext: DatamapProjectContext
+  ): Promise<boolean> {
+    if (vertex.type !== 'ENUMERATION') {
+      vscode.window.showErrorMessage(`Attribute '^${edge.name}' is not an enumeration`);
+      return false;
+    }
+
+    const currentChoices = (vertex as EnumerationVertex).choices || [];
+    const choicesInput = await vscode.window.showInputBox({
+      prompt: `Enter values for '^${edge.name}' (comma-separated)`,
+      placeHolder: 'e.g., conflict, constraint-failure, no-change, tie',
+      value: currentChoices.join(', '),
+      validateInput: value => {
+        if (!value || value.trim().length === 0) {
+          return 'Enumeration must have at least one value';
+        }
+        const parsed = value
+          .split(',')
+          .map(choice => choice.trim())
+          .filter(choice => choice.length > 0);
+        if (parsed.length === 0) {
+          return 'Enumeration must have at least one value';
+        }
+        return null;
+      },
+    });
+
+    if (choicesInput === undefined) {
+      return false;
+    }
+
+    const choices = choicesInput
+      .split(',')
+      .map(choice => choice.trim())
+      .filter(choice => choice.length > 0);
+
+    (vertex as EnumerationVertex).choices = choices;
+    await this.saveProject(projectContext);
+    vscode.window.showInformationMessage(`Updated values for '^${edge.name}'`);
     return true;
   }
 
