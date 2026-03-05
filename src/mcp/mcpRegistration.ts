@@ -12,7 +12,7 @@ interface WorkspaceMcpConfig {
 function buildServerCommand(extensionPath: string): { command: string; args: string[] } {
   const serverScript = path.join(extensionPath, 'dist', 'mcpServer.js');
   return {
-    command: process.execPath,
+    command: 'node',
     args: [serverScript],
   };
 }

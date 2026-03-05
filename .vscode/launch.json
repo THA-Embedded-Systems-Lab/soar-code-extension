@@ -2,6 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "soar-sml",
+            "request": "launch",
+            "name": "Soar: Connect SML Socket",
+            "host": "127.0.0.1",
+            "port": 12121,
+            "agent": "soar",
+            "printDepth": 2,
+            "printTree": true,
+            "stopOnEntry": true
+        },
+        {
             "name": "Run Extension",
             "type": "extensionHost",
             "request": "launch",
@@ -25,6 +36,6 @@
                 "${workspaceFolder}/out/test/**/*.js"
             ],
             "preLaunchTask": "${defaultBuildTask}"
-        }
+        },
     ]
 }

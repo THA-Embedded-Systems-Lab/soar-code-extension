@@ -9,6 +9,11 @@ import {
   AddLayoutOperatorInput,
   CreateAttributeInput,
   CreateLinkedAttributeInput,
+  DebugConnectInput,
+  DebugEvalInput,
+  DebugPauseInput,
+  DebugRunInput,
+  DebugStepInput,
   DeleteAttributeInput,
   GetActiveProjectInput,
   GetDatamapInput,
@@ -337,6 +342,111 @@ async function main() {
               toolName,
               durationMs: Date.now() - startedAt,
               nodeId: result.nodeId,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentConnect: {
+            const input: DebugConnectInput = {
+              host: asStringOrUndefined(args.host),
+              port: asIntegerOrUndefined(args.port),
+              agent: asStringOrUndefined(args.agent),
+            };
+            const result = await core.debugConnect(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              host: result.host,
+              port: result.port,
+              currentAgent: result.currentAgent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentDisconnect: {
+            const result = await core.debugDisconnect();
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentGetStatus: {
+            const result = await core.debugGetStatus();
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              connected: result.connected,
+              currentAgent: result.currentAgent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.getAgents: {
+            const result = await core.debugGetAgents();
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agentCount: result.agents.length,
+              currentAgent: result.currentAgent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentRun: {
+            const input: DebugRunInput = {
+              agent: asStringOrUndefined(args.agent),
+              count: asIntegerOrUndefined(args.count),
+            };
+            const result = await core.debugRun(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+              command: result.command,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentStep: {
+            const input: DebugStepInput = {
+              agent: asStringOrUndefined(args.agent),
+              count: asIntegerOrUndefined(args.count),
+            };
+            const result = await core.debugStep(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+              count: result.count,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentPause: {
+            const input: DebugPauseInput = {
+              agent: asStringOrUndefined(args.agent),
+            };
+            const result = await core.debugPause(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.executeCli: {
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: assertString(args.line, 'line'),
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
             });
             return asJsonToolResult({ ok: true, result });
           }

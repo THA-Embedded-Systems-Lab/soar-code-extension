@@ -1,15 +1,23 @@
 export const SOAR_MCP_TOOL_NAMES = {
-  datamapGet: 'datamap_get',
-  datamapCreateAttribute: 'datamap_create_attribute',
-  datamapCreateLinkedAttribute: 'datamap_create_linked_attribute',
-  datamapUpdateAttribute: 'datamap_update_attribute',
-  datamapDeleteAttribute: 'datamap_delete_attribute',
-  projectValidateAgainstDatamap: 'project_validate_against_datamap',
-  projectGetActive: 'project_get_active',
-  layoutAddOperator: 'layout_add_operator',
-  layoutAddImpasseOperator: 'layout_add_impasse_operator',
-  layoutAddFile: 'layout_add_file',
-  layoutAddFolder: 'layout_add_folder',
+  datamapGet: 'datamap_get_tree',
+  datamapCreateAttribute: 'datamap_create_attribute_vertex',
+  datamapCreateLinkedAttribute: 'datamap_create_linked_attribute_edge',
+  datamapUpdateAttribute: 'datamap_update_attribute_edge',
+  datamapDeleteAttribute: 'datamap_delete_attribute_edge',
+  projectValidateAgainstDatamap: 'project_validate_soar_files_against_datamap',
+  projectGetActive: 'project_get_active_soar_project',
+  layoutAddOperator: 'layout_add_operator_node',
+  layoutAddImpasseOperator: 'layout_add_impasse_operator_node',
+  layoutAddFile: 'layout_add_production_file_node',
+  layoutAddFolder: 'layout_add_folder_node',
+  agentConnect: 'agent_runtime_connect',
+  agentDisconnect: 'agent_runtime_disconnect',
+  agentGetStatus: 'agent_runtime_get_status',
+  getAgents: 'agent_runtime_list_agents',
+  agentRun: 'agent_runtime_run_decision_cycles',
+  agentStep: 'agent_runtime_step_decision_cycles',
+  agentPause: 'agent_runtime_pause',
+  executeCli: 'agent_runtime_eval_command',
 } as const;
 
 export const SOAR_MCP_TOOLS = [
@@ -165,6 +173,86 @@ export const SOAR_MCP_TOOLS = [
         projectFile: { type: 'string' },
         parentNodeId: { type: 'string' },
         folderName: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentConnect,
+    description: 'Connect to a running Soar kernel over SML socket for agent runtime control',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: { type: 'string' },
+        port: { type: 'integer', minimum: 1, maximum: 65535 },
+        agent: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentDisconnect,
+    description: 'Disconnect from the Soar SML socket runtime session',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentGetStatus,
+    description: 'Get current agent runtime connection/session state',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.getAgents,
+    description: 'List Soar agents currently available in the connected runtime',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentRun,
+    description: 'Run decision cycles for an agent (or continue running)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'string' },
+        count: { type: 'integer', minimum: 1 },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentStep,
+    description: 'Step an agent by one or more single decision cycles',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'string' },
+        count: { type: 'integer', minimum: 1 },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentPause,
+    description: 'Pause a running Soar agent (issues stop command)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.executeCli,
+    description: 'Evaluate a Soar command line against an agent runtime session',
+    inputSchema: {
+      type: 'object',
+      required: ['line'],
+      properties: {
+        agent: { type: 'string' },
+        line: { type: 'string' },
       },
     },
   },

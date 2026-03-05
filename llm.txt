@@ -136,16 +136,29 @@ Soar language support in VS Code with:
   - reusable core operations invoked by MCP tools
   - generates VisualSoar-style hex string IDs for new datamap vertices and
     layout nodes
+  - owns persistent SML runtime bridge state for MCP (`agent_runtime_connect` lifecycle,
+    current agent tracking, running/paused state)
+  - `agent_runtime_connect` probes kernel `version` and `get_agent_list` immediately
+    after socket connect; initial agent-list probe now depends on connected
+    client state (not pre-existing session state)
+  - executes Soar runtime commands over socket via `SmlSocketClient`
 - `src/mcp/toolExecutionQueue.ts`
   - keyed async execution queue used by MCP server for safe parallelism
 - `src/mcp/mcpRegistration.ts`
   - workspace MCP registration (`.vscode/mcp.json`)
+  - writes MCP server command as `node <extension>/dist/mcpServer.js`
 
 For MCP details (tool names, payloads, logging, and active-project behavior),
 start in these four files.
 
 Current MCP coverage includes datamap CRUD, project-vs-datamap validation,
-active-project lookup, and layout additions (operator/impasse operator/file/folder).
+active-project lookup, layout additions (operator/impasse operator/file/folder),
+and remote runtime control for running kernels via SML socket:
+
+- `agent_runtime_connect` / `agent_runtime_disconnect`
+- `agent_runtime_get_status` / `agent_runtime_list_agents`
+- `agent_runtime_run_decision_cycles` / `agent_runtime_step_decision_cycles` / `agent_runtime_pause`
+- `agent_runtime_eval_command`
 
 ## User commands and settings (key extension contract)
 
