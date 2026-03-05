@@ -168,6 +168,9 @@ and remote runtime control for running kernels via SML socket:
 See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 (runtime command wiring).
 
+- Legacy smoke-test command `soar.helloWorld` has been removed from both
+  `package.json` contributions and `src/extension.ts` registrations.
+
 Debug contract additions:
 
 - `package.json` contributes debugger type `soar-sml` with launch attributes:

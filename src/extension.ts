@@ -70,12 +70,6 @@ export async function activate(context: vscode.ExtensionContext) {
   diagnosticsCollection = vscode.languages.createDiagnosticCollection('soar-datamap');
   context.subscriptions.push(diagnosticsCollection);
 
-  // Register a simple command to verify the extension works
-  const disposable = vscode.commands.registerCommand('soar.helloWorld', () => {
-    vscode.window.showInformationMessage('Hello from Soar Extension!');
-  });
-  context.subscriptions.push(disposable);
-
   const debugConfigurationProvider = new SoarSmlDebugConfigurationProvider();
   const debugAdapterFactory = new SoarSmlDebugAdapterDescriptorFactory();
   context.subscriptions.push(

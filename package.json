@@ -156,11 +156,6 @@
     ],
     "commands": [
       {
-        "command": "soar.helloWorld",
-        "title": "Hello World",
-        "category": "Soar"
-      },
-      {
         "command": "soar.restartLanguageServer",
         "title": "Restart Language Server",
         "category": "Soar"
