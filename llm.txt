@@ -170,6 +170,8 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts`
 
 - Legacy smoke-test command `soar.helloWorld` has been removed from both
   `package.json` contributions and `src/extension.ts` registrations.
+- New command `soar.validateSelectedProjectAgainstLsp` runs LSP-based checks
+  across all existing project `.soar` files (project-wide Problems panel refresh).
 
 Debug contract additions:
 

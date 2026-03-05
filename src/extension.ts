@@ -1092,6 +1092,13 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register validate selected project against LSP command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.validateSelectedProjectAgainstLsp', async () => {
+      await validateSelectedProjectAgainstLsp();
+    })
+  );
+
   // Auto-validate on file save
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async document => {
@@ -1320,6 +1327,102 @@ async function validateSelectedProject(): Promise<void> {
       `Validated ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalErrors} datamap issue(s). Check the Problems panel.`
     );
   }
+}
+
+function getLspDiagnostics(documentUri: vscode.Uri): readonly vscode.Diagnostic[] {
+  const diagnostics = vscode.languages.getDiagnostics(documentUri);
+  return diagnostics.filter(diagnostic => {
+    const source = (diagnostic.source || '').toLowerCase();
+    return source === 'soar-validator' || source === 'soar-project-validator';
+  });
+}
+
+async function waitForDiagnosticsUpdate(documentUri: vscode.Uri, timeoutMs: number): Promise<void> {
+  await new Promise<void>(resolve => {
+    let settled = false;
+
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      changeDisposable.dispose();
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const changeDisposable = vscode.languages.onDidChangeDiagnostics(event => {
+      if (event.uris.some(uri => uri.toString() === documentUri.toString())) {
+        finish();
+      }
+    });
+
+    const timer = setTimeout(() => {
+      finish();
+    }, timeoutMs);
+  });
+}
+
+/**
+ * Check all Soar files in the selected/active project against LSP diagnostics
+ */
+async function validateSelectedProjectAgainstLsp(): Promise<void> {
+  const projectContext = datamapProviderGlobal.getProjectContext();
+  if (!projectContext) {
+    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
+    return;
+  }
+
+  const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
+  const soarFileUris = soarFiles.map(filePath => vscode.Uri.file(filePath));
+
+  if (soarFileUris.length === 0) {
+    vscode.window.showInformationMessage('No Soar files found in project');
+    return;
+  }
+
+  let totalIssues = 0;
+  let filesWithIssues = 0;
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Checking project files against LSP',
+      cancellable: false,
+    },
+    async progress => {
+      for (let i = 0; i < soarFileUris.length; i++) {
+        const fileUri = soarFileUris[i];
+        progress.report({
+          increment: 100 / soarFileUris.length,
+          message: `${i + 1}/${soarFileUris.length}: ${path.basename(fileUri.fsPath)}`,
+        });
+
+        await vscode.workspace.openTextDocument(fileUri);
+        await waitForDiagnosticsUpdate(fileUri, 300);
+
+        const lspDiagnostics = getLspDiagnostics(fileUri);
+        const issueCount = lspDiagnostics.length;
+        totalIssues += issueCount;
+        if (issueCount > 0) {
+          filesWithIssues += 1;
+        }
+      }
+    }
+  );
+
+  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
+
+  if (totalIssues === 0) {
+    vscode.window.showInformationMessage(
+      `✓ LSP checked ${soarFileUris.length} file(s) in project "${projectName}". No issues found.`
+    );
+    return;
+  }
+
+  vscode.window.showWarningMessage(
+    `LSP checked ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalIssues} issue(s) across ${filesWithIssues} file(s). Check the Problems panel.`
+  );
 }
 
 /**

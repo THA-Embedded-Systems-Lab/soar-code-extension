@@ -208,6 +208,12 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "soar.validateSelectedProjectAgainstLsp",
+        "title": "Validate Selected Project Against LSP",
+        "category": "Soar",
+        "icon": "$(search-check)"
+      },
+      {
         "command": "soar.addAttribute",
         "title": "Add Attribute",
         "category": "Soar",
