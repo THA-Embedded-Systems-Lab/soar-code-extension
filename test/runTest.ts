@@ -15,7 +15,10 @@ async function main() {
     const extensionTestsPath = path.resolve(__dirname, './integration/index');
 
     // The path to the test workspace
-    const testWorkspacePath = path.resolve(__dirname, '../test/legacy-agents/BW-Hierarchical');
+    const testWorkspacePath = path.resolve(
+      __dirname,
+      '../test/legacy-agents/fixtures/BW-Hierarchical'
+    );
 
     // Download VS Code, unzip it and run the integration tests
     await runTests({

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * Integration Test Suite
@@ -12,11 +13,27 @@ import * as path from 'path';
 suite('Extension Integration Tests', () => {
   let workspaceUri: vscode.Uri;
   let extension: vscode.Extension<any> | undefined;
+  let workspaceSoarFileUri: vscode.Uri;
+
+  function findTopLevelSoarFile(workspacePath: string): string {
+    const entries = fs.readdirSync(workspacePath, { withFileTypes: true });
+    const soarFile = entries.find(entry => entry.isFile() && entry.name.endsWith('.soar'));
+
+    if (!soarFile) {
+      throw new Error(`No top-level .soar file found in test workspace: ${workspacePath}`);
+    }
+
+    return path.join(workspacePath, soarFile.name);
+  }
 
   suiteSetup(async () => {
     // Get the test workspace folder
-    const testProjectPath = path.resolve(__dirname, '../../../test/legacy-agents/BW-Hierarchical');
+    const testProjectPath = path.resolve(
+      __dirname,
+      '../../../test/legacy-agents/fixtures/BW-Hierarchical'
+    );
     workspaceUri = vscode.Uri.file(testProjectPath);
+    workspaceSoarFileUri = vscode.Uri.file(findTopLevelSoarFile(testProjectPath));
 
     // Ensure extension is activated
     extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar');
@@ -52,23 +69,17 @@ suite('Extension Integration Tests', () => {
   });
 
   test('Should recognize .soar files with correct language ID', async () => {
-    const soarFilePath = path.join(workspaceUri.fsPath, 'BW-Hierarchical.soar');
-    const soarFileUri = vscode.Uri.file(soarFilePath);
-
-    const document = await vscode.workspace.openTextDocument(soarFileUri);
+    const document = await vscode.workspace.openTextDocument(workspaceSoarFileUri);
     assert.strictEqual(document.languageId, 'soar', 'File should be recognized as Soar language');
   });
 
   test('Should provide LSP diagnostics for opened Soar files', async () => {
-    const soarFilePath = path.join(workspaceUri.fsPath, 'BW-Hierarchical.soar');
-    const soarFileUri = vscode.Uri.file(soarFilePath);
-
-    await vscode.workspace.openTextDocument(soarFileUri);
+    await vscode.workspace.openTextDocument(workspaceSoarFileUri);
 
     // Wait for LSP to process the file
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const diagnostics = vscode.languages.getDiagnostics(soarFileUri);
+    const diagnostics = vscode.languages.getDiagnostics(workspaceSoarFileUri);
     assert.ok(Array.isArray(diagnostics), 'Should be able to get diagnostics from LSP');
   });
 
