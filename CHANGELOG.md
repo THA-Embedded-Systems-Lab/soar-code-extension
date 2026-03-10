@@ -1,3 +1,29 @@
+## [0.6.0] - 2026-03-10
+
+### Features
+
+- Initial commit Soar MCP Server
+- _(mcp)_ Add layout management tools
+- Add debug adapter protocol via xml sml interface
+- Add support for setting variable view depth in Soar SML debug session
+
+### Bug Fixes
+
+- High level operator name to state name not valid with datamap
+- Parallel mcp calls lead to duplicate datamap ids.
+- Remove duplicate ID generation for datamap and layout vertices
+- Add default rules for legacy agents.
+- Update dependencies and fix tests
+
+### Documentation
+
+- 0.5.0 changelog
+- Add Agents.ms and llm.md
+
+### Styling
+
+- Fix lint warnings
+
 ## [0.5.0] - 2026-02-16
 
 ### Features
