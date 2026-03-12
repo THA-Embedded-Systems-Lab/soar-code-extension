@@ -94,6 +94,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -110,6 +112,14 @@ jobs:
       - name: Package extension
         run: npx vsce package
 
+      - name: Generate release notes with git-cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest
+        env:
+          OUTPUT: release-notes.md
+
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -118,7 +128,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: "*.vsix"
-          generate_release_notes: true
+          body_path: release-notes.md
           draft: false
           prerelease: false
         env:
