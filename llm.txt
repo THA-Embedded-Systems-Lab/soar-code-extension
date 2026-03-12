@@ -169,8 +169,10 @@ Debug contract additions:
 - Lint: `npm run lint`
 - Unit tests: `npm test`
 - VS Code integration tests: `npm run test:ci`
+- Markdown lint ignores `CHANGELOG.md` via `.markdownlintignore`
 - GitHub tag release workflow (`.github/workflows/ci.yml`, `release` job):
   packages VSIX, generates latest release notes via git-cliff (`cliff.toml`, `--latest`) into `release-notes.md`, and publishes with `softprops/action-gh-release` using `body_path`
+  - changelog entries include a short linked commit SHA to the repository commit URL
 
 ## Test index (where behavior is validated)
 
