@@ -10,7 +10,7 @@ import { ProjectSync } from './layout/projectSync';
 import { SoarParser } from './server/soarParser';
 import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
-import { getUndoManager, resetUndoManager } from './layout/undoManager';
+import { getUndoManager, resetUndoManager, UndoManager } from './layout/undoManager';
 import { ensureWorkspaceMcpRegistration } from './mcp/mcpRegistration';
 import {
   SoarSmlDebugAdapterDescriptorFactory,
@@ -424,9 +424,32 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       if (treeItem.edgeMetadata?.isLink) {
-        vscode.window.showInformationMessage(
-          'Linked attributes are read-only. Use "Reveal Link Owner" or "Remove Linked Attribute" instead.'
+        // Direct linked attribute — redirect the edit to the original (owner) edge.
+        const ownerParentId = treeItem.edgeMetadata.ownerParentId;
+        const targetId = treeItem.edgeMetadata.targetId;
+        if (!ownerParentId) {
+          vscode.window.showWarningMessage('Could not determine owner for this linked attribute.');
+          return;
+        }
+        const ownerVertex = projectContext.datamapIndex.get(ownerParentId);
+        const ownerEdge = (
+          ownerVertex?.type === 'SOAR_ID' ? ownerVertex.outEdges : undefined
+        )?.find(e => e.toId === targetId);
+        if (!ownerEdge) {
+          vscode.window.showWarningMessage(
+            'Could not locate the original attribute on the owner vertex.'
+          );
+          return;
+        }
+        datamapProvider.setDatamapRoot(ownerParentId);
+        const success = await DatamapOperations.editAttribute(
+          projectContext,
+          targetId,
+          ownerEdge.name
         );
+        if (success) {
+          datamapProvider.refresh();
+        }
         return;
       }
 
@@ -536,11 +559,28 @@ export async function activate(context: vscode.ExtensionContext) {
           return;
         }
 
+        const undoManager = getUndoManager();
+        const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
+
         const success = await DatamapOperations.removeLinkedAttribute(
           projectContext,
           treeItem.edgeMetadata
         );
+
         if (success) {
+          const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+          const reloadDatamap = async () => {
+            await datamapProvider.loadProjectFromFile(projectContext.projectFile);
+          };
+          undoManager.pushOperation(
+            UndoManager.createSnapshotOperation(
+              `Remove Linked Attribute '^${treeItem.edgeMetadata.edgeName}'`,
+              projectContext,
+              beforeSnapshot,
+              afterSnapshot,
+              reloadDatamap
+            )
+          );
           datamapProvider.refresh();
         }
       }

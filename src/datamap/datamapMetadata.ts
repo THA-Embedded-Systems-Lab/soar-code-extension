@@ -335,11 +335,11 @@ export class DatamapMetadataCache {
     const rootId = project.datamap.rootId;
     owners.set(rootId, null);
 
-    const stack: string[] = [rootId];
+    const queue: string[] = [rootId];
     const visited = new Set<string>([rootId]);
 
-    while (stack.length > 0) {
-      const currentId = stack.pop()!;
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
       const vertex = datamapIndex.get(currentId);
       if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
         continue;
@@ -350,7 +350,7 @@ export class DatamapMetadataCache {
           owners.set(edge.toId, currentId);
         }
         if (!visited.has(edge.toId)) {
-          stack.push(edge.toId);
+          queue.push(edge.toId);
           visited.add(edge.toId);
         }
       }
