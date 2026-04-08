@@ -92,11 +92,18 @@ export class SoarParser {
     const nameStart = startOffset + typeMatch[0].length + (nameMatch.index || 0);
     const nameEnd = nameStart + nameMatch[0].trimStart().length;
 
-    // Find matching closing brace
+    // Find matching closing brace; tolerate unclosed braces so the production is
+    // still parsed (important for live-editing completion), but record an error.
     const { endOffset, hasError } = this.findMatchingBrace(content, startOffset);
 
     if (hasError) {
-      throw new Error('Unmatched opening brace');
+      const pos = this.offsetToPosition(content, startOffset, lines);
+      document.errors.push({
+        range: { start: pos, end: pos },
+        message: 'Production parse error: Unmatched opening brace',
+        severity: DiagnosticSeverity.error,
+        source: 'soar-parser',
+      });
     }
 
     const production: SoarProduction = {

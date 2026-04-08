@@ -1,0 +1,13 @@
+sp {CompletionTest*propose*alternative-operator
+   (state <s> ^name CompletionTest)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name alternative-operator)
+}
+
+sp {apply*alternative-operator
+   (state <s> ^operator <op>)
+   (<op> ^name alternative-operator)
+-->
+   (<s>)
+}

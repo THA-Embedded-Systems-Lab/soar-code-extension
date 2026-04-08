@@ -1,0 +1,305 @@
+{
+  "version": "6",
+  "datamap": {
+    "rootId": "8ee65ccfc6a39a7462190beee389c49d",
+    "vertices": [
+      {
+        "id": "8ee65ccfc6a39a7462190beee389c49d",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "epmem",
+            "toId": "d1041535b69752a44f240596accdfd26"
+          },
+          {
+            "name": "io",
+            "toId": "35360edaf6e0895f8007150a718aed2f"
+          },
+          {
+            "name": "name",
+            "toId": "d26936c31dd5f80b9d2d57935a778f48"
+          },
+          {
+            "name": "reward-link",
+            "toId": "63297c3b8a9ad756a094e61326ed9ebc"
+          },
+          {
+            "name": "smem",
+            "toId": "6f4e47ea66cb7f44201f22f626887f50"
+          },
+          {
+            "name": "superstate",
+            "toId": "c2ea18a636e42482d7c88e8e4a1bf8e3"
+          },
+          {
+            "name": "top-state",
+            "toId": "8ee65ccfc6a39a7462190beee389c49d"
+          },
+          {
+            "name": "type",
+            "toId": "f07c826ae9b1518b452727c111a718a1"
+          },
+          {
+            "name": "operator",
+            "toId": "0b1241bb958cfc58daa3c5eba10268cf"
+          },
+          {
+            "name": "operator",
+            "toId": "2a6f68730e1bb32ba465d5fdebd7241c"
+          },
+          {
+            "name": "value-completions",
+            "toId": "63302"
+          }
+        ]
+      },
+      {
+        "id": "35360edaf6e0895f8007150a718aed2f",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "input-link",
+            "toId": "7fb106b95f820a93c986fde64b3524aa"
+          },
+          {
+            "name": "output-link",
+            "toId": "e0cbe360192c16a0d4a938155f89d1db"
+          }
+        ]
+      },
+      {
+        "id": "7fb106b95f820a93c986fde64b3524aa",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "message-a",
+            "toId": "63298"
+          },
+          {
+            "name": "message-b",
+            "toId": "63299"
+          }
+        ]
+      },
+      {
+        "id": "e0cbe360192c16a0d4a938155f89d1db",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "d26936c31dd5f80b9d2d57935a778f48",
+        "type": "ENUMERATION",
+        "choices": ["CompletionTest"]
+      },
+      {
+        "id": "f07c826ae9b1518b452727c111a718a1",
+        "type": "ENUMERATION",
+        "choices": ["state"]
+      },
+      {
+        "id": "c2ea18a636e42482d7c88e8e4a1bf8e3",
+        "type": "ENUMERATION",
+        "choices": ["nil"]
+      },
+      {
+        "id": "d1041535b69752a44f240596accdfd26",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "e3aeefa968702f4d4eb9d959ac621092"
+          },
+          {
+            "name": "present-id",
+            "toId": "36d11598101e12e80799161079e7c257"
+          },
+          {
+            "name": "result",
+            "toId": "d7dc101d66a61c47fbc9777e96f08fdd"
+          }
+        ]
+      },
+      {
+        "id": "e3aeefa968702f4d4eb9d959ac621092",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "36d11598101e12e80799161079e7c257",
+        "type": "INTEGER"
+      },
+      {
+        "id": "d7dc101d66a61c47fbc9777e96f08fdd",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "6f4e47ea66cb7f44201f22f626887f50",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "command",
+            "toId": "fb0defbd2bb0b7a492636eb1d61628a4"
+          },
+          {
+            "name": "result",
+            "toId": "20ad0285227518794fc5289352de7ed4"
+          }
+        ]
+      },
+      {
+        "id": "fb0defbd2bb0b7a492636eb1d61628a4",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "20ad0285227518794fc5289352de7ed4",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "63297c3b8a9ad756a094e61326ed9ebc",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "reward",
+            "toId": "54cee90e1c5bf0d52bc51a043583e375"
+          }
+        ]
+      },
+      {
+        "id": "54cee90e1c5bf0d52bc51a043583e375",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "value",
+            "toId": "ca3b24c69ca9524b05b7ea95c587dbe4"
+          }
+        ]
+      },
+      {
+        "id": "ca3b24c69ca9524b05b7ea95c587dbe4",
+        "type": "FLOAT"
+      },
+      {
+        "id": "63298",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "value-a",
+            "toId": "63300"
+          }
+        ]
+      },
+      {
+        "id": "63299",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "value-b",
+            "toId": "63301"
+          }
+        ]
+      },
+      {
+        "id": "63300",
+        "type": "INTEGER"
+      },
+      {
+        "id": "63301",
+        "type": "FLOAT"
+      },
+      {
+        "id": "0b1241bb958cfc58daa3c5eba10268cf",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "cf725760f0f215c49c1b95d2da491cca"
+          }
+        ]
+      },
+      {
+        "id": "cf725760f0f215c49c1b95d2da491cca",
+        "type": "ENUMERATION",
+        "choices": ["init"]
+      },
+      {
+        "id": "2a6f68730e1bb32ba465d5fdebd7241c",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "bf911eb429e9976996a8503d205495b0"
+          }
+        ]
+      },
+      {
+        "id": "bf911eb429e9976996a8503d205495b0",
+        "type": "ENUMERATION",
+        "choices": ["alternative-operator"]
+      },
+      {
+        "id": "63302",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "string",
+            "toId": "63303"
+          },
+          {
+            "name": "float",
+            "toId": "63304"
+          },
+          {
+            "name": "integer",
+            "toId": "63305"
+          },
+          {
+            "name": "enum",
+            "toId": "63306"
+          }
+        ]
+      },
+      {
+        "id": "63303",
+        "type": "STRING"
+      },
+      {
+        "id": "63304",
+        "type": "FLOAT"
+      },
+      {
+        "id": "63305",
+        "type": "INTEGER"
+      },
+      {
+        "id": "63306",
+        "type": "ENUMERATION",
+        "choices": ["a", "b", "c"]
+      }
+    ]
+  },
+  "layout": {
+    "id": "89f870ae8752a10d28847f5b77fa1e58",
+    "name": "CompletionTest",
+    "type": "OPERATOR_ROOT",
+    "folder": "CompletionTest",
+    "children": [
+      {
+        "type": "OPERATOR",
+        "id": "1",
+        "name": "init",
+        "file": "init.soar",
+        "dmId": "0b1241bb958cfc58daa3c5eba10268cf"
+      },
+      {
+        "type": "OPERATOR",
+        "id": "2",
+        "name": "alternative-operator",
+        "file": "alternative-operator.soar",
+        "dmId": "2a6f68730e1bb32ba465d5fdebd7241c"
+      }
+    ]
+  }
+}

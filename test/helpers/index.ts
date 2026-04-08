@@ -13,6 +13,9 @@ import '../lsp/syntax/helpers/lsp.test';
 // Datamap validation tests
 import '../lsp/datamap/helpers/datamap.test';
 
+// LSP completion tests
+import '../lsp/completions/helpers/completion.test';
+
 // Project layout tests
 import '../layout/projectCreator.test';
 import '../layout/layoutOperations.test';

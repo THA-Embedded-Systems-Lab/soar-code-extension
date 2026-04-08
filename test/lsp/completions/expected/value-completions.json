@@ -1,0 +1,18 @@
+[
+  {
+    "label": "enum",
+    "kind": 10
+  },
+  {
+    "label": "float",
+    "kind": 10
+  },
+  {
+    "label": "integer",
+    "kind": 10
+  },
+  {
+    "label": "string",
+    "kind": 10
+  }
+]

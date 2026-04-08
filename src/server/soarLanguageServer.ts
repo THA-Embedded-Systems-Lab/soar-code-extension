@@ -31,6 +31,7 @@ import { SoarParser } from './soarParser';
 import { SoarDocument, SoarProduction } from './soarTypes';
 import { ProjectLoader } from './projectLoader';
 import { ProjectContext } from './visualSoarProject';
+import { buildVariableBindings, findTargetVerticesForPath } from './completionProvider';
 
 // Create a connection for the server
 const connection = createConnection(ProposedFeatures.all);
@@ -388,75 +389,7 @@ connection.onHover((params: HoverParams): Hover | null => {
 });
 
 // Helper function to build variable bindings (shared with validator logic)
-function buildVariableBindings(production: any, projectContext: any): Map<string, Set<string>> {
-  const variableBindings = new Map<string, Set<string>>();
-  const rootId = projectContext.project.datamap.rootId;
-  variableBindings.set('s', new Set([rootId]));
-
-  for (const attr of production.attributes) {
-    if (!attr.parentId || !attr.value || !attr.value.startsWith('<')) {
-      continue;
-    }
-
-    const parentVertices = variableBindings.get(attr.parentId);
-    if (!parentVertices) {
-      continue;
-    }
-
-    const targetVertices = findTargetVerticesForPath(
-      Array.from(parentVertices),
-      attr.name.split('.'),
-      projectContext
-    );
-
-    const varName = attr.value.substring(1, attr.value.length - 1);
-    if (!variableBindings.has(varName)) {
-      variableBindings.set(varName, new Set());
-    }
-    targetVertices.forEach(v => variableBindings.get(varName)!.add(v));
-  }
-
-  return variableBindings;
-}
-
-// Helper function to navigate paths (shared with validator logic)
-function findTargetVerticesForPath(
-  startVertexIds: string[],
-  pathSegments: string[],
-  projectContext: any
-): string[] {
-  if (pathSegments.length === 0) {
-    return startVertexIds;
-  }
-
-  const targetVertices = new Set<string>();
-
-  for (const startVertexId of startVertexIds) {
-    const vertex = projectContext.datamapIndex.get(startVertexId);
-    if (!vertex || vertex.type !== 'SOAR_ID') {
-      continue;
-    }
-
-    const firstSegment = pathSegments[0];
-    const remainingSegments = pathSegments.slice(1);
-
-    const matchingEdges = vertex.outEdges?.filter((e: any) => e.name === firstSegment) || [];
-    for (const matchingEdge of matchingEdges) {
-      if (remainingSegments.length > 0) {
-        const results = findTargetVerticesForPath(
-          [matchingEdge.toId],
-          remainingSegments,
-          projectContext
-        );
-        results.forEach(v => targetVertices.add(v));
-      } else {
-        targetVertices.add(matchingEdge.toId);
-      }
-    }
-  }
-
-  return Array.from(targetVertices);
-}
+// buildVariableBindings and findTargetVerticesForPath are imported from ./completionProvider
 
 // Completion
 connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] => {

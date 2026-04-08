@@ -1,0 +1,3 @@
+sp {all-input-link-messages
+   (state <s> ^operator <o>)
+   (<o> ^name
