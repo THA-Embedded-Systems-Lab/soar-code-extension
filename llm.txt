@@ -20,7 +20,8 @@ Soar language support in VS Code with:
 - Extension entrypoint: `src/extension.ts`
   - command registration
   - tree view wiring (Datamap + Project Structure)
-  - validation triggers
+  - validation triggers (auto-validate on save/open, skip files matched by `.soarignore`)
+  - `.soarignore` cache invalidation via `FileSystemWatcher` + `soarIgnoreCache` module variable
   - MCP auto-registration hook
 - Types and project schema model: `src/server/visualSoarProject.ts`
 - Project load/save + schema validation: `src/server/projectLoader.ts`
@@ -36,6 +37,7 @@ Soar language support in VS Code with:
   - active project selection/restore/clear
   - active-project persistence for MCP: `.vscode/soar-active-project.json`
   - project validation diagnostics (missing/orphaned files)
+  - orphaned-file diagnostics respect `.soarignore` (via `ProjectSync`)
 
 ### Datamap tree + CRUD
 
@@ -67,7 +69,17 @@ Soar language support in VS Code with:
 - `src/layout/projectSync.ts`
   - shared project-file gathering helpers (including existing `.soar`
     collection) reused by project-wide datamap validation flows
+  - `findOrphanedFiles()` loads `.soarignore` via `soarIgnore.ts` and skips
+    matching files before returning
+- `src/layout/soarIgnore.ts`
+  - `loadSoarIgnore(projectRoot)` – reads `.soarignore` (next to `.vsa.json`)
+    using gitignore semantics (`ignore` npm package); returns an `Ignore`
+    instance (empty = nothing ignored if file absent)
+  - `isIgnoredByPatterns(ig, relativePath)` – returns true if the path should
+    be excluded
+  - `DEFAULT_SOARIGNORE_CONTENT` – template written to new projects
 - `src/layout/projectCreator.ts`
+  - creates a default `.soarignore` file in the project root on project creation
 - `src/layout/undoManager.ts`
 
 ### Soar parsing and language server

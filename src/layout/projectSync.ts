@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectContext, LayoutNode, hasChildren } from '../server/visualSoarProject';
+import { loadSoarIgnore, isIgnoredByPatterns } from './soarIgnore';
 
 export interface OrphanedFile {
   absolutePath: string;
@@ -49,10 +50,14 @@ export class ProjectSync {
   }
 
   /**
-   * Find all .soar files that exist in the file system but are not in the project
+   * Find all .soar files that exist in the file system but are not in the project.
+   * Files matching patterns in .soarignore (located next to the .vsa.json) are excluded.
    */
   static async findOrphanedFiles(projectContext: ProjectContext): Promise<OrphanedFile[]> {
     const projectDir = path.dirname(projectContext.projectFile);
+
+    // Load .soarignore patterns from the project root
+    const ig = await loadSoarIgnore(projectDir);
 
     // Get all .soar files in the directory and subdirectories
     const allSoarFiles = await this.scanForSoarFiles(projectDir);
@@ -63,12 +68,18 @@ export class ProjectSync {
     // Convert project files to absolute paths
     const projectFilesAbsolute = new Set(projectFiles.map(f => path.resolve(projectDir, f)));
 
-    // Find orphaned files
+    // Find orphaned files (excluding files matched by .soarignore)
     const orphaned: OrphanedFile[] = [];
 
     for (const soarFile of allSoarFiles) {
+      const relativePath = path.relative(projectDir, soarFile);
+
+      // Skip files matched by .soarignore
+      if (isIgnoredByPatterns(ig, relativePath)) {
+        continue;
+      }
+
       if (!projectFilesAbsolute.has(soarFile)) {
-        const relativePath = path.relative(projectDir, soarFile);
         const fileName = path.basename(soarFile, '.soar');
 
         orphaned.push({

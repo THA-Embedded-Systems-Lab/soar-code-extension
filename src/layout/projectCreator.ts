@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { VisualSoarProject } from '../server/visualSoarProject';
+import { SOAR_IGNORE_FILENAME, DEFAULT_SOARIGNORE_CONTENT } from './soarIgnore';
 
 export interface ProjectCreationOptions {
   directory: string; // Parent directory where project will be created
@@ -58,6 +59,10 @@ export class ProjectCreator {
 
     // Create main load file
     await this.createMainLoadFile(projectPath, agentName);
+
+    // Create default .soarignore
+    const soarIgnorePath = path.join(projectPath, SOAR_IGNORE_FILENAME);
+    await fs.promises.writeFile(soarIgnorePath, DEFAULT_SOARIGNORE_CONTENT, 'utf-8');
 
     return projectFilePath;
   }

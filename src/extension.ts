@@ -7,6 +7,8 @@ import { DatamapOperations } from './datamap/datamapOperations';
 import { LayoutTreeProvider, LayoutTreeItem } from './layout/layoutTreeProvider';
 import { LayoutOperations } from './layout/layoutOperations';
 import { ProjectSync } from './layout/projectSync';
+import { loadSoarIgnore, isIgnoredByPatterns, SOAR_IGNORE_FILENAME } from './layout/soarIgnore';
+import { Ignore } from 'ignore';
 import { SoarParser } from './server/soarParser';
 import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
@@ -30,6 +32,9 @@ let layoutProviderGlobal: LayoutTreeProvider;
 let parser: SoarParser;
 let projectManager: ProjectManager;
 let sourceScriptAnalyzer: SourceScriptAnalyzer;
+
+// Cache for the .soarignore patterns (keyed by project root)
+let soarIgnoreCache: { projectRoot: string; ig: Ignore } | null = null;
 
 /**
  * Get the project manager instance (for testing)
@@ -1096,6 +1101,16 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Watch .soarignore for changes and invalidate the cache
+  const soarIgnoreWatcher = vscode.workspace.createFileSystemWatcher(`**/${SOAR_IGNORE_FILENAME}`);
+  const invalidateSoarIgnoreCache = () => {
+    soarIgnoreCache = null;
+  };
+  soarIgnoreWatcher.onDidChange(invalidateSoarIgnoreCache);
+  soarIgnoreWatcher.onDidCreate(invalidateSoarIgnoreCache);
+  soarIgnoreWatcher.onDidDelete(invalidateSoarIgnoreCache);
+  context.subscriptions.push(soarIgnoreWatcher);
+
   // Auto-validate on file open
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(async document => {
@@ -1154,6 +1169,17 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
   }
 
   try {
+    // Check .soarignore — skip validation for ignored files
+    const projectRoot = path.dirname(projectContext.projectFile);
+    if (soarIgnoreCache?.projectRoot !== projectRoot) {
+      soarIgnoreCache = { projectRoot, ig: await loadSoarIgnore(projectRoot) };
+    }
+    const relativeFilePath = path.relative(projectRoot, document.fileName);
+    if (isIgnoredByPatterns(soarIgnoreCache.ig, relativeFilePath)) {
+      diagnosticsCollection.delete(document.uri);
+      return;
+    }
+
     // Parse the document
     const documentText = document.getText();
 
