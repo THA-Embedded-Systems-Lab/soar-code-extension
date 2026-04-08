@@ -250,12 +250,6 @@
       },
       {
         "type": "FILE",
-        "id": "1",
-        "name": "orphaned-file",
-        "file": "orphaned-file.soar"
-      },
-      {
-        "type": "FILE",
         "id": "2",
         "name": "test_operator",
         "file": "test_operator.soar"

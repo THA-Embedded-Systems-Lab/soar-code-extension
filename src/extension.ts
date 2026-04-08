@@ -1069,7 +1069,13 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       // Add files to project
-      const addedCount = await ProjectSync.addOrphanedFilesToProject(projectContext, selectedFiles);
+      const addedCount = await ProjectSync.addOrphanedFilesToProject(
+        projectContext,
+        selectedFiles,
+        async () => {
+          await layoutProvider.refresh();
+        }
+      );
 
       if (addedCount > 0) {
         layoutProvider.refresh();

@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectContext, LayoutNode, hasChildren } from '../server/visualSoarProject';
 import { loadSoarIgnore, isIgnoredByPatterns } from './soarIgnore';
+import { getUndoManager, UndoManager } from './undoManager';
 
 export interface OrphanedFile {
   absolutePath: string;
@@ -322,11 +323,15 @@ export class ProjectSync {
    */
   static async addOrphanedFilesToProject(
     projectContext: ProjectContext,
-    orphanedFiles: OrphanedFile[]
+    orphanedFiles: OrphanedFile[],
+    reloadCallback?: () => Promise<void>
   ): Promise<number> {
     if (orphanedFiles.length === 0) {
       return 0;
     }
+
+    const undoManager = reloadCallback ? getUndoManager() : null;
+    const beforeSnapshot = undoManager ? await UndoManager.captureSnapshot(projectContext) : null;
 
     const projectDir = path.dirname(projectContext.projectFile);
     let addedCount = 0;
@@ -357,7 +362,7 @@ export class ProjectSync {
           type: 'FILE' as const,
           id: this.generateNodeId(projectContext),
           name: file.fileName,
-          file: file.relativePath,
+          file: path.basename(file.relativePath),
         };
 
         if (!targetNode.children) {
@@ -372,6 +377,20 @@ export class ProjectSync {
 
     // Save the project
     await this.saveProject(projectContext);
+
+    // Record undo operation
+    if (undoManager && beforeSnapshot && reloadCallback) {
+      const afterSnapshot = await UndoManager.captureSnapshot(projectContext);
+      const count = addedCount;
+      const operation = UndoManager.createSnapshotOperation(
+        `Add ${count} orphaned file(s) to project`,
+        projectContext,
+        beforeSnapshot,
+        afterSnapshot,
+        reloadCallback
+      );
+      undoManager.pushOperation(operation);
+    }
 
     return addedCount;
   }
@@ -419,7 +438,7 @@ export class ProjectSync {
           type: 'FOLDER',
           id: this.generateNodeId(projectContext),
           name: part,
-          folder: currentPath,
+          folder: part,
           children: [],
         };
 
