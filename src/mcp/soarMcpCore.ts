@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DatamapMetadataCache, DatamapProjectContext } from '../datamap/datamapMetadata';
+import {
+  DatamapIntegrityIssue,
+  DatamapMetadataCache,
+  DatamapProjectContext,
+} from '../datamap/datamapMetadata';
+import { DatamapOperations } from '../datamap/datamapOperations';
 import { SoarTemplates } from '../layout/soarTemplates';
 import { SourceScriptManager } from '../layout/sourceScriptManager';
 import { DatamapValidator, ValidationError } from '../datamap/datamapValidator';
@@ -60,6 +65,10 @@ export interface GetDatamapInput {
 }
 
 export interface ValidateProjectInput {
+  projectFile: string;
+}
+
+export interface CheckDatamapIntegrityInput {
   projectFile: string;
 }
 
@@ -128,6 +137,7 @@ export interface ValidationSummary {
   filesWithIssues: number;
   totalIssues: number;
   issuesByFile: Record<string, ValidationError[]>;
+  datamapIssues: DatamapIntegrityIssue[];
 }
 
 export class SoarMcpCore {
@@ -280,37 +290,12 @@ export class SoarMcpCore {
 
   async deleteAttribute(input: DeleteAttributeInput): Promise<any> {
     const context = await this.loadDatamapContext(input.projectFile);
-    const parent = this.getSoarIdVertex(context, input.parentVertexId);
-
-    if (!parent.outEdges) {
-      throw new Error(`Parent vertex '${input.parentVertexId}' has no attributes`);
-    }
-
-    const edgeIndex = parent.outEdges.findIndex(edge => edge.name === input.attributeName);
-    if (edgeIndex === -1) {
-      throw new Error(
-        `Attribute '${input.attributeName}' was not found under parent '${input.parentVertexId}'`
-      );
-    }
-
-    const [edge] = parent.outEdges.splice(edgeIndex, 1);
-    const edgeMetadata = context.datamapMetadata.getEdgeMetadata(parent.id, edge.name, edge.toId);
-    const shouldDeleteTarget =
-      !input.removeLinkOnly &&
-      (!edgeMetadata || (!edgeMetadata.isLink && edgeMetadata.inboundCount <= 1));
-
-    if (shouldDeleteTarget) {
-      this.removeVertexRecursive(context, edge.toId);
-    }
-
-    await this.saveContext(context);
-
-    return {
-      parentVertexId: parent.id,
-      attributeName: edge.name,
-      targetVertexId: edge.toId,
-      removedAsLinkOnly: !shouldDeleteTarget,
-    };
+    return DatamapOperations.deleteAttributeCore(
+      context,
+      input.parentVertexId,
+      input.attributeName,
+      input.removeLinkOnly
+    );
   }
 
   async validateProjectAgainstDatamap(input: ValidateProjectInput): Promise<ValidationSummary> {
@@ -341,11 +326,34 @@ export class SoarMcpCore {
       }
     }
 
+    const datamapIssues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+      context.project,
+      context.datamapIndex
+    );
+
     return {
       totalFiles: soarFiles.length,
       filesWithIssues,
       totalIssues,
       issuesByFile,
+      datamapIssues,
+    };
+  }
+
+  async checkDatamapIntegrity(input: CheckDatamapIntegrityInput): Promise<{
+    projectFile: string;
+    issueCount: number;
+    issues: DatamapIntegrityIssue[];
+  }> {
+    const context = await this.loadDatamapContext(input.projectFile);
+    const issues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+      context.project,
+      context.datamapIndex
+    );
+    return {
+      projectFile: context.projectFile,
+      issueCount: issues.length,
+      issues,
     };
   }
 
@@ -859,27 +867,6 @@ export class SoarMcpCore {
       throw new Error('Enumeration attributes require at least one enum choice');
     }
     return normalized;
-  }
-
-  private removeVertexRecursive(context: DatamapProjectContext, vertexId: string): void {
-    const vertex = context.datamapIndex.get(vertexId);
-    if (!vertex) {
-      return;
-    }
-
-    if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
-      for (const edge of vertex.outEdges) {
-        this.removeVertexRecursive(context, edge.toId);
-      }
-    }
-
-    context.datamapIndex.delete(vertexId);
-    const index = context.project.datamap.vertices.findIndex(
-      candidate => candidate.id === vertexId
-    );
-    if (index !== -1) {
-      context.project.datamap.vertices.splice(index, 1);
-    }
   }
 
   private buildDatamapTree(

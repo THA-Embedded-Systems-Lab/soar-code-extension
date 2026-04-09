@@ -4,6 +4,7 @@ export const SOAR_MCP_TOOL_NAMES = {
   datamapCreateLinkedAttribute: 'datamap_create_linked_attribute_edge',
   datamapUpdateAttribute: 'datamap_update_attribute_edge',
   datamapDeleteAttribute: 'datamap_delete_attribute_edge',
+  datamapCheckIntegrity: 'datamap_check_integrity',
   projectValidateAgainstDatamap: 'project_validate_soar_files_against_datamap',
   projectGetActive: 'project_get_active_soar_project',
   layoutAddOperator: 'layout_add_operator_node',
@@ -92,6 +93,18 @@ export const SOAR_MCP_TOOLS = [
         parentVertexId: { type: 'string' },
         attributeName: { type: 'string' },
         removeLinkOnly: { type: 'boolean' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.datamapCheckIntegrity,
+    description:
+      'Check the datamap for structural integrity problems: dangling linked attributes (edge target missing from the datamap) and linked attributes whose target is not reachable from the datamap root',
+    inputSchema: {
+      type: 'object',
+      required: ['projectFile'],
+      properties: {
+        projectFile: { type: 'string' },
       },
     },
   },

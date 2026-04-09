@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
+import { DatamapMetadataCache } from './datamap/datamapMetadata';
 import { DatamapOperations } from './datamap/datamapOperations';
 import { LayoutTreeProvider, LayoutTreeItem } from './layout/layoutTreeProvider';
 import { LayoutOperations } from './layout/layoutOperations';
@@ -1099,6 +1100,13 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register datamap integrity check command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.checkDatamapIntegrity', async () => {
+      await checkDatamapIntegrity();
+    })
+  );
+
   // Auto-validate on file save
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async document => {
@@ -1423,6 +1431,69 @@ async function validateSelectedProjectAgainstLsp(): Promise<void> {
   vscode.window.showWarningMessage(
     `LSP checked ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalIssues} issue(s) across ${filesWithIssues} file(s). Check the Problems panel.`
   );
+}
+
+/**
+ * Check structural integrity of the active project's datamap
+ * (dangling edges and unreachable-root linked attributes).
+ */
+async function checkDatamapIntegrity(): Promise<void> {
+  const projectContext = datamapProviderGlobal.getProjectContext();
+  if (!projectContext) {
+    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
+    return;
+  }
+
+  const issues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+    projectContext.project,
+    projectContext.datamapIndex
+  );
+
+  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
+
+  if (issues.length === 0) {
+    vscode.window.showInformationMessage(
+      `✓ Datamap integrity OK — no issues found in "${projectName}".`
+    );
+    return;
+  }
+
+  // Group issues by kind for a concise summary
+  const dangling = issues.filter(i => i.kind === 'dangling');
+  const unreachable = issues.filter(i => i.kind === 'unreachable-root');
+
+  const parts: string[] = [];
+  if (dangling.length > 0) {
+    parts.push(`${dangling.length} dangling edge(s)`);
+  }
+  if (unreachable.length > 0) {
+    parts.push(`${unreachable.length} unreachable-root linked attribute(s)`);
+  }
+
+  const detail = issues
+    .map(
+      i => `• [${i.kind}] ^${i.attributeName} (parent: ${i.parentVertexId} → ${i.targetVertexId})`
+    )
+    .join('\n');
+
+  const action = await vscode.window.showWarningMessage(
+    `Datamap integrity issues in "${projectName}": ${parts.join(', ')}.`,
+    'Show Details'
+  );
+
+  if (action === 'Show Details') {
+    const doc = await vscode.workspace.openTextDocument({
+      language: 'plaintext',
+      content: [
+        `Datamap integrity report for "${projectName}"`,
+        `${'─'.repeat(60)}`,
+        `Total issues: ${issues.length}  (dangling: ${dangling.length}, unreachable-root: ${unreachable.length})`,
+        '',
+        detail,
+      ].join('\n'),
+    });
+    await vscode.window.showTextDocument(doc);
+  }
 }
 
 /**

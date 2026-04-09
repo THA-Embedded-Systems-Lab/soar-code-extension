@@ -6,6 +6,21 @@ export interface InboundEdgeInfo {
   targetId: string;
 }
 
+export type DatamapIntegrityIssueKind = 'dangling' | 'unreachable-root';
+
+export interface DatamapIntegrityIssue {
+  /** What kind of problem was found. */
+  kind: DatamapIntegrityIssueKind;
+  /** The vertex that owns the problematic edge. */
+  parentVertexId: string;
+  /** The attribute name of the problematic edge. */
+  attributeName: string;
+  /** The target vertex id referenced by the edge. */
+  targetVertexId: string;
+  /** Human-readable explanation. */
+  message: string;
+}
+
 export interface DatamapEdgeMetadata extends InboundEdgeInfo {
   ownerParentId: string | null;
   inboundCount: number;
@@ -395,5 +410,102 @@ export class DatamapMetadataCache {
 
   private static makeEdgeKey(edge: InboundEdgeInfo): string {
     return `${edge.parentId}::${edge.edgeName}::${edge.targetId}`;
+  }
+
+  /**
+   * Check all linked attributes for structural integrity.
+   *
+   * Two classes of issue are reported:
+   *
+   * - **dangling**: An edge's `toId` does not exist in the datamap index at all.
+   *   This can happen when a vertex was deleted without cleaning up inbound links.
+   *
+   * - **unreachable-root**: The target vertex exists but cannot be reached from
+   *   the datamap root via the ownership tree.  Linked attributes are expected to
+   *   point at vertices that are "owned" by some reachable part of the datamap.
+   *   If the target is an isolated island (no path from root), the link is
+   *   effectively dangling from a semantic standpoint.
+   */
+  static checkLinkedAttributeIntegrity(
+    project: VisualSoarProject,
+    datamapIndex: Map<string, DMVertex>
+  ): DatamapIntegrityIssue[] {
+    const issues: DatamapIntegrityIssue[] = [];
+
+    // Build the set of vertex IDs reachable from the root via a DFS traversal.
+    const reachableFromRoot = new Set<string>();
+    const rootId = project.datamap.rootId;
+    const visitStack: string[] = [rootId];
+    while (visitStack.length > 0) {
+      const current = visitStack.pop()!;
+      if (reachableFromRoot.has(current)) {
+        continue;
+      }
+      reachableFromRoot.add(current);
+      const vertex = datamapIndex.get(current);
+      if (vertex && vertex.type === 'SOAR_ID' && vertex.outEdges) {
+        for (const edge of vertex.outEdges) {
+          if (!reachableFromRoot.has(edge.toId)) {
+            visitStack.push(edge.toId);
+          }
+        }
+      }
+    }
+
+    // Build inbound-edge map to determine which edges are links (shared targets).
+    const inboundCount = new Map<string, number>();
+    for (const vertex of project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+      for (const edge of vertex.outEdges) {
+        inboundCount.set(edge.toId, (inboundCount.get(edge.toId) ?? 0) + 1);
+      }
+    }
+
+    // Walk every edge and report problems only for linked edges (inboundCount > 1)
+    // or edges whose target is completely missing or unreachable from root.
+    for (const vertex of project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+      for (const edge of vertex.outEdges) {
+        const targetExists = datamapIndex.has(edge.toId);
+
+        if (!targetExists) {
+          issues.push({
+            kind: 'dangling',
+            parentVertexId: vertex.id,
+            attributeName: edge.name,
+            targetVertexId: edge.toId,
+            message:
+              `Attribute '${edge.name}' on vertex '${vertex.id}' references ` +
+              `target '${edge.toId}' which does not exist in the datamap.`,
+          });
+          continue;
+        }
+
+        // A linked attribute is one where the target has more than one inbound edge.
+        const isLinked = (inboundCount.get(edge.toId) ?? 0) > 1;
+        if (!isLinked) {
+          // Regular (non-linked) edges are owned by their parent; skip them here.
+          continue;
+        }
+
+        if (!reachableFromRoot.has(edge.toId)) {
+          issues.push({
+            kind: 'unreachable-root',
+            parentVertexId: vertex.id,
+            attributeName: edge.name,
+            targetVertexId: edge.toId,
+            message:
+              `Linked attribute '${edge.name}' on vertex '${vertex.id}' points to ` +
+              `target '${edge.toId}' which is not reachable from the datamap root.`,
+          });
+        }
+      }
+    }
+
+    return issues;
   }
 }

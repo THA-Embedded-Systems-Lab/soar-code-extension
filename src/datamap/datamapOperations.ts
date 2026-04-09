@@ -345,7 +345,76 @@ export class DatamapOperations {
   }
 
   /**
-   * Delete an attribute
+   * Core deletion logic (no VS Code UI).
+   *
+   * Looks up the attribute by parentVertexId + attributeName, removes the edge,
+   * and – unless removeLinkOnly is true – deletes the target vertex (and its
+   * whole subtree) when this edge is the ownership edge.
+   *
+   * Returns a result object on success, or throws on invalid input.
+   */
+  static async deleteAttributeCore(
+    projectContext: DatamapProjectContext,
+    parentVertexId: string,
+    attributeName: string,
+    removeLinkOnly?: boolean
+  ): Promise<{
+    parentVertexId: string;
+    attributeName: string;
+    targetVertexId: string;
+    removedAsLinkOnly: boolean;
+  }> {
+    const parentVertex = projectContext.datamapIndex.get(parentVertexId);
+    if (!parentVertex || parentVertex.type !== 'SOAR_ID') {
+      throw new Error(`Parent vertex '${parentVertexId}' not found or is not a SOAR_ID`);
+    }
+
+    const soarParent = parentVertex as SoarIdVertex;
+    if (!soarParent.outEdges) {
+      throw new Error(`Parent vertex '${parentVertexId}' has no attributes`);
+    }
+
+    const edgeIndex = soarParent.outEdges.findIndex((e: OutEdge) => e.name === attributeName);
+    if (edgeIndex === -1) {
+      throw new Error(
+        `Attribute '${attributeName}' was not found under parent '${parentVertexId}'`
+      );
+    }
+
+    const [edge] = soarParent.outEdges.splice(edgeIndex, 1);
+    const edgeMetadata = projectContext.datamapMetadata.getEdgeMetadata(
+      parentVertex.id,
+      edge.name,
+      edge.toId
+    );
+
+    // Delete the target vertex when:
+    //   - removeLinkOnly is not set, AND
+    //   - either this edge is the ownership edge (ownerParentId === parent.id),
+    //     or there are no other inbound edges (inboundCount <= 1).
+    const isOwnerEdge =
+      !edgeMetadata ||
+      edgeMetadata.ownerParentId === parentVertex.id ||
+      edgeMetadata.inboundCount <= 1;
+    const shouldDeleteTarget = !removeLinkOnly && isOwnerEdge;
+
+    if (shouldDeleteTarget) {
+      DatamapOperations.removeVertexRecursive(edge.toId, projectContext);
+    }
+
+    await this.saveProject(projectContext);
+
+    return {
+      parentVertexId: parentVertex.id,
+      attributeName: edge.name,
+      targetVertexId: edge.toId,
+      removedAsLinkOnly: !shouldDeleteTarget,
+    };
+  }
+
+  /**
+   * Delete an attribute (UI path – shows a confirmation dialog first).
+   * Delegates the actual deletion to deleteAttributeCore.
    */
   static async deleteAttribute(
     projectContext: DatamapProjectContext,
@@ -371,12 +440,12 @@ export class DatamapOperations {
       }
     }
 
-    if (!parentVertex || edgeIndex === -1 || !parentVertex.outEdges) {
+    if (!parentVertex || edgeIndex === -1) {
       vscode.window.showErrorMessage('Could not find attribute to delete');
       return false;
     }
 
-    const edge = parentVertex.outEdges[edgeIndex];
+    const edge = parentVertex.outEdges![edgeIndex];
 
     // Confirm deletion
     const confirm = await vscode.window.showWarningMessage(
@@ -389,14 +458,12 @@ export class DatamapOperations {
       return false;
     }
 
-    // Remove edge
-    parentVertex.outEdges!.splice(edgeIndex, 1);
-
-    // Remove vertex and all descendants
-    this.removeVertexRecursive(vertexId, projectContext);
-
-    // Save project
-    await this.saveProject(projectContext);
+    try {
+      await DatamapOperations.deleteAttributeCore(projectContext, parentVertex.id, edge.name);
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to delete attribute: ${err}`);
+      return false;
+    }
 
     vscode.window.showInformationMessage(`Deleted attribute '^${edge.name}'`);
     return true;
@@ -851,32 +918,54 @@ export class DatamapOperations {
   /**
    * Helper: Recursively remove a vertex and all its descendants
    */
-  private static removeVertexRecursive(
+  static removeVertexRecursive(vertexId: string, projectContext: DatamapProjectContext): void {
+    // First pass: collect every vertex ID that will be deleted in this subtree.
+    const toDelete = new Set<string>();
+    DatamapOperations.collectSubtreeIds(vertexId, projectContext, toDelete);
+
+    // Second pass: sweep all SOAR_ID vertices and remove any outgoing edge that
+    // references a vertex scheduled for deletion (covers dangling link edges).
+    for (const vertex of projectContext.project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+      (vertex as SoarIdVertex).outEdges = (vertex as SoarIdVertex).outEdges!.filter(
+        (edge: OutEdge) => !toDelete.has(edge.toId)
+      );
+    }
+
+    // Third pass: remove the vertices themselves.
+    for (const id of toDelete) {
+      projectContext.datamapIndex.delete(id);
+    }
+    projectContext.project.datamap.vertices = projectContext.project.datamap.vertices.filter(
+      v => !toDelete.has(v.id)
+    );
+  }
+
+  /**
+   * Collect the IDs of a vertex and all descendants reachable via outEdges.
+   */
+  static collectSubtreeIds(
     vertexId: string,
-    projectContext: DatamapProjectContext
+    projectContext: DatamapProjectContext,
+    result: Set<string>
   ): void {
+    if (result.has(vertexId)) {
+      return;
+    }
     const vertex = projectContext.datamapIndex.get(vertexId);
     if (!vertex) {
       return;
     }
-
-    // Recursively remove children
+    result.add(vertexId);
     if (vertex.type === 'SOAR_ID') {
       const soarIdVertex = vertex as SoarIdVertex;
       if (soarIdVertex.outEdges) {
         for (const edge of soarIdVertex.outEdges) {
-          this.removeVertexRecursive(edge.toId, projectContext);
+          DatamapOperations.collectSubtreeIds(edge.toId, projectContext, result);
         }
       }
-    }
-
-    // Remove from index
-    projectContext.datamapIndex.delete(vertexId);
-
-    // Remove from vertices array
-    const index = projectContext.project.datamap.vertices.findIndex(v => v.id === vertexId);
-    if (index !== -1) {
-      projectContext.project.datamap.vertices.splice(index, 1);
     }
   }
 

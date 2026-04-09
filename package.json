@@ -2,7 +2,7 @@
   "name": "soar",
   "displayName": "Soar",
   "description": "Soar language support with LSP, datamap tools, and syntax highlighting",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
   "repository": {
@@ -322,6 +322,12 @@
         "icon": "$(home)"
       },
       {
+        "command": "soar.checkDatamapIntegrity",
+        "title": "Check Datamap Integrity",
+        "category": "Soar",
+        "icon": "$(shield)"
+      },
+      {
         "command": "soar.setupMcpServer",
         "title": "Setup MCP Server",
         "category": "Soar",
@@ -400,6 +406,11 @@
           "command": "soar.viewRootDatamap",
           "when": "view == soarDatamap",
           "group": "navigation@2"
+        },
+        {
+          "command": "soar.checkDatamapIntegrity",
+          "when": "view == soarDatamap",
+          "group": "navigation@3"
         },
         {
           "command": "soar.undo",

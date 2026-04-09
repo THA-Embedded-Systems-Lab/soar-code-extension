@@ -7,6 +7,7 @@ import {
   AddLayoutFolderInput,
   AddLayoutImpasseOperatorInput,
   AddLayoutOperatorInput,
+  CheckDatamapIntegrityInput,
   CreateAttributeInput,
   CreateLinkedAttributeInput,
   DebugConnectInput,
@@ -110,6 +111,7 @@ const PROJECT_SCOPED_TOOL_NAMES = new Set<string>([
   SOAR_MCP_TOOL_NAMES.datamapCreateLinkedAttribute,
   SOAR_MCP_TOOL_NAMES.datamapUpdateAttribute,
   SOAR_MCP_TOOL_NAMES.datamapDeleteAttribute,
+  SOAR_MCP_TOOL_NAMES.datamapCheckIntegrity,
   SOAR_MCP_TOOL_NAMES.projectValidateAgainstDatamap,
   SOAR_MCP_TOOL_NAMES.layoutAddOperator,
   SOAR_MCP_TOOL_NAMES.layoutAddImpasseOperator,
@@ -254,6 +256,19 @@ async function main() {
             log('info', 'Tool call succeeded', {
               toolName,
               durationMs: Date.now() - startedAt,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.datamapCheckIntegrity: {
+            const input: CheckDatamapIntegrityInput = {
+              projectFile: assertString(args.projectFile, 'projectFile'),
+            };
+            const result = await core.checkDatamapIntegrity(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              issueCount: result.issueCount,
             });
             return asJsonToolResult({ ok: true, result });
           }

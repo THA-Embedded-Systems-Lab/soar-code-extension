@@ -4,6 +4,7 @@
   "datamap_create_linked_attribute_edge",
   "datamap_update_attribute_edge",
   "datamap_delete_attribute_edge",
+  "datamap_check_integrity",
   "project_validate_soar_files_against_datamap",
   "project_get_active_soar_project",
   "layout_add_operator_node",

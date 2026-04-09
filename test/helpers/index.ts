@@ -36,3 +36,4 @@ import '../lsp/datamap/helpers/linked-attributes.test';
 import '../mcp/helpers/id-generation.test';
 import '../mcp/helpers/update-attribute.test';
 import '../lsp/datamap/helpers/orphaned-files.test';
+import '../lsp/datamap/helpers/datamap-integrity.test';

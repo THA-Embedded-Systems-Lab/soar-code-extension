@@ -65,6 +65,37 @@ Soar language support in VS Code with:
     from layout file location (high-level operator substate ancestry)
   - VS Code diagnostics creation (with non-VSCode-safe fallback used by MCP)
 
+### Datamap structural integrity
+
+- `src/datamap/datamapMetadata.ts`
+  - ownership/link metadata, inbound edge maps, path/attribute helpers
+  - `DatamapMetadataCache.checkLinkedAttributeIntegrity(project, datamapIndex)`
+    — static method; returns `DatamapIntegrityIssue[]` with two kinds:
+    - `dangling`: edge whose `toId` is not present in the datamap index at all
+    - `unreachable-root`: linked attribute (shared-target edge) whose target
+      vertex cannot be reached from the datamap root via the ownership DFS
+  - `DatamapIntegrityIssue` carries `kind`, `parentVertexId`, `attributeName`,
+    `targetVertexId`, and a human-readable `message`
+  - called automatically by `validateProjectAgainstDatamap` (result appears in
+    `ValidationSummary.datamapIssues`) and exposed standalone via the MCP tool
+    `datamap_check_integrity`
+- Deletion clean-up (`src/datamap/datamapOperations.ts`):
+  - `DatamapOperations.removeVertexRecursive` (public static): two-pass
+    strategy — collect full subtree IDs, then sweep every SOAR_ID vertex and
+    strip any outgoing edge pointing into the deleted set, preventing dangling
+    link edges after an owned-vertex deletion
+  - `DatamapOperations.deleteAttributeCore(context, parentVertexId, attributeName, removeLinkOnly?)`
+    (public static): pure deletion logic with no VS Code UI calls. Removes the
+    named edge from the parent, determines ownership via `ownerParentId` from
+    edge metadata, calls `removeVertexRecursive` when appropriate, saves the
+    project, and returns `{ parentVertexId, attributeName, targetVertexId, removedAsLinkOnly }`.
+    Used directly by tests and delegated to by both the UI path and MCP layer.
+  - `DatamapOperations.deleteAttribute` (public static): UI path — shows a
+    confirmation dialog (`showWarningMessage`) then delegates to
+    `deleteAttributeCore`
+  - `SoarMcpCore.deleteAttribute`: thin wrapper — loads context, delegates to
+    `DatamapOperations.deleteAttributeCore`
+
 ### Layout / project structure editing
 
 - `src/layout/layoutTreeProvider.ts`
@@ -157,9 +188,10 @@ Soar language support in VS Code with:
 For MCP details (tool names, payloads, logging, and active-project behavior),
 start in these four files.
 
-Current MCP coverage includes datamap CRUD, project-vs-datamap validation,
-active-project lookup, layout additions (operator/impasse operator/file/folder),
-and remote runtime control for running kernels via SML socket:
+Current MCP coverage includes datamap CRUD, datamap structural integrity checks,
+project-vs-datamap validation, active-project lookup, layout additions
+(operator/impasse operator/file/folder), and remote runtime control for running
+kernels via SML socket:
 
 - `agent_runtime_connect` / `agent_runtime_disconnect`
 - `agent_runtime_get_status` / `agent_runtime_list_agents`
@@ -175,6 +207,10 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts`
   `package.json` contributions and `src/extension.ts` registrations.
 - New command `soar.validateSelectedProjectAgainstLsp` runs LSP-based checks
   across all existing project `.soar` files (project-wide Problems panel refresh).
+- New command `soar.checkDatamapIntegrity` runs `DatamapMetadataCache.checkLinkedAttributeIntegrity`
+  on the active project and shows a summary notification; a "Show Details" action
+  opens a plaintext report listing every issue by kind, attribute name, and vertex IDs.
+  The command is also exposed as an icon button in the Datamap view title bar.
 
 Debug contract additions:
 
@@ -220,6 +256,10 @@ Debug contract additions:
   - includes ID format regression checks in `id-generation.test.ts`
   - includes datamap attribute enum update coverage in `update-attribute.test.ts`
 - Datamap validation fixtures: `test/lsp/datamap/*`
+  - includes structural integrity checks and deletion clean-up tests in
+    `test/lsp/datamap/helpers/datamap-integrity.test.ts`
+    (uses `DatamapMetadataCache`, `DatamapOperations.deleteAttributeCore`,
+    and `ProjectLoader` directly — no MCP dependency)
 - Layout/undo tests: `test/layout/*`
 - Datamap manipulation scenarios: `test/datamap-manipulation/*`
   - includes parent reassignment coverage in
