@@ -4,7 +4,17 @@
  * Handles CRUD operations on the datamap structure
  */
 
-import * as vscode from 'vscode';
+// vscode is only available inside the VS Code extension host – the MCP server
+// runs as a standalone Node process and must never trigger a require('vscode')
+// at module-load time.  Lazy-load it so the require is deferred until an
+// interactive UI method is actually called (which only happens inside the host).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const vscode: typeof import('vscode') = new Proxy({} as typeof import('vscode'), {
+  get(_target, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('vscode') as typeof import('vscode'))[prop as keyof typeof import('vscode')];
+  },
+});
 import * as fs from 'fs';
 import {
   VisualSoarProject,
@@ -920,6 +930,8 @@ export class DatamapOperations {
    */
   static removeVertexRecursive(vertexId: string, projectContext: DatamapProjectContext): void {
     // First pass: collect every vertex ID that will be deleted in this subtree.
+    // Linked targets (owned by a vertex outside this subtree) are skipped –
+    // only their edge is removed, not the vertex they point to.
     const toDelete = new Set<string>();
     DatamapOperations.collectSubtreeIds(vertexId, projectContext, toDelete);
 
@@ -944,9 +956,61 @@ export class DatamapOperations {
   }
 
   /**
-   * Collect the IDs of a vertex and all descendants reachable via outEdges.
+   * Collect the IDs of a vertex and all descendants reachable via outEdges,
+   * skipping children whose designated owner is a vertex outside this subtree
+   * (i.e. linked targets).  A linked target is shared with another part of the
+   * tree; its vertex must survive and only the edge pointing to it will be
+   * pruned by the caller's second pass.
    */
   static collectSubtreeIds(
+    vertexId: string,
+    projectContext: DatamapProjectContext,
+    result: Set<string>
+  ): void {
+    // Phase 1: naively collect all vertices reachable from vertexId.
+    const candidates = new Set<string>();
+    DatamapOperations.collectReachable(vertexId, projectContext, candidates);
+
+    // Phase 2: iteratively remove any candidate vertex that has at least one
+    // inbound OWNERSHIP edge from a vertex OUTSIDE the candidate set.
+    // An ownership edge is one where `isLink` is false in the metadata.
+    // Plain link edges (isLink=true) from outside do NOT prevent deletion –
+    // they will become dangling and are cleaned up by the second pass in the
+    // caller.  Iterate to fixpoint because removing a vertex from candidates
+    // may expose further vertices that are now externally owned.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const v of projectContext.project.datamap.vertices) {
+        // Only inspect external vertices (potential external owners).
+        if (candidates.has(v.id) || v.type !== 'SOAR_ID' || !v.outEdges) {
+          continue;
+        }
+        for (const edge of (v as SoarIdVertex).outEdges!) {
+          if (!candidates.has(edge.toId)) {
+            continue;
+          }
+          // Only ownership edges (isLink === false) preserve the target.
+          const meta = projectContext.datamapMetadata.getEdgeMetadata(v.id, edge.name, edge.toId);
+          const isOwnershipEdge = !meta || !meta.isLink;
+          if (isOwnershipEdge) {
+            candidates.delete(edge.toId);
+            changed = true;
+          }
+        }
+      }
+    }
+
+    for (const id of candidates) {
+      result.add(id);
+    }
+  }
+
+  /**
+   * Naively collect all vertices reachable from vertexId via outEdges
+   * (ignoring link/ownership semantics).
+   */
+  private static collectReachable(
     vertexId: string,
     projectContext: DatamapProjectContext,
     result: Set<string>
@@ -963,7 +1027,7 @@ export class DatamapOperations {
       const soarIdVertex = vertex as SoarIdVertex;
       if (soarIdVertex.outEdges) {
         for (const edge of soarIdVertex.outEdges) {
-          DatamapOperations.collectSubtreeIds(edge.toId, projectContext, result);
+          DatamapOperations.collectReachable(edge.toId, projectContext, result);
         }
       }
     }

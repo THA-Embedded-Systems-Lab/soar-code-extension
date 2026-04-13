@@ -288,11 +288,12 @@ suite('DatamapOperations – deleteAttributeCore cleans up dangling link edges',
    *                    \--[link]----> child (2)   ← second inbound on child
    *
    * Deleting the owned edge (0→1) should:
-   *  - remove vertex 1 and 2 (the owned subtree)
-   *  - remove the link edge on 0 that pointed to 2 (now dangling)
-   * After deletion the datamap should contain only the root vertex.
+   *  - remove vertex 1 (the owned vertex)
+   *  - NOT remove vertex 2 – root still holds a valid quick-ref edge to it,
+   *    so vertex 2 has a surviving external owner and must be preserved.
+   *  - keep root's quick-ref→2 edge intact (it is still valid)
    */
-  test('deleting an owned vertex removes dangling link edges pointing into its subtree', async () => {
+  test('deleting an owned vertex preserves children that have surviving external inbound edges', async () => {
     const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'soar-del-link-'));
     const project = makeProject([
       {
@@ -323,20 +324,33 @@ suite('DatamapOperations – deleteAttributeCore cleans up dangling link edges',
       };
     };
 
-    // Only the root should remain
+    // Vertex 1 should be deleted; vertex 2 survives because root still owns it via quick-ref
     assert.deepStrictEqual(
       saved.datamap.vertices.map(v => v.id).sort(),
-      ['0'],
-      'Vertices 1 and 2 should have been removed'
+      ['0', '2'],
+      'Only vertex 1 should have been removed; vertex 2 has a surviving external inbound edge'
     );
 
-    // Root should have no outEdges at all (the dangling link was cleaned up)
+    // Root should still have the quick-ref edge (it now points to a top-level vertex)
     const root = saved.datamap.vertices.find(v => v.id === '0');
     assert.ok(root, 'Root vertex must still exist');
     const remaining = (root?.outEdges ?? []).map(e => e.name);
     assert.ok(
-      !remaining.includes('quick-ref'),
-      `Dangling link edge 'quick-ref' should have been removed, but found edges: ${remaining.join(', ')}`
+      remaining.includes('quick-ref'),
+      `Root's 'quick-ref' edge should still be present since vertex 2 was preserved`
+    );
+    assert.ok(!remaining.includes('state'), `Root's 'state' edge should have been removed`);
+
+    // No integrity issues should remain
+    const cleanContext = await loadDatamapContext(projectFile);
+    const integrityIssues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+      cleanContext.project,
+      cleanContext.datamapIndex
+    );
+    assert.strictEqual(
+      integrityIssues.length,
+      0,
+      `Expected no integrity issues after deletion, got: ${JSON.stringify(integrityIssues)}`
     );
   });
 
@@ -442,5 +456,86 @@ suite('DatamapOperations – deleteAttributeCore cleans up dangling link edges',
     const edgeNames = (root?.outEdges ?? []).map(e => e.name);
     assert.ok(edgeNames.includes('state'), "'state' edge should still exist");
     assert.ok(!edgeNames.includes('alias'), "'alias' link edge should have been removed");
+  });
+
+  /**
+   * Topology:
+   *   root (0) --[owned]--> A (1) --[link]--> shared (3)
+   *             --[owned]--> B (2) --[owned]--> shared (3)
+   *
+   * Vertex A owns nothing in shared's subtree – it only has a link edge to
+   * shared (3) which is truly owned by B (2).
+   *
+   * Deleting the owned edge 0→A should:
+   *  - remove vertex A (1)
+   *  - NOT remove shared (3) – it still has an inbound edge from B (2)
+   *  - NOT remove B (2) or any of B's descendants
+   */
+  test('deleting a vertex with a linked sub-attribute does not remove the linked target', async () => {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'soar-del-link-of-link-'));
+    const project = makeProject([
+      {
+        id: '0',
+        type: 'SOAR_ID',
+        outEdges: [
+          { name: 'A', toId: '1' },
+          { name: 'B', toId: '2' },
+        ],
+      },
+      {
+        id: '1',
+        type: 'SOAR_ID',
+        outEdges: [{ name: 'shared-ref', toId: '3' }], // link edge – A doesn't own shared
+      },
+      {
+        id: '2',
+        type: 'SOAR_ID',
+        outEdges: [{ name: 'shared', toId: '3' }], // owner edge
+      },
+      { id: '3', type: 'SOAR_ID', outEdges: [] }, // shared vertex
+    ]);
+    const projectFile = await writeProjectFile(dir, project);
+
+    const context = await loadDatamapContext(projectFile);
+    await DatamapOperations.deleteAttributeCore(context, '0', 'A');
+
+    const saved = JSON.parse(await fs.promises.readFile(projectFile, 'utf-8')) as {
+      datamap: { vertices: Array<{ id: string; outEdges?: Array<{ toId: string }> }> };
+    };
+
+    // Vertex A should be gone
+    assert.ok(
+      !saved.datamap.vertices.some(v => v.id === '1'),
+      'Vertex A (id=1) should have been deleted'
+    );
+
+    // Shared vertex and B must still be present
+    assert.ok(
+      saved.datamap.vertices.some(v => v.id === '2'),
+      'Vertex B (id=2) should still exist'
+    );
+    assert.ok(
+      saved.datamap.vertices.some(v => v.id === '3'),
+      'Shared vertex (id=3) should NOT have been deleted – it is still owned by B'
+    );
+
+    // B's edge to shared must be intact
+    const vertexB = saved.datamap.vertices.find(v => v.id === '2');
+    assert.ok(
+      (vertexB?.outEdges ?? []).some(e => e.toId === '3'),
+      "Vertex B's edge to shared (id=3) must still be present"
+    );
+
+    // No integrity issues should remain
+    const cleanContext = await loadDatamapContext(projectFile);
+    const integrityIssues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+      cleanContext.project,
+      cleanContext.datamapIndex
+    );
+    assert.strictEqual(
+      integrityIssues.length,
+      0,
+      `Expected no integrity issues after deletion, got: ${JSON.stringify(integrityIssues)}`
+    );
   });
 });
