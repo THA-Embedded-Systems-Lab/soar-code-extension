@@ -18,7 +18,12 @@ export const SOAR_MCP_TOOL_NAMES = {
   agentRun: 'agent_runtime_run_decision_cycles',
   agentStep: 'agent_runtime_step_decision_cycles',
   agentPause: 'agent_runtime_pause',
-  executeCli: 'agent_runtime_eval_command',
+  executeCli: 'agent_runtime_exec_cli',
+  // Individual Soar CLI command tools (for smaller/local LLMs)
+  cliProduction: 'agent_runtime_cli_production',
+  cliPrint: 'agent_runtime_cli_print',
+  cliPreferences: 'agent_runtime_cli_preferences',
+  cliEpmem: 'agent_runtime_cli_epmem',
 } as const;
 
 export const SOAR_MCP_TOOLS = [
@@ -196,9 +201,9 @@ export const SOAR_MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        host: { type: 'string' },
-        port: { type: 'integer', minimum: 1, maximum: 65535 },
-        agent: { type: 'string' },
+        host: { type: 'string', default: '127.0.0.1' },
+        port: { type: 'integer', minimum: 1, maximum: 65535, default: 12121 },
+        agent: { type: 'string', default: '' },
       },
     },
   },
@@ -267,6 +272,95 @@ export const SOAR_MCP_TOOLS = [
       properties: {
         agent: { type: 'string' },
         line: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliProduction,
+    description:
+      'Run a Soar production command. Sub-commands: break [--clear|--print|--set <prod>], excise [<prod>|--all|--chunks|--default|--never-fired|--rl|--task|--templates|--user], find [--lhs|--rhs] <pattern> [--show-bindings] [--chunks|--nochunks], firing-counts [--all|--chunks|--default|--rl|--task|--templates|--user|--fired] [n|<prod>], matches [--names|--count] <prod> [--timetags|--wmes], memory-usage [<prod>], optimize-attribute [symbol [n]], watch [--disable|--enable] <prod>.',
+    inputSchema: {
+      type: 'object',
+      required: ['subcommand'],
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        subcommand: {
+          type: 'string',
+          description:
+            'The production sub-command and its arguments, e.g. "firing-counts --all" or "excise my*production"',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliPrint,
+    description:
+      'Print items from production memory or working memory. Options: --all/-a, --chunks/-c, --defaults/-D, --justifications/-j, --rl/-r, --template/-T, --user/-u, --full/-f, --filename/-F, --internal/-i, --name/-n, --depth/-d <n>, --exact/-e, --tree/-t, --varprint/-v, --stack/-s, --operators/-o, --states/-S, --gds. Accepts a production name, identifier, timetag, or WME pattern.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        target: {
+          type: 'string',
+          description:
+            'What to print: a production name, identifier (e.g. "S1"), timetag, WME pattern (e.g. "(s1 ^* v2)"), or omit for current state/operator',
+        },
+        options: {
+          type: 'string',
+          description:
+            'Additional flags and options, e.g. "--depth 2 --tree" or "--internal" or "--stack"',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliPreferences,
+    description:
+      'Examine preferences supporting an identifier and attribute. Options: --none/-0/-n (preferences only), --names/-1/-N (+ production names), --timetags/-2/-t (+ timetags), --wmes/-3/-w (+ full WMEs), --object/-o (all WMEs for the identifier). Defaults to current state ^operator when no args given.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        identifier: {
+          type: 'string',
+          description: 'Soar identifier, e.g. "S1" or "O3". Omit to use current state.',
+        },
+        attribute: {
+          type: 'string',
+          description: 'Attribute to examine, e.g. "operator" or "jug". Omit to use ^operator.',
+        },
+        options: {
+          type: 'string',
+          description: 'Detail flags: --none, --names, --timetags, --wmes, --object',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliEpmem,
+    description:
+      'Control or query episodic memory. Sub-commands: enable/disable/init/close, get <param>, set <param> <value>, stats [<stat>], timers [<timer>], viz <episode-id>, print <episode-id>, backup <file>. Key params: learning (on/off), database (file/memory), path, trigger (dc/output/none), balance [0-1], graph-match (on/off).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        subcommand: {
+          type: 'string',
+          description:
+            'The epmem sub-command and arguments, e.g. "--enable", "--get learning", "--set learning on", "--stats", "--print 5"',
+        },
       },
     },
   },

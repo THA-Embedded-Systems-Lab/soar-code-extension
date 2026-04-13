@@ -393,7 +393,7 @@ async function main() {
             log('info', 'Tool call succeeded', {
               toolName,
               durationMs: Date.now() - startedAt,
-              connected: result.connected,
+              running: result.running,
               currentAgent: result.currentAgent,
             });
             return asJsonToolResult({ ok: true, result });
@@ -457,6 +457,87 @@ async function main() {
             const input: DebugEvalInput = {
               agent: asStringOrUndefined(args.agent),
               line: assertString(args.line, 'line'),
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliProduction: {
+            const subcommand = assertString(args.subcommand, 'subcommand');
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: `production ${subcommand}`,
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliPrint: {
+            const parts: string[] = ['print'];
+            const target = asStringOrUndefined(args.target);
+            const options = asStringOrUndefined(args.options);
+            if (options) {
+              parts.push(options);
+            }
+            if (target) {
+              parts.push(target);
+            }
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: parts.join(' '),
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliPreferences: {
+            const parts: string[] = ['preferences'];
+            const options = asStringOrUndefined(args.options);
+            const identifier = asStringOrUndefined(args.identifier);
+            const attribute = asStringOrUndefined(args.attribute);
+            if (options) {
+              parts.push(options);
+            }
+            if (identifier) {
+              parts.push(identifier);
+            }
+            if (attribute) {
+              parts.push(attribute);
+            }
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: parts.join(' '),
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliEpmem: {
+            const subcommand = asStringOrUndefined(args.subcommand);
+            const line = subcommand ? `epmem ${subcommand}` : 'epmem';
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line,
             };
             const result = await core.debugEval(input);
             log('info', 'Tool call succeeded', {

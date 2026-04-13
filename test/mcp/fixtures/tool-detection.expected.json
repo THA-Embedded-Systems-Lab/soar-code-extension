@@ -18,5 +18,9 @@
   "agent_runtime_run_decision_cycles",
   "agent_runtime_step_decision_cycles",
   "agent_runtime_pause",
-  "agent_runtime_eval_command"
+  "agent_runtime_exec_cli",
+  "agent_runtime_cli_production",
+  "agent_runtime_cli_print",
+  "agent_runtime_cli_preferences",
+  "agent_runtime_cli_epmem"
 ]

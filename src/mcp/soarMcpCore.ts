@@ -129,7 +129,7 @@ interface DebugSessionState {
   host: string;
   port: number;
   currentAgent: string;
-  isRunning: boolean;
+  soarCycleExecuting: boolean;
 }
 
 export interface ValidationSummary {
@@ -440,7 +440,7 @@ export class SoarMcpCore {
       host,
       port,
       currentAgent,
-      isRunning: false,
+      soarCycleExecuting: false,
     };
 
     return {
@@ -461,28 +461,28 @@ export class SoarMcpCore {
   }
 
   async debugGetStatus(): Promise<{
-    connected: boolean;
+    running: boolean;
     host: string | null;
     port: number | null;
     currentAgent: string | null;
-    isRunning: boolean;
+    soarCycleExecuting: boolean;
   }> {
     if (!this.debugClient || !this.debugSession) {
       return {
-        connected: false,
+        running: false,
         host: null,
         port: null,
         currentAgent: null,
-        isRunning: false,
+        soarCycleExecuting: false,
       };
     }
 
     return {
-      connected: true,
+      running: true,
       host: this.debugSession.host,
       port: this.debugSession.port,
       currentAgent: this.debugSession.currentAgent,
-      isRunning: this.debugSession.isRunning,
+      soarCycleExecuting: this.debugSession.soarCycleExecuting,
     };
   }
 
@@ -501,20 +501,20 @@ export class SoarMcpCore {
     agent: string;
     command: string;
     output: string;
-    isRunning: boolean;
+    soarCycleExecuting: boolean;
   }> {
     await this.ensureDebugSession();
     const agent = await this.resolveDebugAgent(input.agent);
     const count = this.normalizePositiveInteger(input.count, 'count');
     const command = count ? `run ${count}` : 'run';
     const output = await this.runSmlCmdline(command, agent);
-    this.debugSession!.isRunning = true;
+    this.debugSession!.soarCycleExecuting = true;
 
     return {
       agent,
       command,
       output,
-      isRunning: true,
+      soarCycleExecuting: true,
     };
   }
 
@@ -522,7 +522,7 @@ export class SoarMcpCore {
     agent: string;
     count: number;
     output: string[];
-    isRunning: boolean;
+    soarCycleExecuting: boolean;
   }> {
     await this.ensureDebugSession();
     const agent = await this.resolveDebugAgent(input.agent);
@@ -533,30 +533,30 @@ export class SoarMcpCore {
       output.push(await this.runSmlCmdline('step', agent));
     }
 
-    this.debugSession!.isRunning = false;
+    this.debugSession!.soarCycleExecuting = false;
 
     return {
       agent,
       count,
       output,
-      isRunning: false,
+      soarCycleExecuting: false,
     };
   }
 
   async debugPause(input: DebugPauseInput): Promise<{
     agent: string;
     output: string;
-    isRunning: boolean;
+    soarCycleExecuting: boolean;
   }> {
     await this.ensureDebugSession();
     const agent = await this.resolveDebugAgent(input.agent);
     const output = await this.runSmlCmdline('stop', agent);
-    this.debugSession!.isRunning = false;
+    this.debugSession!.soarCycleExecuting = false;
 
     return {
       agent,
       output,
-      isRunning: false,
+      soarCycleExecuting: false,
     };
   }
 
@@ -954,104 +954,6 @@ export class SoarMcpCore {
     return this.loader.loadProject(projectFile);
   }
 
-  private normalizePort(port?: number): number {
-    if (port === undefined) {
-      return 12121;
-    }
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error("'port' must be an integer between 1 and 65535");
-    }
-    return port;
-  }
-
-  private normalizePositiveInteger(
-    value: number | undefined,
-    fieldName: string
-  ): number | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-    if (!Number.isInteger(value) || value < 1) {
-      throw new Error(`'${fieldName}' must be a positive integer`);
-    }
-    return value;
-  }
-
-  private async ensureDebugSession(): Promise<void> {
-    if (!this.debugClient || !this.debugSession) {
-      throw new Error('Runtime session is not connected. Call agent_runtime_connect first.');
-    }
-  }
-
-  private async ensureDebugClient(): Promise<void> {
-    if (!this.debugClient) {
-      throw new Error('Runtime client is not connected. Call agent_runtime_connect first.');
-    }
-  }
-
-  private pickDebugAgent(requestedAgent: string | undefined, agents: readonly string[]): string {
-    if (requestedAgent) {
-      if (agents.length > 0 && !agents.includes(requestedAgent)) {
-        throw new Error(`Agent '${requestedAgent}' was not found in kernel agent list`);
-      }
-      return requestedAgent;
-    }
-
-    if (agents.length > 0) {
-      return agents[0];
-    }
-
-    return 'soar';
-  }
-
-  private async resolveDebugAgent(agentOverride?: string): Promise<string> {
-    await this.ensureDebugSession();
-    const trimmed = agentOverride?.trim();
-    if (trimmed) {
-      this.debugSession!.currentAgent = trimmed;
-      return trimmed;
-    }
-    return this.debugSession!.currentAgent;
-  }
-
-  private async runSmlCmdline(line: string, agent: string): Promise<string> {
-    await this.ensureDebugSession();
-    const args: SmlArgument[] = [
-      { param: 'agent', value: agent },
-      { param: 'line', value: line },
-    ];
-
-    const response = await this.debugClient!.call('cmdline', args, { output: 'raw' });
-    if (response.errorText) {
-      throw new Error(response.errorText);
-    }
-
-    return response.result?.text ?? '';
-  }
-
-  private async getAgentListFromKernel(): Promise<string[]> {
-    await this.ensureDebugClient();
-    const response = await this.debugClient!.call('get_agent_list', [], { output: 'structured' });
-    if (response.errorText) {
-      throw new Error(response.errorText);
-    }
-
-    const names = response.result?.names ?? [];
-    if (names.length > 0) {
-      return [...names];
-    }
-
-    const text = response.result?.text ?? '';
-    if (!text.trim()) {
-      return [];
-    }
-
-    return text
-      .split(/[\r\n\s,]+/)
-      .map(value => value.trim())
-      .filter(value => value.length > 0);
-  }
-
   private findParentStateContext(
     projectContext: ProjectContext,
     nodeId: string
@@ -1251,5 +1153,97 @@ export class SoarMcpCore {
     }
 
     return operatorVertexId;
+  }
+
+  private normalizePort(value: number | undefined): number {
+    if (value !== undefined && Number.isFinite(value) && value > 0 && value <= 65535) {
+      return Math.floor(value);
+    }
+    return 12121;
+  }
+
+  private normalizePositiveInteger(
+    value: number | undefined,
+    fieldName: string
+  ): number | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    const n = Math.floor(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error(`'${fieldName}' must be a positive integer`);
+    }
+    return n;
+  }
+
+  private async ensureDebugClient(): Promise<void> {
+    if (!this.debugClient) {
+      throw new Error('Not connected to a Soar kernel. Call agent_runtime_connect first.');
+    }
+  }
+
+  private async ensureDebugSession(): Promise<void> {
+    await this.ensureDebugClient();
+    if (!this.debugSession) {
+      throw new Error('No active debug session. Call agent_runtime_connect first.');
+    }
+  }
+
+  private async resolveDebugAgent(agentOverride?: string): Promise<string> {
+    await this.ensureDebugSession();
+    const trimmed = agentOverride?.trim();
+    if (trimmed) {
+      this.debugSession!.currentAgent = trimmed;
+      return trimmed;
+    }
+    return this.debugSession!.currentAgent;
+  }
+
+  private async runSmlCmdline(line: string, agent: string): Promise<string> {
+    await this.ensureDebugSession();
+    const args: SmlArgument[] = [
+      { param: 'agent', value: agent },
+      { param: 'line', value: line },
+    ];
+
+    const response = await this.debugClient!.call('cmdline', args, { output: 'raw' });
+    if (response.errorText) {
+      throw new Error(response.errorText);
+    }
+
+    return response.result?.text ?? '';
+  }
+
+  private async getAgentListFromKernel(): Promise<string[]> {
+    await this.ensureDebugClient();
+    const response = await this.debugClient!.call('get_agent_list', [], { output: 'structured' });
+    if (response.errorText) {
+      throw new Error(response.errorText);
+    }
+
+    const names = response.result?.names ?? [];
+    if (names.length > 0) {
+      return [...names];
+    }
+
+    const text = response.result?.text ?? '';
+    if (!text.trim()) {
+      return [];
+    }
+
+    return text
+      .split(/[\r\n\s,]+/)
+      .map(value => value.trim())
+      .filter(value => value.length > 0);
+  }
+
+  private pickDebugAgent(requested: string | undefined, agents: string[]): string {
+    if (requested && agents.includes(requested)) {
+      return requested;
+    }
+    if (agents.length > 0) {
+      return agents[0];
+    }
+    return 'soar';
   }
 }

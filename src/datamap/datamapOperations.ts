@@ -972,12 +972,15 @@ export class DatamapOperations {
     DatamapOperations.collectReachable(vertexId, projectContext, candidates);
 
     // Phase 2: iteratively remove any candidate vertex that has at least one
-    // inbound OWNERSHIP edge from a vertex OUTSIDE the candidate set.
-    // An ownership edge is one where `isLink` is false in the metadata.
-    // Plain link edges (isLink=true) from outside do NOT prevent deletion –
-    // they will become dangling and are cleaned up by the second pass in the
-    // caller.  Iterate to fixpoint because removing a vertex from candidates
-    // may expose further vertices that are now externally owned.
+    // inbound edge from a vertex OUTSIDE the candidate set that would keep it
+    // alive.  Two rules apply:
+    //   (a) An external OWNERSHIP edge always preserves the target.
+    //   (b) If the designated owner of a candidate vertex is itself inside the
+    //       candidate set (i.e. being deleted), then ANY external inbound edge
+    //       preserves the target – because once the original owner is removed
+    //       that edge becomes the new effective owner.
+    // Iterate to fixpoint because removing a vertex from candidates may expose
+    // further vertices that should also be preserved.
     let changed = true;
     while (changed) {
       changed = false;
@@ -990,10 +993,17 @@ export class DatamapOperations {
           if (!candidates.has(edge.toId)) {
             continue;
           }
-          // Only ownership edges (isLink === false) preserve the target.
           const meta = projectContext.datamapMetadata.getEdgeMetadata(v.id, edge.name, edge.toId);
           const isOwnershipEdge = !meta || !meta.isLink;
-          if (isOwnershipEdge) {
+
+          // Rule (b): if the designated owner of the candidate is inside the
+          // subtree being deleted, promote any external reference to ownership.
+          const ownerBeingDeleted =
+            meta?.ownerParentId !== undefined &&
+            meta.ownerParentId !== null &&
+            candidates.has(meta.ownerParentId);
+
+          if (isOwnershipEdge || ownerBeingDeleted) {
             candidates.delete(edge.toId);
             changed = true;
           }

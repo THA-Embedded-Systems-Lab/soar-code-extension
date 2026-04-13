@@ -174,7 +174,7 @@ Soar language support in VS Code with:
   - generates VisualSoar-style hex string IDs for new datamap vertices and
     layout nodes
   - owns persistent SML runtime bridge state for MCP (`agent_runtime_connect` lifecycle,
-    current agent tracking, running/paused state)
+    current agent tracking, `soarCycleExecuting`/paused state)
   - `agent_runtime_connect` probes kernel `version` and `get_agent_list` immediately
     after socket connect; initial agent-list probe now depends on connected
     client state (not pre-existing session state)
@@ -194,9 +194,17 @@ project-vs-datamap validation, active-project lookup, layout additions
 kernels via SML socket:
 
 - `agent_runtime_connect` / `agent_runtime_disconnect`
-- `agent_runtime_get_status` / `agent_runtime_list_agents`
+- `agent_runtime_get_status` — returns `{ running: bool, soarCycleExecuting: bool, host, port, currentAgent }`;
+  `running` is true when the connection is alive; `soarCycleExecuting` is true only while decision cycles are executing
+- `agent_runtime_list_agents`
 - `agent_runtime_run_decision_cycles` / `agent_runtime_step_decision_cycles` / `agent_runtime_pause`
-- `agent_runtime_eval_command`
+  — these return `soarCycleExecuting` (not `isRunning`) in their result
+- `agent_runtime_exec_cli` — generic CLI escape hatch for advanced/large-context LLMs
+- Individual Soar CLI command tools (for smaller/local LLMs that need explicit schemas):
+  - `agent_runtime_cli_production` — `production <subcommand>` (break/excise/find/firing-counts/matches/memory-usage/optimize-attribute/watch)
+  - `agent_runtime_cli_print` — `print [options] [target]` (working memory, production memory, stack, GDS)
+  - `agent_runtime_cli_preferences` — `preferences [options] [identifier [attribute]]`
+  - `agent_runtime_cli_epmem` — `epmem [subcommand]` (enable/disable/get/set/stats/timers/viz/print/backup)
 
 ## User commands and settings (key extension contract)
 
