@@ -564,6 +564,20 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
     return match[1]?.trim();
   }
 
+  private async resolveIoIdentifier(agentName: string, stateId: string): Promise<string> {
+    const stateText = await this.runCmdline(
+      this.applyPrintOptionsToCommand(`print ${stateId} -d 1`),
+      agentName
+    );
+    const ioId = this.extractAttributeIdentifier(stateText, 'io');
+    if (ioId) {
+      return ioId;
+    }
+
+    // Fall back to the well-known first-agent identifier
+    return 'I1';
+  }
+
   private async evaluateWatchExpression(
     expression: string,
     context: EvaluateContext
@@ -720,7 +734,10 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
     }
 
     if (context.kind === 'scope-io') {
-      return await this.listVariablesForTarget(context.agentName, 'I1', variablesDepth);
+      const ioId = context.stateId
+        ? await this.resolveIoIdentifier(context.agentName, context.stateId)
+        : 'I1';
+      return await this.listVariablesForTarget(context.agentName, ioId, variablesDepth);
     }
 
     return await this.listVariablesForTarget(context.agentName, context.identifier, 1);
@@ -782,7 +799,7 @@ export class SoarSmlDebugAdapter implements vscode.DebugAdapter {
     const chain: string[] = [];
     const visited = new Set<string>();
     let nextState: string | undefined = currentState;
-    while (nextState && !visited.has(nextState)) {
+    while (nextState && this.looksLikeIdentifier(nextState) && !visited.has(nextState)) {
       visited.add(nextState);
       chain.push(nextState);
       const snapshot = await this.getStateSnapshot(agentName, nextState);

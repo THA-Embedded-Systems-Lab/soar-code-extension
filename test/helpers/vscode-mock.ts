@@ -54,6 +54,21 @@
       this.listeners = [];
     }
   },
+  window: {
+    createOutputChannel: (_name: string) => ({
+      appendLine: (_line: string) => {},
+      append: (_value: string) => {},
+      clear: () => {},
+      show: () => {},
+      hide: () => {},
+      dispose: () => {},
+    }),
+    showQuickPick: async () => undefined,
+    showInputBox: async () => undefined,
+    showInformationMessage: async () => undefined,
+    showWarningMessage: async () => undefined,
+    showErrorMessage: async () => undefined,
+  },
 };
 
 // Register the mock with require cache

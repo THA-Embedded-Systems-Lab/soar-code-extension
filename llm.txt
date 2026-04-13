@@ -191,6 +191,13 @@ Debug contract additions:
 - Test bootstrap: `test/helpers/index.ts`
 - Manual debug launch setups: `test/.vscode/launch.json`
   - includes Extension Host launch and `soar-sml` socket debug configuration for local end-to-end adapter checks
+- Debugger tests: `test/debugger/multi-agent.test.ts`
+  - spins up an in-process mock SML TCP server with two agents (`alpha`/`beta`)
+  - asserts distinct DAP thread IDs per agent
+  - asserts per-agent stack-frame state IDs (S1 vs S3)
+  - asserts per-agent Working Memory variables are agent-specific
+  - asserts IO Link scope resolves the correct per-agent IO identifier (not hard-coded `I1`)
+    — covers the multi-agent `scope-io` fix in `SoarSmlDebugAdapter.resolveIoIdentifier`
 - MCP tests: `test/mcp/helpers/*`
   - includes queue safety coverage in `tool-execution-queue.test.ts`
   - includes ID format regression checks in `id-generation.test.ts`
