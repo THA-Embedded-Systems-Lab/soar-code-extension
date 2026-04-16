@@ -471,7 +471,6 @@ test/
 ├── fixtures/              # Test data
 │   ├── example.soar      # Basic Soar file
 │   ├── test-validation.soar  # Validation test cases
-│   └── test-project.vsa.json  # Sample project
 ├── BW-Hierarchical/      # Complex hierarchical project
 └── suite/
     └── extension.test.ts  # Extension tests

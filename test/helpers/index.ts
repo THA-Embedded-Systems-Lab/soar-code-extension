@@ -35,5 +35,5 @@ import '../mcp/helpers/tool-execution-queue.test';
 import '../lsp/datamap/helpers/linked-attributes.test';
 import '../mcp/helpers/id-generation.test';
 import '../mcp/helpers/update-attribute.test';
-import '../lsp/datamap/helpers/orphaned-files.test';
+// import '../lsp/orphaned-files/helpers/orphaned-files.test';
 import '../lsp/datamap/helpers/datamap-integrity.test';

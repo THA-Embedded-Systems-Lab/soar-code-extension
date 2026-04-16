@@ -1,4 +1,0 @@
-sp {broken-syntax
-  (state <s> ^io
--->
-  (<s> ^io test)}

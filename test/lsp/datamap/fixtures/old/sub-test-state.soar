@@ -1,6 +1,0 @@
-sp {propose*sub-test-state
-   (state <s> ^name blocks-world)
--->
-   (<s> ^operator <o> +, =)
-   (<o> ^name move-block
-        )}

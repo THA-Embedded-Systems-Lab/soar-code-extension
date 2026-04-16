@@ -1,7 +1,0 @@
-sp {test*definition*operator
-   (state <s> ^io <io>)
-   (<s> ^operator <o>)
-   (<o> ^name my-operator)
--->
-   (<s> ^result done)
-}

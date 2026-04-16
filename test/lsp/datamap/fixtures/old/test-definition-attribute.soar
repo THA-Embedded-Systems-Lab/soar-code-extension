@@ -1,5 +1,0 @@
-sp {test*definition*attribute
-   (state <s> ^io.input-link <in>)
--->
-   (<in> ^test value)
-}

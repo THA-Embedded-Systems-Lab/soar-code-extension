@@ -374,7 +374,6 @@ Follows VisualSoar 9.6.4 project schema exactly.
 
 - `test/fixtures/example.soar`: Basic Soar file
 - `test/fixtures/test-validation.soar`: Validation test cases
-- `test/fixtures/test-project.vsa.json`: Sample project
 - `test/BW-Hierarchical/`: Complete hierarchical project
 
 ### Test Structure
