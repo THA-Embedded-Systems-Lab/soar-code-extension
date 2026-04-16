@@ -129,6 +129,20 @@ export class LayoutTreeItem extends vscode.TreeItem {
   }
 }
 
+/** Sort order priority for layout node types (lower = higher priority) */
+const LAYOUT_TYPE_SORT_ORDER: Record<string, number> = {
+  OPERATOR_ROOT: 0,
+  FOLDER: 1,
+  FILE: 2,
+  HIGH_LEVEL_OPERATOR: 3,
+  HIGH_LEVEL_FILE_OPERATOR: 4,
+  HIGH_LEVEL_IMPASSE_OPERATOR: 5,
+  IMPASSE_OPERATOR: 6,
+  OPERATOR: 7,
+  FILE_OPERATOR: 8,
+  LINK: 9,
+};
+
 export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<LayoutTreeItem | undefined | null | void> =
     new vscode.EventEmitter<LayoutTreeItem | undefined | null | void>();
@@ -137,8 +151,42 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
 
   private projectContext: ProjectContext | null = null;
   private currentDatamapId: string | null = null; // Track which datamap is currently being viewed
+  private _searchFilter: string = '';
 
   constructor() {}
+
+  /** Current search filter string (empty means no filter) */
+  get searchFilter(): string {
+    return this._searchFilter;
+  }
+
+  /** Set the search filter and refresh the tree */
+  setSearchFilter(filter: string): void {
+    this._searchFilter = filter.trim().toLowerCase();
+    this.refresh();
+  }
+
+  /**
+   * Returns true if the node name matches the filter OR any descendant name matches.
+   * Cycle-safe via visited set.
+   */
+  private nodeMatchesFilter(
+    node: LayoutNode,
+    filter: string,
+    visited: Set<string> = new Set()
+  ): boolean {
+    if (node.name.toLowerCase().includes(filter)) {
+      return true;
+    }
+    if (visited.has(node.id)) {
+      return false;
+    }
+    visited.add(node.id);
+    if (hasChildren(node) && node.children) {
+      return node.children.some(c => this.nodeMatchesFilter(c, filter, visited));
+    }
+    return false;
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -268,13 +316,36 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
         : element.node.folder;
     }
 
-    for (const childNode of element.node.children) {
+    const filterLower = this._searchFilter;
+    let nodes = element.node.children;
+
+    if (filterLower) {
+      nodes = nodes.filter(c => this.nodeMatchesFilter(c, filterLower));
+    }
+
+    // Sort: by type priority first, then alphabetically by name
+    nodes = [...nodes].sort((a, b) => {
+      const tA = LAYOUT_TYPE_SORT_ORDER[a.type] ?? 99;
+      const tB = LAYOUT_TYPE_SORT_ORDER[b.type] ?? 99;
+      if (tA !== tB) {
+        return tA - tB;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const childNode of nodes) {
+      // Auto-expand if filter is active and match is only in a descendant
       const hasChildNodes =
         hasChildren(childNode) && childNode.children && childNode.children.length > 0;
 
-      const collapsibleState = hasChildNodes
-        ? vscode.TreeItemCollapsibleState.Collapsed
-        : vscode.TreeItemCollapsibleState.None;
+      const shouldAutoExpand =
+        hasChildNodes && !!filterLower && !childNode.name.toLowerCase().includes(filterLower);
+
+      const collapsibleState = !hasChildNodes
+        ? vscode.TreeItemCollapsibleState.None
+        : shouldAutoExpand
+          ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.Collapsed;
 
       children.push(
         new LayoutTreeItem(

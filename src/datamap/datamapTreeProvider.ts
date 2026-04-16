@@ -137,6 +137,16 @@ export class DatamapTreeItem extends vscode.TreeItem {
   }
 }
 
+/** Sort order priority for vertex types (lower = higher priority) */
+const TYPE_SORT_ORDER: Record<string, number> = {
+  SOAR_ID: 0,
+  ENUMERATION: 1,
+  INTEGER: 2,
+  FLOAT: 3,
+  STRING: 4,
+  JAVA_FILE: 5,
+};
+
 export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<DatamapTreeItem | undefined | null | void> =
     new vscode.EventEmitter<DatamapTreeItem | undefined | null | void>();
@@ -145,8 +155,20 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
 
   private projectContext: DatamapProjectContext | null = null;
   private currentRootId: string | null = null; // Which datamap vertex to display (null = project root)
+  private _searchFilter: string = '';
 
   constructor() {}
+
+  /** Current search filter string (empty means no filter) */
+  get searchFilter(): string {
+    return this._searchFilter;
+  }
+
+  /** Set the search filter and refresh the tree */
+  setSearchFilter(filter: string): void {
+    this._searchFilter = filter.trim().toLowerCase();
+    this.refresh();
+  }
 
   /**
    * Load project from a specific project file path
@@ -251,6 +273,30 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
     return null;
   }
 
+  /**
+   * Returns true if the edge name matches the filter OR any descendant attribute
+   * name matches (recursive). Cycle-safe via the visited set.
+   */
+  private edgeMatchesFilter(
+    edgeName: string,
+    targetId: string,
+    filter: string,
+    visited: Set<string> = new Set()
+  ): boolean {
+    if (edgeName.toLowerCase().includes(filter)) {
+      return true;
+    }
+    if (visited.has(targetId)) {
+      return false;
+    }
+    visited.add(targetId);
+    const vertex = this.projectContext!.datamapIndex.get(targetId);
+    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+      return false;
+    }
+    return vertex.outEdges.some(e => this.edgeMatchesFilter(e.name, e.toId, filter, visited));
+  }
+
   getTreeItem(element: DatamapTreeItem): vscode.TreeItem {
     return element;
   }
@@ -312,7 +358,27 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
     const metadataHelper = this.projectContext.datamapMetadata;
 
     if (element.vertex.outEdges) {
-      for (const edge of element.vertex.outEdges) {
+      // Optionally filter edges by search term
+      const filterLower = this._searchFilter;
+
+      let edges = element.vertex.outEdges;
+      if (filterLower) {
+        edges = edges.filter(e => this.edgeMatchesFilter(e.name, e.toId, filterLower));
+      }
+
+      // Sort: by type priority first, then alphabetically by name
+      edges = [...edges].sort((a, b) => {
+        const vA = this.projectContext!.datamapIndex.get(a.toId);
+        const vB = this.projectContext!.datamapIndex.get(b.toId);
+        const tA = TYPE_SORT_ORDER[vA?.type ?? ''] ?? 99;
+        const tB = TYPE_SORT_ORDER[vB?.type ?? ''] ?? 99;
+        if (tA !== tB) {
+          return tA - tB;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      for (const edge of edges) {
         const targetVertex = this.projectContext.datamapIndex.get(edge.toId);
         if (!targetVertex) {
           continue;
@@ -330,9 +396,15 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
           targetVertex.outEdges.length > 0 &&
           !isCycle; // Don't allow expansion if it's a cycle
 
-        const collapsibleState = hasChildren
-          ? vscode.TreeItemCollapsibleState.Collapsed
-          : vscode.TreeItemCollapsibleState.None;
+        // When filtering, auto-expand nodes whose match is only in a descendant
+        const shouldAutoExpand =
+          hasChildren && !!filterLower && !edge.name.toLowerCase().includes(filterLower);
+
+        const collapsibleState = !hasChildren
+          ? vscode.TreeItemCollapsibleState.None
+          : shouldAutoExpand
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.Collapsed;
 
         // Create new ancestor set for the child
         const childAncestors = new Set(element.ancestorIds);

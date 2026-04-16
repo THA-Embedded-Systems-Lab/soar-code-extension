@@ -191,6 +191,30 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "soar.searchDatamap",
+        "title": "Search Datamap by Name",
+        "category": "Soar",
+        "icon": "$(search)"
+      },
+      {
+        "command": "soar.clearDatamapSearch",
+        "title": "Clear Datamap Search",
+        "category": "Soar",
+        "icon": "$(search-stop)"
+      },
+      {
+        "command": "soar.toggleDatamapSort",
+        "title": "Sort Datamap by Type then Name",
+        "category": "Soar",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "soar.disableDatamapSort",
+        "title": "Disable Datamap Sorting",
+        "category": "Soar",
+        "icon": "$(list-flat)"
+      },
+      {
         "command": "soar.loadDatamap",
         "title": "Load Datamap",
         "category": "Soar"
@@ -254,6 +278,30 @@
         "title": "Refresh Project Structure",
         "category": "Soar",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "soar.searchLayout",
+        "title": "Search Project Structure by Name",
+        "category": "Soar",
+        "icon": "$(search)"
+      },
+      {
+        "command": "soar.clearLayoutSearch",
+        "title": "Clear Project Structure Search",
+        "category": "Soar",
+        "icon": "$(search-stop)"
+      },
+      {
+        "command": "soar.toggleLayoutSort",
+        "title": "Sort Project Structure by Type then Name",
+        "category": "Soar",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "soar.disableLayoutSort",
+        "title": "Disable Project Structure Sorting",
+        "category": "Soar",
+        "icon": "$(list-flat)"
       },
       {
         "command": "soar.addOperator",
@@ -413,6 +461,26 @@
           "group": "navigation@3"
         },
         {
+          "command": "soar.searchDatamap",
+          "when": "view == soarDatamap && !soar.datamapSearchActive",
+          "group": "navigation@4"
+        },
+        {
+          "command": "soar.clearDatamapSearch",
+          "when": "view == soarDatamap && soar.datamapSearchActive",
+          "group": "navigation@4"
+        },
+        {
+          "command": "soar.toggleDatamapSort",
+          "when": "view == soarDatamap && !soar.datamapSortEnabled",
+          "group": "navigation@5"
+        },
+        {
+          "command": "soar.disableDatamapSort",
+          "when": "view == soarDatamap && soar.datamapSortEnabled",
+          "group": "navigation@5"
+        },
+        {
           "command": "soar.undo",
           "when": "view == soarLayout && soar.canUndo",
           "group": "navigation@0"
@@ -441,6 +509,26 @@
           "command": "soar.syncProjectFiles",
           "when": "view == soarLayout",
           "group": "navigation@3"
+        },
+        {
+          "command": "soar.searchLayout",
+          "when": "view == soarLayout && !soar.layoutSearchActive",
+          "group": "navigation@4"
+        },
+        {
+          "command": "soar.clearLayoutSearch",
+          "when": "view == soarLayout && soar.layoutSearchActive",
+          "group": "navigation@4"
+        },
+        {
+          "command": "soar.toggleLayoutSort",
+          "when": "view == soarLayout && !soar.layoutSortEnabled",
+          "group": "navigation@5"
+        },
+        {
+          "command": "soar.disableLayoutSort",
+          "when": "view == soarLayout && soar.layoutSortEnabled",
+          "group": "navigation@5"
         },
         {
           "command": "soar.refreshStopPhaseView",

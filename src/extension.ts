@@ -310,6 +310,12 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize Datamap Tree View
   const datamapProvider = new DatamapTreeProvider();
   datamapProviderGlobal = datamapProvider;
+  // Sync initial context keys with the provider's default state
+  vscode.commands.executeCommand(
+    'setContext',
+    'soar.datamapSearchActive',
+    datamapProvider.searchFilter.length > 0
+  );
   const datamapTreeView = vscode.window.createTreeView('soarDatamap', {
     treeDataProvider: datamapProvider,
     showCollapseAll: true,
@@ -365,6 +371,34 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize context keys for undo/redo button visibility
   await vscode.commands.executeCommand('setContext', 'soar.canUndo', false);
   await vscode.commands.executeCommand('setContext', 'soar.canRedo', false);
+
+  // Register datamap search and sort commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.searchDatamap', async () => {
+      const current = datamapProvider.searchFilter;
+      const filter = await vscode.window.showInputBox({
+        prompt: 'Search datamap attributes by name',
+        placeHolder: 'Attribute name…',
+        value: current,
+      });
+      if (filter === undefined) {
+        return; // cancelled
+      }
+      datamapProvider.setSearchFilter(filter);
+      await vscode.commands.executeCommand(
+        'setContext',
+        'soar.datamapSearchActive',
+        filter.trim().length > 0
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.clearDatamapSearch', async () => {
+      datamapProvider.setSearchFilter('');
+      await vscode.commands.executeCommand('setContext', 'soar.datamapSearchActive', false);
+    })
+  );
 
   // Register commands for datamap tree
   context.subscriptions.push(
@@ -590,6 +624,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize Layout Tree View
   const layoutProvider = new LayoutTreeProvider();
   layoutProviderGlobal = layoutProvider;
+  // Sync initial context key for layout search
+  vscode.commands.executeCommand('setContext', 'soar.layoutSearchActive', false);
   const layoutTreeView = vscode.window.createTreeView('soarLayout', {
     treeDataProvider: layoutProvider,
     showCollapseAll: true,
@@ -625,6 +661,33 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(projectChangeDisposable);
 
   // Register commands for layout tree
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.searchLayout', async () => {
+      const current = layoutProvider.searchFilter;
+      const filter = await vscode.window.showInputBox({
+        prompt: 'Search project structure by name',
+        placeHolder: 'Node name…',
+        value: current,
+      });
+      if (filter === undefined) {
+        return; // cancelled
+      }
+      layoutProvider.setSearchFilter(filter);
+      await vscode.commands.executeCommand(
+        'setContext',
+        'soar.layoutSearchActive',
+        filter.trim().length > 0
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.clearLayoutSearch', async () => {
+      layoutProvider.setSearchFilter('');
+      await vscode.commands.executeCommand('setContext', 'soar.layoutSearchActive', false);
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshLayout', async () => {
       const activeProject = projectManager.getActiveProject();

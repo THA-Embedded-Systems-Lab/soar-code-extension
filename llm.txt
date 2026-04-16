@@ -43,6 +43,8 @@ Soar language support in VS Code with:
 
 - `src/datamap/datamapTreeProvider.ts`
   - datamap tree rendering and root switching
+  - search filter: `setSearchFilter(text)` / `searchFilter` — filters children by attribute name; toggled via `soar.searchDatamap` / `soar.clearDatamapSearch` commands; VS Code context key `soar.datamapSearchActive` drives toolbar icon swap
+  - sort mode: `setSortEnabled(bool)` / `sortEnabled` — sorts children by type priority (SOAR_ID → ENUMERATION → INTEGER → FLOAT → STRING → JAVA_FILE) then alphabetically; toggled via `soar.toggleDatamapSort` / `soar.disableDatamapSort`; VS Code context key `soar.datamapSortEnabled`
 - `src/datamap/datamapOperations.ts`
   - add/edit/delete attributes
   - edit flow supports updating enumeration values (e.g., `^impasse` choices)
