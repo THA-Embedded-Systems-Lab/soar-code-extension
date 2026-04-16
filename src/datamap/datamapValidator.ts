@@ -505,15 +505,25 @@ export class DatamapValidator {
    * they don't apply to the top state. We validate such paths against the root state structure.
    */
   private attributeExistsInDatamap(attributeName: string, projectContext: ProjectContext): boolean {
-    const pathSegments = attributeName.split('.');
+    // A trailing dot means the final segment is a Soar variable (e.g. ^io.output-link.<cmd>).
+    // We only need to verify the prefix path resolves to a SOAR_ID.
+    const trailingDot = attributeName.endsWith('.');
+    const normalizedName = trailingDot ? attributeName.slice(0, -1) : attributeName;
+    const pathSegments = normalizedName.split('.');
 
-    // If it's a simple attribute (no dots), check if it exists anywhere
     if (pathSegments.length === 1) {
       for (const vertex of projectContext.project.datamap.vertices) {
         if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
           for (const edge of vertex.outEdges) {
-            if (edge.name === attributeName) {
-              return true;
+            if (edge.name === normalizedName) {
+              if (!trailingDot) {
+                return true;
+              }
+              // For trailing dot, the target must be a SOAR_ID
+              const target = projectContext.datamapIndex.get(edge.toId);
+              if (target?.type === 'SOAR_ID') {
+                return true;
+              }
             }
           }
         }
@@ -521,30 +531,27 @@ export class DatamapValidator {
       return false;
     }
 
-    // For dotted paths: parent.child.grandchild...
-    // Find all vertices that have the first segment (parent) as an attribute
-    // Then navigate through the remaining segments (child.grandchild...)
-
     const firstSegment = pathSegments[0];
     const remainingSegments = pathSegments.slice(1);
 
-    // Special case: ^superstate.* paths
-    // These are meant for substates where ^superstate points to a parent state.
-    // Validate the remaining path against the root state structure.
     if (firstSegment === 'superstate') {
       const rootId = projectContext.project.datamap.rootId;
-      if (this.canNavigatePath(rootId, remainingSegments, projectContext)) {
+      const check = trailingDot
+        ? this.pathResolvesToSoarId(rootId, remainingSegments, projectContext)
+        : this.canNavigatePath(rootId, remainingSegments, projectContext);
+      if (check) {
         return true;
       }
     }
 
-    // Search for all vertices that have an attribute named firstSegment
     for (const vertex of projectContext.project.datamap.vertices) {
       if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
         for (const edge of vertex.outEdges) {
           if (edge.name === firstSegment) {
-            // Found a parent attribute, now try to navigate the remaining path
-            if (this.canNavigatePath(edge.toId, remainingSegments, projectContext)) {
+            const check = trailingDot
+              ? this.pathResolvesToSoarId(edge.toId, remainingSegments, projectContext)
+              : this.canNavigatePath(edge.toId, remainingSegments, projectContext);
+            if (check) {
               return true;
             }
           }
@@ -552,6 +559,31 @@ export class DatamapValidator {
       }
     }
 
+    return false;
+  }
+
+  /** Check if a path resolves to a SOAR_ID (i.e. can have any child attributes). */
+  private pathResolvesToSoarId(
+    startVertexId: string,
+    pathSegments: string[],
+    projectContext: ProjectContext
+  ): boolean {
+    if (pathSegments.length === 0) {
+      const v = projectContext.datamapIndex.get(startVertexId);
+      return v?.type === 'SOAR_ID';
+    }
+    const vertex = projectContext.datamapIndex.get(startVertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID') {
+      return false;
+    }
+    const first = pathSegments[0];
+    const remaining = pathSegments.slice(1);
+    const matchingEdges = vertex.outEdges?.filter(e => e.name === first) || [];
+    for (const edge of matchingEdges) {
+      if (this.pathResolvesToSoarId(edge.toId, remaining, projectContext)) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -563,19 +595,17 @@ export class DatamapValidator {
     attributeName: string,
     projectContext: ProjectContext
   ): { invalidSegment?: string; lastValidParent?: string } {
-    const pathSegments = attributeName.split('.');
+    // Trailing dot means variable final segment — validate only the prefix path.
+    const trailingDot = attributeName.endsWith('.');
+    const normalizedName = trailingDot ? attributeName.slice(0, -1) : attributeName;
+    const pathSegments = normalizedName.split('.');
 
-    // If it's a simple attribute (no dots), just return it as invalid
     if (pathSegments.length === 1) {
-      return { invalidSegment: attributeName };
+      return { invalidSegment: normalizedName };
     }
-
-    // For dotted paths, try to navigate as far as possible
-    // Check all possible starting vertices that have the first segment
 
     const firstSegment = pathSegments[0];
 
-    // Special case: ^superstate.* paths
     if (firstSegment === 'superstate') {
       const rootId = projectContext.project.datamap.rootId;
       const result = this.findInvalidSegmentInPath(
@@ -589,7 +619,6 @@ export class DatamapValidator {
       }
     }
 
-    // Search for all vertices that have an attribute named firstSegment
     for (const vertex of projectContext.project.datamap.vertices) {
       if (vertex.type === 'SOAR_ID' && vertex.outEdges) {
         for (const edge of vertex.outEdges) {
@@ -608,7 +637,6 @@ export class DatamapValidator {
       }
     }
 
-    // If we couldn't find the first segment anywhere, it's the invalid one
     return { invalidSegment: firstSegment };
   }
 

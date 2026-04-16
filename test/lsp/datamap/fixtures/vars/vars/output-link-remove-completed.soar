@@ -1,0 +1,9 @@
+sp {any*propose*output-link-remove-completed
+   (state <s> ^io.output-link.<command> <id>)
+   (<id> ^status complete)
+-->
+   (<s> ^operator <o> + =)
+   (<o> ^name output-link-remove-completed
+      ^command <command>
+      ^id <id>)
+}

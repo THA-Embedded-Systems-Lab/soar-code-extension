@@ -1,0 +1,3 @@
+sp {any*propose*output-link-remove-completed
+   (state <s> ^io.input-link.<messages> <id>)
+    (<id> ^

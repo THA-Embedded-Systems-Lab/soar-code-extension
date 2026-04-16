@@ -46,6 +46,10 @@
           {
             "name": "operator",
             "toId": "1"
+          },
+          {
+            "name": "operator",
+            "toId": "0e9a15b9ea27abe37c742661db9e0e3f"
           }
         ]
       },
@@ -71,7 +75,12 @@
       {
         "id": "28d97b047473c6f787526ffef2127584",
         "type": "SOAR_ID",
-        "outEdges": []
+        "outEdges": [
+          {
+            "name": "message-link",
+            "toId": "b02b89aa806822735dba23281b6828c0"
+          }
+        ]
       },
       {
         "id": "f010ee856a91d34e6e40e01dc32faa88",
@@ -253,6 +262,45 @@
       {
         "id": "244143",
         "type": "STRING"
+      },
+      {
+        "id": "0e9a15b9ea27abe37c742661db9e0e3f",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "bac9a71322b1fbec76943fe4f3068a2a"
+          },
+          {
+            "name": "id",
+            "toId": "117b6cace0c2416bae0f546e8cc6a826"
+          }
+        ]
+      },
+      {
+        "id": "bac9a71322b1fbec76943fe4f3068a2a",
+        "type": "ENUMERATION",
+        "choices": ["output-link-remove-completed"]
+      },
+      {
+        "id": "117b6cace0c2416bae0f546e8cc6a826",
+        "type": "SOAR_ID",
+        "outEdges": []
+      },
+      {
+        "id": "b02b89aa806822735dba23281b6828c0",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "status",
+            "toId": "f2991b06aa6d7b23cd596f310d7c074c"
+          }
+        ]
+      },
+      {
+        "id": "f2991b06aa6d7b23cd596f310d7c074c",
+        "type": "ENUMERATION",
+        "choices": ["complete"]
       }
     ]
   },
@@ -300,6 +348,13 @@
         "id": "2",
         "name": "augmentation-validation",
         "file": "augmentation-validation.soar"
+      },
+      {
+        "type": "OPERATOR",
+        "id": "3",
+        "name": "output-link-remove-completed",
+        "file": "output-link-remove-completed.soar",
+        "dmId": "0e9a15b9ea27abe37c742661db9e0e3f"
       }
     ]
   }

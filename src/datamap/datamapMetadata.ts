@@ -131,9 +131,22 @@ export class DatamapMetadataCache {
    * Check if an attribute (or dotted path) exists anywhere in the datamap.
    */
   attributeExists(attributeName: string, project: VisualSoarProject): boolean {
-    const pathSegments = attributeName.split('.');
+    // A trailing dot means the final segment is a Soar variable (e.g. ^io.output-link.<cmd>).
+    // We only need to verify the path up to the dot resolves to a SOAR_ID.
+    const trailingDot = attributeName.endsWith('.');
+    const normalizedName = trailingDot ? attributeName.slice(0, -1) : attributeName;
+
+    const pathSegments = normalizedName.split('.');
     if (pathSegments.length === 1) {
-      return this.attributeIndex.has(attributeName);
+      if (trailingDot) {
+        // Verify the single segment resolves to a SOAR_ID target
+        const targets = this.attributeIndex.get(normalizedName) || [];
+        return targets.some(p => {
+          const v = this.datamapIndex.get(p.targetId as any);
+          return v?.type === 'SOAR_ID';
+        });
+      }
+      return this.attributeIndex.has(normalizedName);
     }
 
     const first = pathSegments[0];
@@ -141,12 +154,48 @@ export class DatamapMetadataCache {
 
     if (first === 'superstate') {
       const rootId = project.datamap.rootId;
+      if (trailingDot) {
+        return this.pathResolvesToSoarId(rootId, remaining, project);
+      }
       return this.canNavigatePath(rootId, remaining, project);
     }
 
     const parents = this.attributeIndex.get(first) || [];
     for (const p of parents) {
-      if (this.canNavigatePath(p.targetId, remaining, project)) {
+      if (trailingDot) {
+        if (this.pathResolvesToSoarId(p.targetId, remaining, project)) {
+          return true;
+        }
+      } else {
+        if (this.canNavigatePath(p.targetId, remaining, project)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if the given path resolves to a SOAR_ID vertex (i.e. can have any child attributes).
+   */
+  private pathResolvesToSoarId(
+    startVertexId: string,
+    pathSegments: string[],
+    project: VisualSoarProject
+  ): boolean {
+    if (pathSegments.length === 0) {
+      const v = this.datamapIndex.get(startVertexId as any);
+      return v?.type === 'SOAR_ID';
+    }
+    const vertex = this.datamapIndex.get(startVertexId as any);
+    if (!vertex || vertex.type !== 'SOAR_ID') {
+      return false;
+    }
+    const first = pathSegments[0];
+    const remaining = pathSegments.slice(1);
+    const matchingEdges = vertex.outEdges?.filter((e: any) => e.name === first) || [];
+    for (const edge of matchingEdges) {
+      if (this.pathResolvesToSoarId(edge.toId, remaining, project)) {
         return true;
       }
     }
@@ -191,9 +240,21 @@ export class DatamapMetadataCache {
     attributeName: string,
     project: VisualSoarProject
   ): { invalidSegment?: string; lastValidParent?: string } {
-    const pathSegments = attributeName.split('.');
+    // Trailing dot means variable final segment — validate only the prefix path.
+    const trailingDot = attributeName.endsWith('.');
+    const normalizedName = trailingDot ? attributeName.slice(0, -1) : attributeName;
+
+    const pathSegments = normalizedName.split('.');
     if (pathSegments.length === 1) {
-      return { invalidSegment: attributeName };
+      if (trailingDot) {
+        const targets = this.attributeIndex.get(normalizedName) || [];
+        const valid = targets.some(p => {
+          const v = this.datamapIndex.get(p.targetId as any);
+          return v?.type === 'SOAR_ID';
+        });
+        return valid ? {} : { invalidSegment: normalizedName };
+      }
+      return { invalidSegment: normalizedName };
     }
 
     const first = pathSegments[0];

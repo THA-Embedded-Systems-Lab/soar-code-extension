@@ -32,11 +32,32 @@ export function buildVariableBindings(
       continue;
     }
 
-    const targetVertices = findTargetVerticesForPath(
+    // A trailing dot means the final segment was a Soar variable used as an
+    // attribute name (e.g. ^io.input-link.<messages> <id>).
+    // The path up to the dot points to a SOAR_ID; the value variable is bound
+    // to ALL children of that SOAR_ID (since any attribute matches).
+    const trailingDot = attr.name.endsWith('.');
+    const attrNameNormalized = trailingDot ? attr.name.slice(0, -1) : attr.name;
+
+    let targetVertices = findTargetVerticesForPath(
       Array.from(parentVertices),
-      attr.name.split('.'),
+      attrNameNormalized.split('.'),
       projectContext
     );
+
+    if (trailingDot) {
+      // Collect all child vertex IDs from the resolved SOAR_ID nodes
+      const childVertices = new Set<string>();
+      for (const vid of targetVertices) {
+        const v = projectContext.datamapIndex.get(vid);
+        if (v?.type === 'SOAR_ID' && v.outEdges) {
+          for (const edge of v.outEdges) {
+            childVertices.add(edge.toId);
+          }
+        }
+      }
+      targetVertices = Array.from(childVertices);
+    }
 
     const varName = attr.value.substring(1, attr.value.length - 1);
     if (!variableBindings.has(varName)) {
