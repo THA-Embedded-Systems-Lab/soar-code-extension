@@ -24,6 +24,9 @@ export const SOAR_MCP_TOOL_NAMES = {
   cliPrint: 'agent_runtime_cli_print',
   cliPreferences: 'agent_runtime_cli_preferences',
   cliEpmem: 'agent_runtime_cli_epmem',
+  cliExplainTrackOperator: 'agent_runtime_cli_explain_track_operator',
+  cliExplainUntrackOperator: 'agent_runtime_cli_explain_untrack_operator',
+  cliExplainOperator: 'agent_runtime_cli_explain_operator',
 } as const;
 
 export const SOAR_MCP_TOOLS = [
@@ -217,7 +220,8 @@ export const SOAR_MCP_TOOLS = [
   },
   {
     name: SOAR_MCP_TOOL_NAMES.agentGetStatus,
-    description: 'Get current agent runtime connection/session state',
+    description:
+      'Get current agent runtime connection/session state. Requires agent_runtime_connect before.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -360,6 +364,70 @@ export const SOAR_MCP_TOOLS = [
           type: 'string',
           description:
             'The epmem sub-command and arguments, e.g. "--enable", "--get learning", "--set learning on", "--stats", "--print 5"',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliExplainTrackOperator,
+    description:
+      'Manage explain tracking list via `explain track-operator`. With `all=true`, tracks all operators. With `operatorName`, tracks one operator. With neither, returns current tracking list.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        operatorName: {
+          type: 'string',
+          description: 'Operator name to track, e.g. "move-north"',
+        },
+        all: {
+          type: 'boolean',
+          description: 'If true, appends --all to enable tracking all operators',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliExplainUntrackOperator,
+    description:
+      'Remove one operator from tracking via `explain untrack-operator <name>`. Use `operatorName="all"` to disable all-mode tracking.',
+    inputSchema: {
+      type: 'object',
+      required: ['operatorName'],
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        operatorName: {
+          type: 'string',
+          description: 'Operator name to untrack, or "all" to disable all-mode',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliExplainOperator,
+    description:
+      'Get recorded decision-cycle explanations for one operator. Runs `explain operator <name>` and supports optional JSON output with --json.',
+    inputSchema: {
+      type: 'object',
+      required: ['operatorName'],
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        operatorName: {
+          type: 'string',
+          description: 'Operator name to explain, e.g. "move-north"',
+        },
+        json: {
+          type: 'boolean',
+          description: 'If true, appends --json for machine-readable output',
         },
       },
     },

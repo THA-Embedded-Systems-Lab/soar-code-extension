@@ -207,6 +207,9 @@ kernels via SML socket:
   - `agent_runtime_cli_print` — `print [options] [target]` (working memory, production memory, stack, GDS)
   - `agent_runtime_cli_preferences` — `preferences [options] [identifier [attribute]]`
   - `agent_runtime_cli_epmem` — `epmem [subcommand]` (enable/disable/get/set/stats/timers/viz/print/backup)
+  - `agent_runtime_cli_explain_track_operator` — `explain track-operator [<name>|--all]` (track one operator, track all, or list tracked operators)
+  - `agent_runtime_cli_explain_untrack_operator` — `explain untrack-operator <name|all>` (exclude one operator from tracking, or disable all-mode)
+  - `agent_runtime_cli_explain_operator` — `explain operator <name> [--json]` (decision-cycle explanation data for tracked operators)
 
 ## User commands and settings (key extension contract)
 

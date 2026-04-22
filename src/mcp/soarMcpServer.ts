@@ -389,7 +389,30 @@ async function main() {
           }
 
           case SOAR_MCP_TOOL_NAMES.agentGetStatus: {
-            const result = await core.debugGetStatus();
+            let result = await core.debugGetStatus();
+            // If not connected, try to connect to default port (127.0.0.1:12121)
+            if (!result.running) {
+              try {
+                const connectResult = await core.debugConnect({ host: '127.0.0.1', port: 12121 });
+                log('info', 'Auto-connected to default Soar agent port', {
+                  toolName,
+                  host: connectResult.host,
+                  port: connectResult.port,
+                  currentAgent: connectResult.currentAgent,
+                });
+                // Re-fetch status after connecting
+                result = await core.debugGetStatus();
+              } catch (autoConnectError) {
+                log('error', 'Auto-connect to default Soar agent port failed', {
+                  toolName,
+                  error:
+                    autoConnectError instanceof Error
+                      ? autoConnectError.message
+                      : String(autoConnectError),
+                });
+                // Return original result if auto-connect fails
+              }
+            }
             log('info', 'Tool call succeeded', {
               toolName,
               durationMs: Date.now() - startedAt,
@@ -538,6 +561,70 @@ async function main() {
             const input: DebugEvalInput = {
               agent: asStringOrUndefined(args.agent),
               line,
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliExplainTrackOperator: {
+            const operatorName = asStringOrUndefined(args.operatorName);
+            const all = asBooleanOrUndefined(args.all) ?? false;
+
+            if (all && operatorName) {
+              throw new Error("Provide either 'all' or 'operatorName', not both");
+            }
+
+            const parts = ['explain', 'track-operator'];
+            if (all) {
+              parts.push('--all');
+            } else if (operatorName) {
+              parts.push(operatorName);
+            }
+
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: parts.join(' '),
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliExplainUntrackOperator: {
+            const operatorName = assertString(args.operatorName, 'operatorName');
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: `explain untrack-operator ${operatorName}`,
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.cliExplainOperator: {
+            const operatorName = assertString(args.operatorName, 'operatorName');
+            const json = asBooleanOrUndefined(args.json) ?? false;
+            const parts = ['explain', 'operator', operatorName];
+            if (json) {
+              parts.push('--json');
+            }
+
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: parts.join(' '),
             };
             const result = await core.debugEval(input);
             log('info', 'Tool call succeeded', {
