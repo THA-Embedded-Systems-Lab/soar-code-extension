@@ -76,6 +76,25 @@ export interface GetActiveProjectInput {
   workspaceRoot?: string;
 }
 
+export interface GetLayoutNodeInput {
+  projectFile: string;
+  nodeId?: string;
+  name?: string;
+  type?: string;
+  includeChildren?: boolean;
+}
+
+export interface LayoutNodeDetail {
+  id: string;
+  type: string;
+  name: string | null;
+  parentNodeId: string | null;
+  filePath: string | null;
+  folderPath: string | null;
+  dmId: string | null;
+  children?: LayoutNodeDetail[];
+}
+
 export interface AddLayoutOperatorInput {
   projectFile: string;
   parentNodeId: string;
@@ -578,6 +597,82 @@ export class SoarMcpCore {
       line,
       output,
     };
+  }
+
+  async findLayoutNodes(input: GetLayoutNodeInput): Promise<{ matches: LayoutNodeDetail[] }> {
+    if (!input.nodeId && !input.name) {
+      throw new Error("Provide at least one of 'nodeId' or 'name'");
+    }
+
+    const context = await this.loadProjectContext(input.projectFile);
+    const workspaceFolder = path.dirname(context.projectFile);
+
+    let candidateIds: string[];
+
+    if (input.nodeId) {
+      candidateIds = context.layoutIndex.has(input.nodeId) ? [input.nodeId] : [];
+    } else {
+      const needle = input.name!.toLowerCase();
+      candidateIds = [];
+      for (const [id, node] of context.layoutIndex) {
+        if ('name' in node && typeof node.name === 'string' && node.name.toLowerCase().includes(needle)) {
+          candidateIds.push(id);
+        }
+      }
+    }
+
+    if (input.type) {
+      const typeFilter = input.type.toUpperCase();
+      candidateIds = candidateIds.filter(id => {
+        const node = context.layoutIndex.get(id);
+        return node && node.type === typeFilter;
+      });
+    }
+
+    const matches = candidateIds.map(id => {
+      const node = context.layoutIndex.get(id)!;
+      return this.buildLayoutNodeDetail(context, node, workspaceFolder, input.includeChildren ?? false);
+    });
+
+    return { matches };
+  }
+
+  private buildLayoutNodeDetail(
+    context: ProjectContext,
+    node: LayoutNode,
+    workspaceFolder: string,
+    includeChildren: boolean
+  ): LayoutNodeDetail {
+    const parentNodeId = this.findParentId(context, node.id);
+    const folderPath = this.getNodeFolderPath(context, node.id);
+
+    const filePath =
+      'file' in node && typeof node.file === 'string'
+        ? path.join(workspaceFolder, folderPath, node.file)
+        : null;
+
+    const absoluteFolderPath =
+      'folder' in node && typeof node.folder === 'string'
+        ? path.join(workspaceFolder, folderPath)
+        : null;
+
+    const detail: LayoutNodeDetail = {
+      id: node.id,
+      type: node.type,
+      name: 'name' in node ? (node.name as string) : null,
+      parentNodeId,
+      filePath,
+      folderPath: absoluteFolderPath,
+      dmId: 'dmId' in node ? ((node as any).dmId as string) ?? null : null,
+    };
+
+    if (includeChildren && hasChildren(node) && node.children) {
+      detail.children = node.children.map(child =>
+        this.buildLayoutNodeDetail(context, child, workspaceFolder, includeChildren)
+      );
+    }
+
+    return detail;
   }
 
   async addLayoutOperator(input: AddLayoutOperatorInput): Promise<{

@@ -7,6 +7,7 @@ export const SOAR_MCP_TOOL_NAMES = {
   datamapCheckIntegrity: 'datamap_check_integrity',
   projectValidateAgainstDatamap: 'project_validate_soar_files_against_datamap',
   projectGetActive: 'project_get_active_soar_project',
+  layoutFindNodes: 'layout_find_nodes',
   layoutAddOperator: 'layout_add_operator_node',
   layoutAddImpasseOperator: 'layout_add_impasse_operator_node',
   layoutAddFile: 'layout_add_production_file_node',
@@ -136,6 +137,43 @@ export const SOAR_MCP_TOOLS = [
       properties: {
         workspaceRoot: { type: 'string' },
       },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.layoutFindNodes,
+    description:
+      'Find layout nodes by node ID or by name (case-insensitive substring match). Returns resolved file paths, parent node ID, and datamap ID. Useful for discovering node IDs before calling other layout tools.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectFile: { type: 'string' },
+        nodeId: { type: 'string', description: 'Exact node ID to look up' },
+        name: {
+          type: 'string',
+          description: 'Case-insensitive substring to match against node names',
+        },
+        type: {
+          type: 'string',
+          enum: [
+            'OPERATOR_ROOT',
+            'FOLDER',
+            'FILE',
+            'FILE_OPERATOR',
+            'OPERATOR',
+            'HIGH_LEVEL_OPERATOR',
+            'HIGH_LEVEL_FILE_OPERATOR',
+            'IMPASSE_OPERATOR',
+            'HIGH_LEVEL_IMPASSE_OPERATOR',
+            'LINK',
+          ],
+          description: 'Optional filter: only return nodes of this type',
+        },
+        includeChildren: {
+          type: 'boolean',
+          description: 'If true, recursively include child nodes in each match (default false)',
+        },
+      },
+      required: ['projectFile'],
     },
   },
   {

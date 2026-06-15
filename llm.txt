@@ -191,9 +191,17 @@ For MCP details (tool names, payloads, logging, and active-project behavior),
 start in these four files.
 
 Current MCP coverage includes datamap CRUD, datamap structural integrity checks,
-project-vs-datamap validation, active-project lookup, layout additions
-(operator/impasse operator/file/folder), and remote runtime control for running
-kernels via SML socket:
+project-vs-datamap validation, active-project lookup, layout node lookup,
+layout additions (operator/impasse operator/file/folder), and remote runtime
+control for running kernels via SML socket:
+
+- `layout_find_nodes` — find layout nodes by `nodeId` (exact) or `name`
+  (case-insensitive substring match); optional `type` filter and `includeChildren`
+  flag; returns `{ matches: LayoutNodeDetail[] }` where each entry has `id`,
+  `type`, `name`, `parentNodeId`, `filePath` (resolved absolute), `folderPath`
+  (resolved absolute for folder/container nodes), and `dmId` (datamap vertex ID
+  when present). Primary use: discover `parentNodeId` values before calling add-*
+  tools, or resolve file paths for nodes by name.
 
 - `agent_runtime_connect` / `agent_runtime_disconnect`
 - `agent_runtime_get_status` — returns `{ running: bool, soarCycleExecuting: bool, host, port, currentAgent }`;

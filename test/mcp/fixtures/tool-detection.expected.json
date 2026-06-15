@@ -7,6 +7,7 @@
   "datamap_check_integrity",
   "project_validate_soar_files_against_datamap",
   "project_get_active_soar_project",
+  "layout_find_nodes",
   "layout_add_operator_node",
   "layout_add_impasse_operator_node",
   "layout_add_production_file_node",

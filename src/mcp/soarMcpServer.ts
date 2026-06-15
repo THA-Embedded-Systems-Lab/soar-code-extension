@@ -7,6 +7,7 @@ import {
   AddLayoutFolderInput,
   AddLayoutImpasseOperatorInput,
   AddLayoutOperatorInput,
+  GetLayoutNodeInput,
   CheckDatamapIntegrityInput,
   CreateAttributeInput,
   CreateLinkedAttributeInput,
@@ -113,6 +114,7 @@ const PROJECT_SCOPED_TOOL_NAMES = new Set<string>([
   SOAR_MCP_TOOL_NAMES.datamapDeleteAttribute,
   SOAR_MCP_TOOL_NAMES.datamapCheckIntegrity,
   SOAR_MCP_TOOL_NAMES.projectValidateAgainstDatamap,
+  SOAR_MCP_TOOL_NAMES.layoutFindNodes,
   SOAR_MCP_TOOL_NAMES.layoutAddOperator,
   SOAR_MCP_TOOL_NAMES.layoutAddImpasseOperator,
   SOAR_MCP_TOOL_NAMES.layoutAddFile,
@@ -295,6 +297,23 @@ async function main() {
               durationMs: Date.now() - startedAt,
               source: result.source,
               hasProject: result.projectFile !== null,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.layoutFindNodes: {
+            const input: GetLayoutNodeInput = {
+              projectFile: assertString(args.projectFile, 'projectFile'),
+              nodeId: asStringOrUndefined(args.nodeId),
+              name: asStringOrUndefined(args.name),
+              type: asStringOrUndefined(args.type),
+              includeChildren: asBooleanOrUndefined(args.includeChildren),
+            };
+            const result = await core.findLayoutNodes(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              matchCount: result.matches.length,
             });
             return asJsonToolResult({ ok: true, result });
           }
