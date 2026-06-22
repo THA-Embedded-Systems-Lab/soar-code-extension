@@ -1042,6 +1042,14 @@ export class SoarMcpCore {
       return fromEnv;
     }
 
+    // Claude Code sets CLAUDE_PROJECT_DIR to the project root for spawned MCP
+    // servers; fall back to it so the workspace resolves without an explicit
+    // SOAR_MCP_WORKSPACE override.
+    const fromClaudeProjectDir = process.env.CLAUDE_PROJECT_DIR;
+    if (fromClaudeProjectDir && fromClaudeProjectDir.trim().length > 0) {
+      return fromClaudeProjectDir;
+    }
+
     return process.cwd();
   }
 

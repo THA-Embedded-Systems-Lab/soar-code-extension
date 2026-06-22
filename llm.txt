@@ -184,8 +184,9 @@ Soar language support in VS Code with:
 - `src/mcp/toolExecutionQueue.ts`
   - keyed async execution queue used by MCP server for safe parallelism
 - `src/mcp/mcpRegistration.ts`
-  - workspace MCP registration (`.vscode/mcp.json`)
+  - workspace MCP registration: writes BOTH `.vscode/mcp.json` (VS Code native client, `servers` key) and project-root `.mcp.json` (Claude Code, `mcpServers` key)
   - writes MCP server command as `node <extension>/dist/mcpServer.js`
+  - `SOAR_MCP_WORKSPACE` is set to a portable placeholder, not an absolute path: `${workspaceFolder}` in `.vscode/mcp.json`, `${CLAUDE_PROJECT_DIR:-.}` in `.mcp.json`. The server (`resolveWorkspaceRoot` in `soarMcpCore.ts`) falls back `SOAR_MCP_WORKSPACE` → `CLAUDE_PROJECT_DIR` → `process.cwd()`.
 
 For MCP details (tool names, payloads, logging, and active-project behavior),
 start in these four files.
@@ -252,7 +253,7 @@ Debug contract additions:
 
 - Project file format: `.vsa.json` (VisualSoar-compatible)
 - Datamap and layout persist into project file directly
-- Workspace MCP config: `.vscode/mcp.json`
+- Workspace MCP config: `.vscode/mcp.json` (VS Code) + `.mcp.json` (Claude Code)
 - Active project state for MCP: `.vscode/soar-active-project.json`
 
 ## Build, test, and quality checks

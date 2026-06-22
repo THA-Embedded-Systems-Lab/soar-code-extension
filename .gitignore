@@ -7,6 +7,7 @@ dist
 .DS_Store
 extension.vsixmanifest
 *~
+.mcp.json
 
 test-output/
 */.vscode/*
