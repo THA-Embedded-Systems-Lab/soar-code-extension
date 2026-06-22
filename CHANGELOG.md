@@ -1,12 +1,55 @@
-## [unreleased]
+## [0.7.0] - 2026-06-22
+
+### Features
+
+- Add .soarignore file logic (#5, #6) ([2f12e1b](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/2f12e1be2e4959ee442faf1b86154288ea2131f9))
+- _(MCP)_ Implement agent runtime control ([5f3b20e](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/5f3b20e777bee31dfa2dc260d886c32ae8d521f1))
+- Add support for updating enumeration values in datamap attributes ([fc22753](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/fc2275317078be6002ec465630a72480f5d6cdf1))
+- Add command to validate selected project against LSP diagnostics ([7ab3dff](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/7ab3dffa6deb37f558ad6ee81a88866c5570e8ed))
+- Implement parent reassignment functionality in datamap operations and add corresponding tests ([8ac8324](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/8ac832452504b02e7f464f13725c7b17388b41a3))
+- _(datamap)_ Improve removal of attributes with links and check integrity of datamap ([dddc357](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/dddc35738779e19298e6a1c8b9f2d0fe3cfa39f7))
+- _(mcp)_ Update tool description for smaller llms ([426a19c](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/426a19c6a9b4433a4a3be64869ff1cced1095844))
+- Sorted view and search for datamap and layout views ([3c47e3d](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/3c47e3d6ff6decaab0459aebc0fa46d263dae72f))
+- _(mcp)_ Add CLI explain commands for operator tracking and explanations ([84d991e](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/84d991ec4b8e4af843c23b4dd9ff0c5b20dc5648))
+- _(mcp)_ Add layout_find_nodes tool for discovering layout nodes ([0e09854](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/0e098546d2bfc67d2156b128a1825f22e06422a5))
+- Add Claude style mcp config ([5d89011](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/5d89011e65e02a8d7048c5e06c9d4d87fbb0f501))
+
+### Bug Fixes
+
+- Ownership change in linked attributes ([#12](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/issues/12)) ([47cd067](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/47cd067661388fba4dc5a19c7ea435b4ffe111dd))
+- Update completion logic and add tests ([ebf7a2d](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/ebf7a2da4c461e3e20160a2f23794a84e74575a1))
+- Orphan files nested path was not split ([#2](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/issues/2)) ([e789345](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/e789345e8bb0d336db55dfc4d366dfac932a82c4))
+- [**breaking**] Update dependencies via npm audit suggestions ([1d79a03](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/1d79a03624ca217a7b5737bd80d9163f4973b6cf))
+- Datamap integrity tests ([15fd741](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/15fd741726c91c2f4a312649dbf6be658c416396))
+- Io.input-link.<message> <id> datamap and completion logic was wrong ([b5b0bf2](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/b5b0bf261a8264651245796bb1859f0c356cbf47))
+- Add missing MCP tools to test file ([a1beb79](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/a1beb7946858a6d6d267ea1e08561b47456e7231))
+- Add CLAUDE.md to markdownlint ignore files ([2d1d54d](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/2d1d54da77b929955ac9ad2e6fb9d44dddfa47a8))
+- Rename from Soar to Soar tools due to occupied extension name in vs marketplace ([2bcdc15](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/2bcdc15f419edeb2ea0b9b9d726d57faff5f6203))
+- Format changelog in version hook before staging ([5738022](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/57380228cb968ba4130f0d613e5c4ff8ed5193cf))
+
+### Refactor
+
+- Remove legacy helloWorld command from extension ([8853249](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/8853249c0fdb7096dbf75b55c1fd19724faa7bec))
 
 ### Documentation
 
 - Add 0.6.0 changelog ([91d7626](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/91d7626cfd0be5b6df306abdd24101e97b2b204e))
+- Update descriptions and attribute to references ([01b4afc](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/01b4afcc83fac3add32d459b39e830f8cfd4fec4))
+- Shorten dev container instructions ([85211fc](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/85211fcf673e54822d025cf13920def7be082c27))
+- _(Agents)_ Integrate AGENTS.md and llm.txt into CLAUDE.md ([885094a](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/885094a9e8c68f31f1adefac97b64ed8d376504e))
 
 ### Miscellaneous Tasks
 
 - Add automatic release note generation ([433db55](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/433db5564e7abf5b887a8a7e78f888ad9c203810))
+- Add commit reference to changelog ([c65b9e3](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/c65b9e3e204d78a026222e4125926188bd91bd67))
+- Update version to 0.7.0 in package.json ([9cea2e5](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/9cea2e55f1b96389f16b7e12bc4579f572822b5a))
+- Remove old tests and disable orphan file tests temporarily ([83b566e](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/83b566ecf05d397d1a82900942b9d258ff673fc1))
+- Update dependencies ([8e5ac47](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/8e5ac479c46069fa5a6e741eb30f7731ea77ceaa))
+- Add release automation via npm version <major/minor/patch> ([51e15e7](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/51e15e78a84c4c36306ac31048fc5bff9d7dfe06))
+
+### Revert
+
+- Decrease version number for automatic release ([b792042](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/b7920427c7f6b6e67b938b34f9a9944c69974da6))
 
 ## [0.6.0] - 2026-03-10
 
