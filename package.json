@@ -674,6 +674,10 @@
     "test": "mocha --ui tdd -r ts-node/register test/helpers/index.ts",
     "test:ci": "npm run compile && node ./out/test/runTest.js",
     "vsce:package": "vsce package",
+    "changelog": "git-cliff -o CHANGELOG.md",
+    "preversion": "npm run lint && npm test",
+    "version": "git-cliff --tag $npm_package_version -o CHANGELOG.md && git add CHANGELOG.md",
+    "postversion": "git push --follow-tags",
     "precommit": "npm run format && npm run lint && npm run lint:md"
   },
   "devDependencies": {
@@ -687,6 +691,7 @@
     "ajv": "^8.17.1",
     "esbuild": "^0.27.0",
     "eslint": "^8.40.0",
+    "git-cliff": "^2.13.1",
     "glob": "^10.0.0",
     "markdown-link-check": "^3.12.1",
     "markdownlint-cli": "^0.49.0",

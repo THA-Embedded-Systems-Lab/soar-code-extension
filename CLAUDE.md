@@ -55,7 +55,26 @@ npm test              # Unit tests (mocha, no VS Code required) — fast feedbac
 npm run test:ci       # Integration tests (headless VS Code environment)
 npm run package       # Production build
 npm run vsce:package  # Package as .vsix
+npm run changelog     # Regenerate CHANGELOG.md from git history (git-cliff)
 ```
+
+### Cutting a release
+
+Releases are tag-driven. Run one of:
+
+```bash
+npm version patch   # or: minor | major | <explicit version>
+```
+
+This triggers the npm version lifecycle:
+
+- `preversion` — runs `npm run lint && npm test`
+- bumps `package.json`/`package-lock.json`
+- `version` — regenerates `CHANGELOG.md` via `git-cliff --tag <new version>` and stages it into the version commit
+- npm creates the commit + tag (no `v` prefix; enforced by `.npmrc` `tag-version-prefix=""` so tags match the CI `*.*.*` trigger)
+- `postversion` — `git push --follow-tags`
+
+Pushing the tag runs the `release` job in `.github/workflows/ci.yml`, which packages the VSIX and creates a GitHub Release with notes from `git-cliff --latest`.
 
 Run a single unit test file:
 
