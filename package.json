@@ -676,7 +676,7 @@
     "vsce:package": "vsce package",
     "changelog": "git-cliff -o CHANGELOG.md",
     "preversion": "npm run lint && npm test",
-    "version": "git-cliff --tag $npm_package_version -o CHANGELOG.md && git add CHANGELOG.md",
+    "version": "git-cliff --tag $npm_package_version -o CHANGELOG.md && prettier --write CHANGELOG.md && git add CHANGELOG.md",
     "postversion": "git push --follow-tags",
     "precommit": "npm run format && npm run lint && npm run lint:md"
   },
