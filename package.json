@@ -2,7 +2,7 @@
   "name": "soar-tool",
   "displayName": "Soar Tools",
   "description": "Soar support with LSP, MCP, datamap tools, syntax highlighting, and debugging interface",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
   "repository": {

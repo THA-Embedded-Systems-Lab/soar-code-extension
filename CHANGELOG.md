@@ -1,3 +1,15 @@
+## [0.7.1] - 2026-06-22
+
+### Bug Fixes
+
+- Update extension name in tests ([f10ddf7](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/f10ddf75e7bf4bcef7581fdfc491af0f1e48656c))
+
+### Documentation
+
+- Add images ([9434c9a](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/9434c9a21d1bd8f51c4206436c3e759f18835b52))
+- Update release notes ([ae7e8eb](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/ae7e8eb4ee6c6d29bf2efb07bc82d0579d35de27))
+- Add screenshots ([63b0926](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/63b0926bcf7f4d4d9c1280cbaa1f13e3536610db))
+
 ## [0.7.0] - 2026-06-22
 
 ### Features
