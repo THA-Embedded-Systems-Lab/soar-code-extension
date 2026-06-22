@@ -66,7 +66,7 @@ seamless VisualSoar project integration.
 
 ### Installation
 
-#### From VSIX (Recommended)
+#### From VSIX
 
 1. Download the `.vsix` file from releases
 2. Open VS Code
@@ -86,6 +86,10 @@ npm install
 npm run compile
 # Press F5 to launch Extension Development Host
 ```
+
+#### From VS Code Marketplace (recommended)
+
+Search for the `Soar Tools` extension and click install.
 
 ### Quick Start
 
@@ -296,32 +300,9 @@ Both test suites run in CI on all platforms (Linux, Windows, macOS).
 
 ### Release Process
 
-To create a new release:
-
-1. **Create Git Tag**
-
-   ```bash
-   git tag 1.0.0
-   git push origin 1.0.0
-   ```
-
-   This triggers CI to build, test, and create a GitHub release with the VSIX package.
-
-2. **Generate Changelog**
-
-   ```bash
-   git-cliff > CHANGELOG.md
-   ```
-
-   Updates the changelog based on conventional commits since the last tag.
-
-3. **Commit Changelog**
-
-   ```bash
-   git add CHANGELOG.md
-   git commit -m "chore: update changelog for 1.0.0"
-   git push
-   ```
+```bash
+npm version <major | minor | patch>
+```
 
 ### Project Structure
 
