@@ -57,6 +57,28 @@ seamless VisualSoar project integration.
 - Escalated to errors (breaks Soar import if invalid)
 - Auto-validates on save
 
+## Screenshots
+
+### Commands
+
+![Soar commands in the Command Palette](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-commands.png)
+
+### Datamap Management
+
+![Datamap tree view](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-datamap.png)
+
+### Code Validation
+
+![Validation diagnostics in the Problems panel](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-problem-panel.png)
+
+### Debugging (SML Socket)
+
+![Debug adapter — state stack](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-dap-s1.png)
+
+![Debug adapter — state with operator](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-dap-s1-o1.png)
+
+![Debug adapter — substate](https://raw.githubusercontent.com/THA-Embedded-Systems-Lab/soar-code-extension/main/doc/Images/soar-vs-code-extension-dap-s2.png)
+
 ## Getting Started
 
 ### Prerequisites
