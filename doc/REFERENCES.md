@@ -1,6 +1,8 @@
 # References and Resources
 
-This document provides links and references to all the key resources needed for building the Soar VS Code extension.
+This document provides links and references to all the key resources needed for
+building the Soar VS Code extension as well as inspiration for creating this
+extension.
 
 ## Source Code Repositories
 

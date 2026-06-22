@@ -1,8 +1,15 @@
 # Soar VS Code Extension
 
+[![CI](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/actions/workflows/ci.yml)
+
 A comprehensive VS Code extension for the Soar cognitive architecture, providing
 syntax highlighting, intelligent code validation, datamap management, and
 seamless VisualSoar project integration.
+
+> [!info]
+> This does not include a Soar installation, for some functionality, e.g.
+> debugging, the [Soar library](https://github.com/soargroup/soar/) must be
+> installed.
 
 ## Features
 
