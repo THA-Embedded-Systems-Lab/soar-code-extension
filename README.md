@@ -6,7 +6,7 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 syntax highlighting, intelligent code validation, datamap management, and
 seamless VisualSoar project integration.
 
-> [!info]
+> [!IMPORTANT]
 > This does not include a Soar installation, for some functionality, e.g.
 > debugging, the [Soar library](https://github.com/soargroup/soar/) must be
 > installed.
