@@ -57,6 +57,19 @@ seamless VisualSoar project integration.
 - Escalated to errors (breaks Soar import if invalid)
 - Auto-validates on save
 
+### MCP
+
+> [!NOTE]
+> The MCP requires a nodejs installation on your system.
+
+A built-in MCP server exposes the extension's functionality to LLM/agent
+workflows (auto-registered for VS Code and Claude Code). Its tools fall into
+three main categories:
+
+- **Datamap**: inspect and edit the working memory structure
+- **Project Structure**: query and modify the layout (operators, files, folders)
+- **Agent Runtime**: connect to and control a running Soar kernel
+
 ## Screenshots
 
 ### Commands
