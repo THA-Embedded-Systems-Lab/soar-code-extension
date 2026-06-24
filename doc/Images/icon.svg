@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#ffffff"/>
+  <!-- Soar logo: blue right-pointing triangle with SOAR text -->
+  <g>
+    <polygon points="118,16 15,64 118,112" fill="#1f6fe5"/>
+    <text x="59" y="72" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="bold" fill="#ffffff" letter-spacing="1">S<tspan font-size="17">OAR</tspan></text>
+  </g>
+  <!-- Small gear at bottom-left -->
+  <g transform="translate(30,98)">
+    <g fill="#3a3a3a">
+      <!-- teeth -->
+      <g>
+        <rect x="-3.5" y="-21" width="7" height="9" rx="1.5"/>
+        <rect x="-3.5" y="12" width="7" height="9" rx="1.5"/>
+        <rect x="-21" y="-3.5" width="9" height="7" rx="1.5"/>
+        <rect x="12" y="-3.5" width="9" height="7" rx="1.5"/>
+        <g transform="rotate(45)">
+          <rect x="-3.5" y="-21" width="7" height="9" rx="1.5"/>
+          <rect x="-3.5" y="12" width="7" height="9" rx="1.5"/>
+          <rect x="-21" y="-3.5" width="9" height="7" rx="1.5"/>
+          <rect x="12" y="-3.5" width="9" height="7" rx="1.5"/>
+        </g>
+      </g>
+      <circle cx="0" cy="0" r="15"/>
+    </g>
+    <circle cx="0" cy="0" r="6" fill="#ffffff"/>
+  </g>
+</svg>

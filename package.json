@@ -5,6 +5,7 @@
   "version": "0.7.1",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
+  "icon": "doc/Images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/tha-embedded-systems-lab/soar-code-extension"
@@ -405,7 +406,7 @@
         {
           "id": "soar-explorer",
           "title": "Soar",
-          "icon": "$(circuit-board)"
+          "icon": "media/soar-sidebar.svg"
         }
       ]
     },
