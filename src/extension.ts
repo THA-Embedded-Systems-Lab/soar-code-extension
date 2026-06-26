@@ -5,7 +5,11 @@ import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvi
 import { DatamapValidator } from './datamap/datamapValidator';
 import { DatamapMetadataCache } from './datamap/datamapMetadata';
 import { DatamapOperations } from './datamap/datamapOperations';
-import { LayoutTreeProvider, LayoutTreeItem } from './layout/layoutTreeProvider';
+import {
+  LayoutTreeProvider,
+  LayoutTreeItem,
+  LayoutDragAndDropController,
+} from './layout/layoutTreeProvider';
 import { LayoutOperations } from './layout/layoutOperations';
 import { ProjectSync } from './layout/projectSync';
 import { loadSoarIgnore, isIgnoredByPatterns, SOAR_IGNORE_FILENAME } from './layout/soarIgnore';
@@ -635,9 +639,21 @@ export async function activate(context: vscode.ExtensionContext) {
   layoutProviderGlobal = layoutProvider;
   // Sync initial context key for layout search
   vscode.commands.executeCommand('setContext', 'soar.layoutSearchActive', false);
+  const reloadLayoutAndDatamap = async () => {
+    const active = projectManager.getActiveProject();
+    const projectFile = active?.projectFile ?? layoutProvider.getProjectContext()?.projectFile;
+    if (!projectFile) {
+      return;
+    }
+    await Promise.all([
+      layoutProvider.loadProjectFromFile(projectFile),
+      datamapProvider.loadProjectFromFile(projectFile),
+    ]);
+  };
   const layoutTreeView = vscode.window.createTreeView('soarLayout', {
     treeDataProvider: layoutProvider,
     showCollapseAll: true,
+    dragAndDropController: new LayoutDragAndDropController(layoutProvider, reloadLayoutAndDatamap),
   });
   context.subscriptions.push(layoutTreeView);
 
@@ -1179,6 +1195,13 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register operator/datamap name-sync verification command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('soar.checkOperatorDatamapSync', async () => {
+      await checkOperatorDatamapSync(layoutProvider);
+    })
+  );
+
   // Auto-validate on file save
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async document => {
@@ -1560,6 +1583,50 @@ async function checkDatamapIntegrity(): Promise<void> {
         `Datamap integrity report for "${projectName}"`,
         `${'─'.repeat(60)}`,
         `Total issues: ${issues.length}  (dangling: ${dangling.length}, unreachable-root: ${unreachable.length})`,
+        '',
+        detail,
+      ].join('\n'),
+    });
+    await vscode.window.showTextDocument(doc);
+  }
+}
+
+/**
+ * Verify that every operator layout node has a matching `^operator` entry in its
+ * parent state's datamap, surfacing any mismatches (e.g. after a rename that did
+ * not propagate). Mirrors the datamap-integrity command's UX.
+ */
+async function checkOperatorDatamapSync(layoutProvider: LayoutTreeProvider): Promise<void> {
+  const projectContext = layoutProvider.getProjectContext();
+  if (!projectContext) {
+    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
+    return;
+  }
+
+  const issues = LayoutOperations.checkOperatorDatamapSync(projectContext);
+  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
+
+  if (issues.length === 0) {
+    vscode.window.showInformationMessage(
+      `✓ Operators in sync — every operator in "${projectName}" matches the datamap.`
+    );
+    return;
+  }
+
+  const detail = issues.map(i => `• [${i.nodeType}] ${i.message}`).join('\n');
+
+  const action = await vscode.window.showWarningMessage(
+    `${issues.length} operator(s) out of sync with the datamap in "${projectName}".`,
+    'Show Details'
+  );
+
+  if (action === 'Show Details') {
+    const doc = await vscode.workspace.openTextDocument({
+      language: 'plaintext',
+      content: [
+        `Operator/datamap sync report for "${projectName}"`,
+        `${'─'.repeat(60)}`,
+        `Total out-of-sync operators: ${issues.length}`,
         '',
         detail,
       ].join('\n'),

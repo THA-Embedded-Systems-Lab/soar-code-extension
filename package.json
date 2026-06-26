@@ -377,6 +377,12 @@
         "icon": "$(shield)"
       },
       {
+        "command": "soar.checkOperatorDatamapSync",
+        "title": "Verify Operator/Datamap Sync",
+        "category": "Soar",
+        "icon": "$(check-all)"
+      },
+      {
         "command": "soar.setupMcpServer",
         "title": "Setup MCP Server",
         "category": "Soar",
@@ -497,9 +503,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "soar.findOrphanedFiles",
+          "command": "soar.checkOperatorDatamapSync",
           "when": "view == soarLayout",
           "group": "navigation@2"
+        },
+        {
+          "command": "soar.findOrphanedFiles",
+          "when": "view == soarLayout",
+          "group": "navigation@3"
         },
         {
           "command": "soar.findMissingFiles",

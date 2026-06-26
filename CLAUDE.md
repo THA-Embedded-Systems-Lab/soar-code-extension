@@ -195,8 +195,13 @@ Three separate esbuild bundles are produced into `dist/`:
 ### Layout / project structure editing
 
 - `src/layout/layoutTreeProvider.ts`
+  - `LayoutDragAndDropController` (exported) — drag-and-drop on the `soarLayout` view (mime `application/vnd.code.tree.soarlayout`). Delegates to `LayoutOperations.moveNode`; reloads layout + datamap views after a successful move. Registered via `dragAndDropController` on the tree view in `src/extension.ts`.
 - `src/layout/layoutOperations.ts`
   - uses shared `generateVertexId` when creating datamap vertices for layout-driven edits
+  - `renameNode` (UI) prompts then delegates to `renameNodeCore(projectContext, nodeId, newName)` (pure, used by tests). Rename now: rejects sibling-name collisions, renames the backing `<name>.soar` file (and, for high-level operators, the substate `<name>/` folder + `<name>_source.soar`) on disk, updates source scripts, and keeps the datamap operator `^name` enumeration in sync (parent-state operator vertex + high-level substate root). Only renames artifacts that follow the standard `<name>.soar`/`<name>/` naming.
+  - `moveNode(projectContext, nodeId, targetNodeId, { showMessages? })` — drag-and-drop "full move": re-parents the layout node, moves the backing file(s)/folder on disk (a folder move is a single directory rename of the whole subtree), updates source scripts, and moves the `^operator` datamap edge to the destination state (`moveOperatorEdgeInDatamap`, reusing the existing operator vertex). Dropping onto a plain `OPERATOR`/`IMPASSE_OPERATOR` converts it to high-level first; onto a leaf drops into the leaf's parent. Guards against moving onto self/descendant and destination name collisions. No undo (filesystem moves are not snapshot-reversible).
+  - `checkOperatorDatamapSync(projectContext): OperatorSyncIssue[]` — verification step: every `OPERATOR`/`HIGH_LEVEL_OPERATOR` layout node must have a matching `^operator` entry (with a `^name` enumeration including the node name) in its parent state's datamap. Surfaced via command `soar.checkOperatorDatamapSync` (`src/extension.ts` `checkOperatorDatamapSync` — notification + "Show Details" plaintext report; also a `soarLayout` view title button).
+  - add-operator/impasse/file/folder now reject a duplicate sibling name (case-insensitive) up front via `findChildByName`, returning `{ success: false, error }` and an explicit error notification instead of silently failing or producing inconsistent state.
 - `src/layout/projectSync.ts`
   - shared project-file gathering helpers (including existing `.soar` collection) reused by project-wide datamap validation flows
   - `findOrphanedFiles()` loads `.soarignore` via `soarIgnore.ts` and skips matching files before returning
@@ -296,6 +301,7 @@ See `package.json` (contributes/commands/configuration) and `src/extension.ts` (
 - Legacy smoke-test command `soar.helloWorld` has been removed from both `package.json` contributions and `src/extension.ts` registrations.
 - `soar.validateSelectedProjectAgainstLsp` runs LSP-based checks across all existing project `.soar` files (project-wide Problems panel refresh).
 - `soar.checkDatamapIntegrity` runs `DatamapMetadataCache.checkLinkedAttributeIntegrity` on the active project and shows a summary notification; a "Show Details" action opens a plaintext report listing every issue by kind, attribute name, and vertex IDs. The command is also exposed as an icon button in the Datamap view title bar.
+- `soar.checkOperatorDatamapSync` runs `LayoutOperations.checkOperatorDatamapSync` on the active project to verify every operator layout node has a matching datamap `^operator` entry; shows a summary notification with a "Show Details" plaintext report. Exposed as an icon button in the Layout (`soarLayout`) view title bar.
 
 Debug contract additions:
 

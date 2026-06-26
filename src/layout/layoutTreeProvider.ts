@@ -14,6 +14,10 @@ import {
   ProjectContext,
   hasChildren,
 } from '../server/visualSoarProject';
+import { LayoutOperations } from './layoutOperations';
+
+/** Mime type for dragging layout nodes within the Soar layout tree view. */
+const LAYOUT_DND_MIME = 'application/vnd.code.tree.soarlayout';
 
 export class LayoutTreeItem extends vscode.TreeItem {
   constructor(
@@ -386,5 +390,58 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
       }
     }
     return null;
+  }
+}
+
+/**
+ * Drag-and-drop controller for the Soar layout tree. Lets users move operators
+ * (and files/folders) into other operators/folders. Dropping onto a plain
+ * operator converts it to a high-level operator first (see
+ * {@link LayoutOperations.moveNode}).
+ */
+export class LayoutDragAndDropController
+  implements vscode.TreeDragAndDropController<LayoutTreeItem>
+{
+  readonly dropMimeTypes = [LAYOUT_DND_MIME];
+  readonly dragMimeTypes = [LAYOUT_DND_MIME];
+
+  constructor(
+    private readonly provider: LayoutTreeProvider,
+    private readonly onChanged: () => Promise<void>
+  ) {}
+
+  handleDrag(source: readonly LayoutTreeItem[], dataTransfer: vscode.DataTransfer): void {
+    const ids = source.map(item => item.node.id);
+    dataTransfer.set(LAYOUT_DND_MIME, new vscode.DataTransferItem(ids));
+  }
+
+  async handleDrop(
+    target: LayoutTreeItem | undefined,
+    dataTransfer: vscode.DataTransfer
+  ): Promise<void> {
+    const transferItem = dataTransfer.get(LAYOUT_DND_MIME);
+    if (!transferItem) {
+      return;
+    }
+
+    const projectContext = this.provider.getProjectContext();
+    if (!projectContext) {
+      return;
+    }
+
+    const ids: string[] = transferItem.value ?? [];
+    const targetId = target ? target.node.id : projectContext.project.layout.id;
+
+    let moved = false;
+    for (const id of ids) {
+      const result = await LayoutOperations.moveNode(projectContext, id, targetId, {
+        showMessages: true,
+      });
+      moved = moved || result.success;
+    }
+
+    if (moved) {
+      await this.onChanged();
+    }
   }
 }

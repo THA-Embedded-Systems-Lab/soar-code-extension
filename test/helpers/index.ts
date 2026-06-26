@@ -19,6 +19,7 @@ import '../lsp/completions/helpers/completion.test';
 // Project layout tests
 import '../layout/projectCreator.test';
 import '../layout/layoutOperations.test';
+import '../layout/layoutMoveRenameSync.test';
 import '../layout/undoManager.test';
 
 // Datamap manipulation tests

@@ -32,6 +32,21 @@ export interface DeleteResult {
   foldersDeleted?: string[];
 }
 
+/**
+ * A mismatch between an operator layout node and the datamap: the operator
+ * exists in the project structure but has no matching `^operator` entry (with a
+ * `^name` enumeration including the operator's name) in its parent state's
+ * datamap.
+ */
+export interface OperatorSyncIssue {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  stateName: string;
+  stateDatamapId: string;
+  message: string;
+}
+
 interface SourceReference {
   absolutePath: string;
   folderPath: string;
@@ -75,16 +90,14 @@ export class LayoutOperations {
       return false;
     }
 
-    // Update the node name
-    node.name = newName;
+    // Apply the rename: updates the node name, renames physical file(s)/folder,
+    // updates source scripts, and keeps the datamap operator name in sync.
+    const result = await this.renameNodeCore(projectContext, nodeId, newName);
+    if (!result.success) {
+      vscode.window.showErrorMessage(`Cannot rename: ${result.error}`);
+      return false;
+    }
 
-    // If it has a file or folder, we should also rename the physical file/folder
-    // but that's complex and risky, so we'll just update the logical name for now
-    vscode.window.showWarningMessage(
-      'Note: Physical file/folder not renamed. Only logical name updated.'
-    );
-
-    await this.saveProject(projectContext);
     vscode.window.showInformationMessage(`Renamed to '${newName}'`);
 
     // Capture undo operation if callback provided
@@ -101,6 +114,298 @@ export class LayoutOperations {
     }
 
     return true;
+  }
+
+  /**
+   * Pure (no-prompt) rename implementation. Renames the layout node, renames the
+   * associated physical file (and substate folder for high-level operators),
+   * updates source scripts, and keeps the datamap operator name in sync.
+   *
+   * Used directly by tests and delegated to by the interactive `renameNode`.
+   */
+  static async renameNodeCore(
+    projectContext: ProjectContext,
+    nodeId: string,
+    newName: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const node = projectContext.layoutIndex.get(nodeId);
+    if (!node || !('name' in node)) {
+      return { success: false, error: 'Node not found' };
+    }
+
+    const oldName = node.name;
+    if (oldName === newName) {
+      return { success: true };
+    }
+
+    const parentId = this.findParentId(projectContext, nodeId);
+
+    // Reject collisions with a sibling of the same name (case-insensitive)
+    const parentNode = parentId ? projectContext.layoutIndex.get(parentId) : null;
+    if (parentNode && hasChildren(parentNode) && parentNode.children) {
+      const clash = parentNode.children.find(
+        c => c.id !== nodeId && 'name' in c && c.name.toLowerCase() === newName.toLowerCase()
+      );
+      if (clash) {
+        return { success: false, error: `A node named '${newName}' already exists here` };
+      }
+    }
+
+    // Rename physical files/folders first so a filesystem conflict aborts before
+    // we mutate the in-memory model.
+    try {
+      await this.renameNodeFilesystem(projectContext, node, parentId, oldName, newName);
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+
+    // Keep the datamap operator name in sync with the layout
+    this.renameOperatorInDatamap(projectContext, node, parentId, oldName, newName);
+
+    node.name = newName;
+    await this.saveProject(projectContext);
+    return { success: true };
+  }
+
+  /**
+   * Rename the physical file (and substate folder) backing a layout node, and
+   * update the corresponding source-script references. Only renames artifacts
+   * that follow the standard `<name>.soar` / `<name>/` naming so custom paths
+   * are left untouched.
+   */
+  private static async renameNodeFilesystem(
+    projectContext: ProjectContext,
+    node: LayoutNode,
+    parentId: string | null,
+    oldName: string,
+    newName: string
+  ): Promise<void> {
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const parentFolderRel = parentId ? this.getNodeFolderPath(projectContext, parentId) : '';
+    const parentFolderAbs = this.resolveFolderAbsolute(workspaceFolder, parentFolderRel);
+
+    const isHighLevel =
+      node.type === 'HIGH_LEVEL_OPERATOR' ||
+      node.type === 'HIGH_LEVEL_IMPASSE_OPERATOR' ||
+      node.type === 'HIGH_LEVEL_FILE_OPERATOR';
+
+    // 1. Rename the node's file when it is named after the node
+    if ('file' in node && node.file) {
+      const ext = path.extname(node.file);
+      const base = path.basename(node.file, ext);
+      if (base === oldName) {
+        const newFile = `${newName}${ext}`;
+        // For high-level operators the .soar file stays at the parent level;
+        // otherwise it lives in the node's own folder path (== parent path for
+        // leaf nodes without their own folder).
+        const fileFolderRel = isHighLevel
+          ? parentFolderRel
+          : this.getNodeFolderPath(projectContext, node.id);
+        const fileFolderAbs = this.resolveFolderAbsolute(workspaceFolder, fileFolderRel);
+        const oldAbs = path.join(fileFolderAbs, node.file);
+        const newAbs = path.join(fileFolderAbs, newFile);
+
+        if (fs.existsSync(oldAbs)) {
+          if (fs.existsSync(newAbs)) {
+            throw new Error(`File already exists: ${newFile}`);
+          }
+          await fs.promises.rename(oldAbs, newAbs);
+        }
+
+        await SourceScriptManager.removeReference(fileFolderAbs, node.file);
+        await SourceScriptManager.appendReference(fileFolderAbs, newFile);
+        node.file = newFile;
+      }
+    }
+
+    // 2. Rename the node's own folder when it is named after the node
+    if ('folder' in node && node.folder && node.folder === oldName) {
+      const oldFolderAbs = path.join(workspaceFolder, parentFolderRel, node.folder);
+      const newFolderAbs = path.join(workspaceFolder, parentFolderRel, newName);
+
+      if (fs.existsSync(oldFolderAbs)) {
+        if (fs.existsSync(newFolderAbs)) {
+          throw new Error(`Folder already exists: ${newName}`);
+        }
+        await fs.promises.rename(oldFolderAbs, newFolderAbs);
+      }
+
+      // Rename the substate's <name>_source.soar inside the (now renamed) folder
+      const oldSource = path.join(newFolderAbs, `${oldName}_source.soar`);
+      const newSource = path.join(newFolderAbs, `${newName}_source.soar`);
+      if (fs.existsSync(oldSource)) {
+        if (!fs.existsSync(newSource)) {
+          await fs.promises.rename(oldSource, newSource);
+        }
+        // Update the parent-level reference to the folder's source script
+        await SourceScriptManager.removeReference(
+          parentFolderAbs,
+          path.join(oldName, `${oldName}_source.soar`)
+        );
+        await SourceScriptManager.appendReference(
+          parentFolderAbs,
+          path.join(newName, `${newName}_source.soar`)
+        );
+      }
+
+      node.folder = newName;
+    }
+  }
+
+  /**
+   * Keep the datamap in sync when an operator layout node is renamed: rename the
+   * `^name` enumeration of the operator vertex in the parent state and, for
+   * high-level operators, the substate root's own `^name` enumeration.
+   */
+  private static renameOperatorInDatamap(
+    projectContext: ProjectContext,
+    node: LayoutNode,
+    parentId: string | null,
+    oldName: string,
+    newName: string
+  ): void {
+    if (node.type === 'OPERATOR' || node.type === 'HIGH_LEVEL_OPERATOR') {
+      if (parentId) {
+        const stateContext = this.findParentStateContext(projectContext, parentId);
+        this.renameOperatorNameInState(projectContext, stateContext.datamapId, oldName, newName);
+      }
+    }
+
+    // High-level operator substate root carries its own ^name enumeration
+    if (node.type === 'HIGH_LEVEL_OPERATOR' && 'dmId' in node && node.dmId) {
+      this.updateNameEnumChoice(projectContext, node.dmId, oldName, newName);
+    }
+  }
+
+  /**
+   * Find the operator vertex named `oldName` among a state's `^operator` edges
+   * and rename its `^name` enumeration choice to `newName`.
+   */
+  private static renameOperatorNameInState(
+    projectContext: ProjectContext,
+    stateVertexId: string,
+    oldName: string,
+    newName: string
+  ): boolean {
+    const stateVertex = projectContext.datamapIndex.get(stateVertexId);
+    if (!stateVertex || stateVertex.type !== 'SOAR_ID' || !stateVertex.outEdges) {
+      return false;
+    }
+    for (const edge of stateVertex.outEdges) {
+      if (edge.name === 'operator') {
+        if (this.updateNameEnumChoice(projectContext, edge.toId, oldName, newName)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Replace `oldName` with `newName` in the `^name` enumeration of a SOAR_ID
+   * vertex. Returns true when a matching choice was found and updated.
+   */
+  private static updateNameEnumChoice(
+    projectContext: ProjectContext,
+    soarIdVertexId: string,
+    oldName: string,
+    newName: string
+  ): boolean {
+    const vertex = projectContext.datamapIndex.get(soarIdVertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+      return false;
+    }
+    const nameEdge = vertex.outEdges.find(e => e.name === 'name');
+    if (!nameEdge) {
+      return false;
+    }
+    const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+    if (nameVertex && nameVertex.type === 'ENUMERATION' && nameVertex.choices.includes(oldName)) {
+      nameVertex.choices = nameVertex.choices.map(c => (c === oldName ? newName : c));
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Verify that every operator layout node has a matching `^operator` entry in
+   * its parent state's datamap. Returns one issue per out-of-sync operator.
+   *
+   * Covers OPERATOR and HIGH_LEVEL_OPERATOR nodes (the node types that own an
+   * `^operator` edge in the datamap). Impasse operators are not datamap-backed
+   * and are skipped.
+   */
+  static checkOperatorDatamapSync(projectContext: ProjectContext): OperatorSyncIssue[] {
+    const issues: OperatorSyncIssue[] = [];
+
+    const walk = (node: LayoutNode): void => {
+      if (node.type === 'OPERATOR' || node.type === 'HIGH_LEVEL_OPERATOR') {
+        const parentId = this.findParentId(projectContext, node.id);
+        const stateContext = parentId
+          ? this.findParentStateContext(projectContext, parentId)
+          : {
+              stateName: projectContext.project.layout.name || 'root',
+              datamapId: projectContext.project.datamap.rootId,
+            };
+
+        if (!this.stateHasOperatorNamed(projectContext, stateContext.datamapId, node.name)) {
+          issues.push({
+            nodeId: node.id,
+            nodeName: node.name,
+            nodeType: node.type,
+            stateName: stateContext.stateName,
+            stateDatamapId: stateContext.datamapId,
+            message: `Operator '${node.name}' has no matching ^operator entry in datamap state '${stateContext.stateName}' (${stateContext.datamapId})`,
+          });
+        }
+      }
+
+      if (hasChildren(node) && node.children) {
+        for (const child of node.children) {
+          walk(child);
+        }
+      }
+    };
+
+    walk(projectContext.project.layout);
+    return issues;
+  }
+
+  /**
+   * Returns true when the given state vertex has an `^operator` edge to a vertex
+   * whose `^name` enumeration includes `operatorName`.
+   */
+  private static stateHasOperatorNamed(
+    projectContext: ProjectContext,
+    stateVertexId: string,
+    operatorName: string
+  ): boolean {
+    const stateVertex = projectContext.datamapIndex.get(stateVertexId);
+    if (!stateVertex || stateVertex.type !== 'SOAR_ID' || !stateVertex.outEdges) {
+      return false;
+    }
+    for (const edge of stateVertex.outEdges) {
+      if (edge.name !== 'operator') {
+        continue;
+      }
+      const opVertex = projectContext.datamapIndex.get(edge.toId);
+      if (!opVertex || opVertex.type !== 'SOAR_ID' || !opVertex.outEdges) {
+        continue;
+      }
+      const nameEdge = opVertex.outEdges.find(e => e.name === 'name');
+      if (!nameEdge) {
+        continue;
+      }
+      const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+      if (
+        nameVertex &&
+        nameVertex.type === 'ENUMERATION' &&
+        nameVertex.choices.includes(operatorName)
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -254,6 +559,20 @@ export class LayoutOperations {
       `Deleted '${node.name}' from project structure and file system`
     );
     return true;
+  }
+
+  /**
+   * Helper: returns the existing child of `parentNode` whose name matches
+   * `name` (case-insensitive), or undefined. Used to give explicit duplicate
+   * notifications instead of silently failing or producing inconsistent state.
+   */
+  private static findChildByName(parentNode: LayoutNode, name: string): LayoutNode | undefined {
+    if (!hasChildren(parentNode) || !parentNode.children) {
+      return undefined;
+    }
+    return parentNode.children.find(
+      c => 'name' in c && c.name.toLowerCase() === name.toLowerCase()
+    );
   }
 
   /**
@@ -971,6 +1290,15 @@ export class LayoutOperations {
       return { success: false, error: 'Invalid file name' };
     }
 
+    // Reject a duplicate child name in the same parent
+    if (this.findChildByName(parentNode, fileName)) {
+      const message = `A file named '${fileName}' already exists in this folder.`;
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(message);
+      }
+      return { success: false, error: message };
+    }
+
     const workspaceFolder = path.dirname(projectContext.projectFile);
     const parentFolderPath = this.getNodeFolderPath(projectContext, parentNodeId);
     const filePath = `${fileName}.soar`;
@@ -1079,6 +1407,15 @@ export class LayoutOperations {
         vscode.window.showErrorMessage('Can only add operators to folder nodes');
       }
       return { success: false, error: 'Parent cannot have children' };
+    }
+
+    // Reject a duplicate operator/child name in the same parent
+    if (this.findChildByName(parentNode, operatorName)) {
+      const message = `An operator named '${operatorName}' already exists in this folder.`;
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(message);
+      }
+      return { success: false, error: message };
     }
 
     // Determine the parent state context (root or substate)
@@ -1209,6 +1546,15 @@ export class LayoutOperations {
       return { success: false, error: 'Parent cannot have children' };
     }
 
+    // Reject a duplicate impasse operator of the same type in the same parent
+    if (this.findChildByName(parentNode, impasseName)) {
+      const message = `An impasse operator '${impasseName}' already exists in this folder.`;
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(message);
+      }
+      return { success: false, error: message };
+    }
+
     // Determine the parent state context (root or substate)
     const stateContext = this.findParentStateContext(projectContext, parentNodeId);
 
@@ -1311,6 +1657,15 @@ export class LayoutOperations {
         vscode.window.showErrorMessage('Invalid folder name');
       }
       return { success: false, error: 'Invalid folder name' };
+    }
+
+    // Reject a duplicate child name in the same parent
+    if (this.findChildByName(parentNode, folderName)) {
+      const message = `A folder named '${folderName}' already exists in this folder.`;
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(message);
+      }
+      return { success: false, error: message };
     }
 
     const workspaceFolder = path.dirname(projectContext.projectFile);
@@ -1420,6 +1775,301 @@ export class LayoutOperations {
     return await this.addFolderInternal(projectContext, parentNodeId, folderName, {
       reloadCallback,
     });
+  }
+
+  /**
+   * Move a layout node into a new parent (drag-and-drop). Performs a full move:
+   * re-parents the layout node, moves the backing file(s)/folder on disk,
+   * updates source-script references, and (for operators) moves the `^operator`
+   * edge to the destination state's datamap.
+   *
+   * Drop semantics:
+   * - onto a FOLDER / OPERATOR_ROOT / high-level operator → move inside it
+   * - onto a plain OPERATOR / IMPASSE_OPERATOR → convert it to high-level, then
+   *   move inside it
+   * - onto a leaf (FILE, FILE_OPERATOR, …) → move next to it (into its parent)
+   */
+  static async moveNode(
+    projectContext: ProjectContext,
+    nodeId: string,
+    targetNodeId: string,
+    options: { showMessages?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> {
+    const fail = (error: string) => {
+      if (options.showMessages) {
+        vscode.window.showErrorMessage(`Move failed: ${error}`);
+      }
+      return { success: false, error };
+    };
+
+    const node = projectContext.layoutIndex.get(nodeId);
+    if (!node) {
+      return fail('Node not found');
+    }
+    if (node.type === 'OPERATOR_ROOT') {
+      return fail('Cannot move the project root');
+    }
+    if (nodeId === targetNodeId) {
+      return fail('Cannot move a node onto itself');
+    }
+    if (this.isDescendant(node, targetNodeId)) {
+      return fail('Cannot move a node into its own descendant');
+    }
+
+    const oldParentId = this.findParentId(projectContext, nodeId);
+    if (!oldParentId) {
+      return fail('Cannot move the project root');
+    }
+    const oldParent = projectContext.layoutIndex.get(oldParentId);
+    if (!oldParent || !hasChildren(oldParent) || !oldParent.children) {
+      return fail('Invalid source parent');
+    }
+
+    // Resolve the destination parent, converting the target if needed
+    let target = projectContext.layoutIndex.get(targetNodeId);
+    if (!target) {
+      return fail('Target not found');
+    }
+
+    let destParentId: string;
+    if (target.type === 'OPERATOR') {
+      const converted = await this.convertOperatorToHighLevel(projectContext, targetNodeId);
+      if (!converted) {
+        return fail('Failed to convert target operator to high-level');
+      }
+      destParentId = targetNodeId;
+    } else if (target.type === 'IMPASSE_OPERATOR') {
+      const converted = await this.convertImpasseOperatorToHighLevel(projectContext, targetNodeId);
+      if (!converted) {
+        return fail('Failed to convert target impasse operator to high-level');
+      }
+      destParentId = targetNodeId;
+    } else if (hasChildren(target)) {
+      destParentId = targetNodeId;
+    } else {
+      // Leaf target → drop next to it (into its parent)
+      const targetParentId = this.findParentId(projectContext, targetNodeId);
+      if (!targetParentId) {
+        return fail('Invalid drop target');
+      }
+      destParentId = targetParentId;
+    }
+
+    if (destParentId === oldParentId) {
+      // Same parent → nothing to move (reordering is not supported)
+      return { success: true };
+    }
+
+    const destParent = projectContext.layoutIndex.get(destParentId);
+    if (!destParent || !hasChildren(destParent)) {
+      return fail('Destination cannot contain children');
+    }
+
+    // Reject a name collision in the destination
+    if (this.findChildByName(destParent, node.name)) {
+      return fail(`A node named '${node.name}' already exists in the destination`);
+    }
+
+    const workspaceFolder = path.dirname(projectContext.projectFile);
+    const oldParentFolderRel = this.getNodeFolderPath(projectContext, oldParentId);
+    const newParentFolderRel = this.getNodeFolderPath(projectContext, destParentId);
+
+    // Capture datamap state contexts before the layout changes
+    const oldStateContext = this.findParentStateContext(projectContext, oldParentId);
+    const newStateContext = this.findParentStateContext(projectContext, destParentId);
+
+    // Move files/folders on disk first so a filesystem error aborts cleanly
+    try {
+      await this.moveNodeFilesystem(
+        projectContext,
+        node,
+        workspaceFolder,
+        oldParentFolderRel,
+        newParentFolderRel
+      );
+    } catch (error: any) {
+      return fail(error.message);
+    }
+
+    // Re-parent the operator edge in the datamap
+    if (node.type === 'OPERATOR' || node.type === 'HIGH_LEVEL_OPERATOR') {
+      this.moveOperatorEdgeInDatamap(
+        projectContext,
+        oldStateContext.datamapId,
+        newStateContext.datamapId,
+        node.name
+      );
+    }
+
+    // Re-parent in the layout tree + index
+    const idx = oldParent.children.findIndex((c: LayoutNode) => c.id === nodeId);
+    if (idx !== -1) {
+      oldParent.children.splice(idx, 1);
+    }
+    if (!destParent.children) {
+      destParent.children = [];
+    }
+    destParent.children.push(node);
+
+    await this.saveProject(projectContext);
+
+    if (options.showMessages) {
+      vscode.window.showInformationMessage(`Moved '${node.name}'`);
+    }
+    return { success: true };
+  }
+
+  /** Helper: true when `targetId` is `node` itself or one of its descendants. */
+  private static isDescendant(node: LayoutNode, targetId: string): boolean {
+    if (node.id === targetId) {
+      return true;
+    }
+    if (hasChildren(node) && node.children) {
+      return node.children.some(c => this.isDescendant(c, targetId));
+    }
+    return false;
+  }
+
+  /**
+   * Move the physical file(s)/folder backing a node from one parent folder to
+   * another and update the affected source-script references. A folder move is a
+   * single directory rename that carries the whole subtree with it.
+   */
+  private static async moveNodeFilesystem(
+    projectContext: ProjectContext,
+    node: LayoutNode,
+    workspaceFolder: string,
+    oldParentFolderRel: string,
+    newParentFolderRel: string
+  ): Promise<void> {
+    const oldParentAbs = this.resolveFolderAbsolute(workspaceFolder, oldParentFolderRel);
+    const newParentAbs = this.resolveFolderAbsolute(workspaceFolder, newParentFolderRel);
+
+    const moveFile = async (relFile: string): Promise<void> => {
+      const oldAbs = path.join(oldParentAbs, relFile);
+      const newAbs = path.join(newParentAbs, relFile);
+      if (fs.existsSync(oldAbs)) {
+        if (fs.existsSync(newAbs)) {
+          throw new Error(`File already exists at destination: ${relFile}`);
+        }
+        await fs.promises.mkdir(path.dirname(newAbs), { recursive: true });
+        await fs.promises.rename(oldAbs, newAbs);
+      }
+      await SourceScriptManager.removeReference(oldParentAbs, relFile);
+      await SourceScriptManager.appendReference(newParentAbs, relFile);
+    };
+
+    const moveDir = async (relDir: string): Promise<void> => {
+      const oldAbs = path.join(oldParentAbs, relDir);
+      const newAbs = path.join(newParentAbs, relDir);
+      if (fs.existsSync(oldAbs)) {
+        if (fs.existsSync(newAbs)) {
+          throw new Error(`Folder already exists at destination: ${relDir}`);
+        }
+        await fs.promises.mkdir(path.dirname(newAbs), { recursive: true });
+        await fs.promises.rename(oldAbs, newAbs);
+      }
+    };
+
+    switch (node.type) {
+      case 'OPERATOR':
+      case 'FILE':
+      case 'FILE_OPERATOR':
+      case 'IMPASSE_OPERATOR':
+        if ('file' in node && node.file) {
+          await moveFile(node.file);
+        }
+        break;
+
+      case 'HIGH_LEVEL_OPERATOR':
+      case 'HIGH_LEVEL_IMPASSE_OPERATOR':
+      case 'HIGH_LEVEL_FILE_OPERATOR':
+        // The operator .soar file lives at the parent level; the substate folder
+        // (a self-contained subtree) moves as a single directory rename.
+        if ('file' in node && node.file) {
+          await moveFile(node.file);
+        }
+        if ('folder' in node && node.folder) {
+          await moveDir(node.folder);
+          await SourceScriptManager.removeReference(
+            oldParentAbs,
+            path.join(node.folder, `${node.name}_source.soar`)
+          );
+          await SourceScriptManager.appendReference(
+            newParentAbs,
+            path.join(node.folder, `${node.name}_source.soar`)
+          );
+        }
+        break;
+
+      case 'FOLDER':
+        if ('folder' in node && node.folder) {
+          await moveDir(node.folder);
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  /**
+   * Move an operator's `^operator` edge from one state vertex to another,
+   * reusing the existing operator vertex (and its `^name` enumeration).
+   */
+  private static moveOperatorEdgeInDatamap(
+    projectContext: ProjectContext,
+    oldStateVertexId: string,
+    newStateVertexId: string,
+    operatorName: string
+  ): void {
+    if (oldStateVertexId === newStateVertexId) {
+      return;
+    }
+    const oldState = projectContext.datamapIndex.get(oldStateVertexId);
+    if (!oldState || oldState.type !== 'SOAR_ID' || !oldState.outEdges) {
+      return;
+    }
+
+    const edgeIndex = oldState.outEdges.findIndex(edge => {
+      if (edge.name !== 'operator') {
+        return false;
+      }
+      const opVertex = projectContext.datamapIndex.get(edge.toId);
+      if (!opVertex || opVertex.type !== 'SOAR_ID' || !opVertex.outEdges) {
+        return false;
+      }
+      const nameEdge = opVertex.outEdges.find(e => e.name === 'name');
+      if (!nameEdge) {
+        return false;
+      }
+      const nameVertex = projectContext.datamapIndex.get(nameEdge.toId);
+      return (
+        !!nameVertex &&
+        nameVertex.type === 'ENUMERATION' &&
+        nameVertex.choices.includes(operatorName)
+      );
+    });
+
+    if (edgeIndex === -1) {
+      return;
+    }
+
+    const operatorVertexId = oldState.outEdges[edgeIndex].toId;
+    oldState.outEdges.splice(edgeIndex, 1);
+
+    const newState = projectContext.datamapIndex.get(newStateVertexId);
+    if (newState && newState.type === 'SOAR_ID') {
+      if (!newState.outEdges) {
+        newState.outEdges = [];
+      }
+      const exists = newState.outEdges.some(
+        e => e.name === 'operator' && e.toId === operatorVertexId
+      );
+      if (!exists) {
+        newState.outEdges.push({ name: 'operator', toId: operatorVertexId });
+      }
+    }
   }
 
   /**
