@@ -322,6 +322,15 @@ export async function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(datamapTreeView);
 
+  // Refresh the datamap tree when the inline substate-expansion setting changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('soar.datamap.expandHighLevelOperators')) {
+        datamapProvider.refresh();
+      }
+    })
+  );
+
   // Register project selection command
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.selectProject', async () => {

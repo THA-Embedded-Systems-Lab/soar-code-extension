@@ -156,8 +156,21 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
   private projectContext: DatamapProjectContext | null = null;
   private currentRootId: string | null = null; // Which datamap vertex to display (null = project root)
   private _searchFilter: string = '';
+  /** Maps a high-level operator's name (lowercased) to its substate datamap root id. */
+  private highLevelSubstates: Map<string, string> = new Map();
 
   constructor() {}
+
+  /**
+   * Whether high-level operator substate datamaps should be expanded inline
+   * within the parent datamap tree (off by default to match VisualSoar, where
+   * substates are viewed by switching the datamap root).
+   */
+  private expandHighLevelOperators(): boolean {
+    return vscode.workspace
+      .getConfiguration('soar')
+      .get<boolean>('datamap.expandHighLevelOperators', false);
+  }
 
   /** Current search filter string (empty means no filter) */
   get searchFilter(): string {
@@ -186,6 +199,8 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
         ...baseContext,
         datamapMetadata,
       } as DatamapProjectContext;
+
+      this.buildHighLevelSubstateMap();
 
       // Reset to project root when loading new project
       this.currentRootId = null;
@@ -219,6 +234,72 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
    */
   getCurrentRootId(): string | null {
     return this.currentRootId;
+  }
+
+  /**
+   * Build the lookup from high-level operator name to its substate datamap root.
+   * Substate datamaps are disconnected subgraphs reachable only through the
+   * layout node's `dmId`; they are matched back to the parent datamap by the
+   * operator's name (the same association VisualSoar uses).
+   */
+  private buildHighLevelSubstateMap(): void {
+    this.highLevelSubstates = new Map();
+    if (!this.projectContext) {
+      return;
+    }
+    for (const node of this.projectContext.layoutIndex.values()) {
+      if (
+        (node.type === 'HIGH_LEVEL_OPERATOR' || node.type === 'HIGH_LEVEL_FILE_OPERATOR') &&
+        'dmId' in node &&
+        node.dmId &&
+        'name' in node &&
+        node.name
+      ) {
+        this.highLevelSubstates.set(node.name.toLowerCase(), node.dmId);
+      }
+    }
+  }
+
+  /** Return the single enumeration name of an operator SOAR_ID vertex, if any. */
+  private getOperatorName(vertex: DMVertex | null): string | undefined {
+    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+      return undefined;
+    }
+    const nameEdge = vertex.outEdges.find(e => e.name === 'name');
+    if (!nameEdge) {
+      return undefined;
+    }
+    const nameVertex = this.projectContext!.datamapIndex.get(nameEdge.toId);
+    if (nameVertex && nameVertex.type === 'ENUMERATION' && nameVertex.choices.length > 0) {
+      return nameVertex.choices[0];
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolve the substate datamap root for an `operator` edge target when inline
+   * expansion is enabled. Returns undefined when disabled, when the operator has
+   * no associated high-level substate, or when including it would create a cycle.
+   */
+  private resolveSubstateRoot(
+    edgeName: string | undefined,
+    vertex: DMVertex | null,
+    ancestorIds: Set<string>
+  ): string | undefined {
+    if (!this.expandHighLevelOperators() || edgeName !== 'operator') {
+      return undefined;
+    }
+    const operatorName = this.getOperatorName(vertex);
+    if (!operatorName) {
+      return undefined;
+    }
+    const substateId = this.highLevelSubstates.get(operatorName.toLowerCase());
+    if (!substateId || ancestorIds.has(substateId)) {
+      return undefined;
+    }
+    return this.projectContext!.datamapIndex.get(substateId)?.type === 'SOAR_ID'
+      ? substateId
+      : undefined;
   }
 
   /**
@@ -390,11 +471,21 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
         // Check for cycles - if the target is already an ancestor, don't expand it
         const isCycle = element.ancestorIds.has(edge.toId);
 
+        // Create new ancestor set for the child (also used as the cycle guard for
+        // any inline-expanded substate hanging off this operator vertex)
+        const childAncestors = new Set(element.ancestorIds);
+        childAncestors.add(edge.toId);
+
+        const hasInlineSubstate =
+          !isCycle &&
+          this.resolveSubstateRoot(edge.name, targetVertex, childAncestors) !== undefined;
+
         const hasChildren =
-          targetVertex.type === 'SOAR_ID' &&
-          targetVertex.outEdges &&
-          targetVertex.outEdges.length > 0 &&
-          !isCycle; // Don't allow expansion if it's a cycle
+          (targetVertex.type === 'SOAR_ID' &&
+            targetVertex.outEdges &&
+            targetVertex.outEdges.length > 0 &&
+            !isCycle) || // Don't allow expansion if it's a cycle
+          hasInlineSubstate;
 
         // When filtering, auto-expand nodes whose match is only in a descendant
         const shouldAutoExpand =
@@ -405,10 +496,6 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
           : shouldAutoExpand
             ? vscode.TreeItemCollapsibleState.Expanded
             : vscode.TreeItemCollapsibleState.Collapsed;
-
-        // Create new ancestor set for the child
-        const childAncestors = new Set(element.ancestorIds);
-        childAncestors.add(edge.toId);
 
         // Build label without leading ^
         let label = edge.name;
@@ -432,6 +519,35 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
           )
         );
       }
+    }
+
+    // Inline-expand the substate datamap of a high-level operator directly under
+    // its operator vertex so the full datamap is reachable without switching root.
+    const substateRootId = this.resolveSubstateRoot(
+      element.edgeName,
+      element.vertex,
+      element.ancestorIds
+    );
+    if (substateRootId) {
+      const substateVertex = this.projectContext.datamapIndex.get(substateRootId)!;
+      const substateAncestors = new Set(element.ancestorIds);
+      substateAncestors.add(substateRootId);
+      const operatorName = this.getOperatorName(element.vertex) ?? 'operator';
+
+      children.push(
+        new DatamapTreeItem(
+          `${operatorName} (substate)`,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          substateRootId,
+          substateVertex,
+          undefined,
+          undefined,
+          substateAncestors,
+          this.projectContext.datamapIndex,
+          undefined,
+          element.isImmutableView
+        )
+      );
     }
 
     return Promise.resolve(children);

@@ -643,6 +643,11 @@
           "default": "off",
           "description": "Traces the communication between VS Code and the language server"
         },
+        "soar.datamap.expandHighLevelOperators": {
+          "type": "boolean",
+          "default": false,
+          "description": "Expand high-level operator substate datamaps inline within the parent datamap tree, so the full datamap is visible without switching the datamap root. When off (default), substates are viewed separately as in VisualSoar."
+        },
         "soar.mcp.enabled": {
           "type": "boolean",
           "default": true,

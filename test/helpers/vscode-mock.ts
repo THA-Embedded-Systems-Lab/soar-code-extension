@@ -36,6 +36,42 @@
     showWarningMessage: async () => undefined,
     showErrorMessage: async () => undefined,
   },
+  workspace: {
+    // Overridable per test via (vscode as any).workspace.__config
+    __config: {} as Record<string, any>,
+    getConfiguration: (_section?: string) => ({
+      get: (key: string, defaultValue?: any) => {
+        const cfg = (global as any).vscode.workspace.__config;
+        return key in cfg ? cfg[key] : defaultValue;
+      },
+    }),
+  },
+  TreeItem: class TreeItem {
+    label: any;
+    collapsibleState: any;
+    tooltip: any;
+    description: any;
+    contextValue: any;
+    iconPath: any;
+    constructor(label: any, collapsibleState: any) {
+      this.label = label;
+      this.collapsibleState = collapsibleState;
+    }
+  },
+  TreeItemCollapsibleState: {
+    None: 0,
+    Collapsed: 1,
+    Expanded: 2,
+  },
+  ThemeIcon: class ThemeIcon {
+    constructor(
+      public id: string,
+      public color?: any
+    ) {}
+  },
+  ThemeColor: class ThemeColor {
+    constructor(public id: string) {}
+  },
   EventEmitter: class EventEmitter<T> {
     private listeners: Array<(e: T) => any> = [];
 
