@@ -7,10 +7,10 @@
       },
       "end": {
         "line": 0,
-        "character": 0
+        "character": 2
       }
     },
-    "message": "Production parse error: Unmatched opening brace",
+    "message": "Unmatched opening brace: production is missing its closing }",
     "severity": 1,
     "source": "soar-parser"
   }

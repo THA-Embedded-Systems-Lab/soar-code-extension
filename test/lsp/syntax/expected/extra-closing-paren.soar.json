@@ -10,7 +10,7 @@
         "character": 25
       }
     },
-    "message": "Unexpected closing parenthesis",
+    "message": "Expecting token of type --> Arrow <-- but found --> ')' <--",
     "severity": 1,
     "source": "soar-parser"
   }

@@ -1,15 +1,20 @@
 /**
  * Soar Parser for LSP
  *
- * Parses Soar productions to extract structure for LSP features.
- * This is a simplified regex-based parser - can be enhanced with a proper grammar later.
+ * A Chevrotain-based parser. The document is tokenized once; each
+ * `(sp|gp) { ... }` production block is isolated at the token level (so
+ * top-level CLI commands such as `source`/`pushd` are ignored) and parsed
+ * strictly by the grammar in `soarGrammar.ts`. Lexer and parser errors are
+ * surfaced as diagnostics, and a CST walk produces the `SoarProduction`
+ * structure (variables, attributes, function calls) consumed by the LSP,
+ * datamap validator, and MCP layers.
  */
 
+import { IToken, CstNode, CstElement, ILexingError, IRecognitionException } from 'chevrotain';
 import {
   SoarDocument,
   SoarProduction,
   ProductionType,
-  SoarDiagnostic,
   DiagnosticSeverity,
   Range,
   Position,
@@ -17,6 +22,29 @@ import {
   SoarAttribute,
   SoarFunctionCall,
 } from './soarTypes';
+import { soarLexer, Sp, Gp, LCurly, RCurly, Variable } from './soarLexer';
+import { soarGrammar } from './soarGrammar';
+
+/** Convert a Chevrotain token to a 0-based Range. */
+function tokenRange(token: IToken): Range {
+  return {
+    start: { line: (token.startLine ?? 1) - 1, character: (token.startColumn ?? 1) - 1 },
+    end: { line: (token.endLine ?? 1) - 1, character: token.endColumn ?? 1 },
+  };
+}
+
+function tokenStart(token: IToken): Position {
+  return { line: (token.startLine ?? 1) - 1, character: (token.startColumn ?? 1) - 1 };
+}
+
+function tokenEnd(token: IToken): Position {
+  return { line: (token.endLine ?? 1) - 1, character: token.endColumn ?? 1 };
+}
+
+const ZERO_RANGE: Range = {
+  start: { line: 0, character: 0 },
+  end: { line: 0, character: 0 },
+};
 
 export class SoarParser {
   parse(uri: string, content: string, version: number): SoarDocument {
@@ -28,390 +56,450 @@ export class SoarParser {
       errors: [],
     };
 
-    try {
-      this.parseProductions(content, document);
-    } catch (error: any) {
-      document.errors.push({
-        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-        message: `Parse error: ${error.message}`,
-        severity: DiagnosticSeverity.error,
-        source: 'soar-parser',
-      });
+    const lexResult = soarLexer.tokenize(content);
+
+    const tokens = lexResult.tokens;
+    const blockSpans: Array<{ start: number; end: number }> = [];
+    let i = 0;
+    while (i < tokens.length) {
+      const tok = tokens[i];
+      if ((tok.tokenType === Sp || tok.tokenType === Gp) && tokens[i + 1]?.tokenType === LCurly) {
+        const end = this.findMatchingCurly(tokens, i + 1);
+        if (end === -1) {
+          // Unterminated production (common while typing): report it, but still
+          // best-effort parse the remaining tokens so completion/hover work.
+          document.errors.push({
+            range: tokenRange(tok),
+            message: 'Unmatched opening brace: production is missing its closing }',
+            severity: DiagnosticSeverity.error,
+            source: 'soar-parser',
+          });
+          const tail = tokens.slice(i);
+          blockSpans.push({ start: tok.startOffset ?? 0, end: Number.MAX_SAFE_INTEGER });
+          this.parseProductionTokens(tail, document, true);
+          break;
+        }
+
+        const slice = tokens.slice(i, end + 1);
+        blockSpans.push({
+          start: tok.startOffset ?? 0,
+          end: tokens[end].endOffset ?? Number.MAX_SAFE_INTEGER,
+        });
+        this.parseProductionTokens(slice, document);
+        i = end + 1;
+      } else {
+        i++;
+      }
+    }
+
+    // Only surface lexing errors that fall inside a production block; top-level
+    // CLI commands (source/pushd/paths/…) are not Soar productions.
+    for (const lexError of lexResult.errors) {
+      const offset = lexError.offset ?? -1;
+      if (blockSpans.some(span => offset >= span.start && offset <= span.end)) {
+        document.errors.push(this.lexErrorToDiagnostic(lexError));
+      }
     }
 
     return document;
   }
 
-  private parseProductions(content: string, document: SoarDocument): void {
-    const lines = content.split('\n');
-
-    // Regex to match production declarations: sp/gp {name
-    const productionStartRegex = /\b(sp|gp)\s*\{/g;
-
-    let match;
-    while ((match = productionStartRegex.exec(content)) !== null) {
-      try {
-        const production = this.parseProduction(content, match.index, lines, document);
-        if (production) {
-          document.productions.push(production);
+  /** Find the token index of the `}` matching the `{` at openIndex. */
+  private findMatchingCurly(tokens: IToken[], openIndex: number): number {
+    let depth = 0;
+    for (let j = openIndex; j < tokens.length; j++) {
+      if (tokens[j].tokenType === LCurly) {
+        depth++;
+      } else if (tokens[j].tokenType === RCurly) {
+        depth--;
+        if (depth === 0) {
+          return j;
         }
-      } catch (error: any) {
-        const pos = this.offsetToPosition(content, match.index, lines);
-        document.errors.push({
-          range: { start: pos, end: pos },
-          message: `Production parse error: ${error.message}`,
-          severity: DiagnosticSeverity.error,
-          source: 'soar-parser',
-        });
       }
+    }
+    return -1;
+  }
+
+  private parseProductionTokens(
+    slice: IToken[],
+    document: SoarDocument,
+    suppressErrors = false
+  ): void {
+    soarGrammar.input = slice;
+    const cst = (soarGrammar as unknown as { production: () => CstNode | undefined }).production();
+
+    if (!suppressErrors) {
+      for (const err of soarGrammar.errors) {
+        document.errors.push(this.parseErrorToDiagnostic(err, slice));
+      }
+    }
+
+    const production = this.buildProduction(slice, cst);
+    if (production) {
+      document.productions.push(production);
     }
   }
 
-  private parseProduction(
-    content: string,
-    startOffset: number,
-    lines: string[],
-    document: SoarDocument
-  ): SoarProduction | null {
-    // Extract production type
-    const typeMatch = content.substring(startOffset).match(/^(sp|gp)\s*\{/);
-    if (!typeMatch) {
-      return null;
-    }
+  private buildProduction(slice: IToken[], cst: CstNode | undefined): SoarProduction | null {
+    const first = slice[0];
+    const last = slice[slice.length - 1];
+    const type = first.tokenType === Gp ? ProductionType.gp : ProductionType.sp;
 
-    const type = typeMatch[1] as 'sp' | 'gp';
-
-    // Find production name (first identifier after {)
-    const afterBrace = content.substring(startOffset + typeMatch[0].length);
-    const nameMatch = afterBrace.match(/^\s*([a-zA-Z][a-zA-Z0-9_*-]*)/);
-    if (!nameMatch) {
-      throw new Error('Production name not found');
-    }
-
-    const name = nameMatch[1];
-    const nameStart = startOffset + typeMatch[0].length + (nameMatch.index || 0);
-    const nameEnd = nameStart + nameMatch[0].trimStart().length;
-
-    // Find matching closing brace; tolerate unclosed braces so the production is
-    // still parsed (important for live-editing completion), but record an error.
-    const { endOffset, hasError } = this.findMatchingBrace(content, startOffset);
-
-    if (hasError) {
-      const pos = this.offsetToPosition(content, startOffset, lines);
-      document.errors.push({
-        range: { start: pos, end: pos },
-        message: 'Production parse error: Unmatched opening brace',
-        severity: DiagnosticSeverity.error,
-        source: 'soar-parser',
-      });
-    }
+    const nameToken = cst ? this.findFirstToken(cst, 'productionName') : undefined;
+    const name = nameToken ? nameToken.image : '';
 
     const production: SoarProduction = {
       name,
-      type: type === 'sp' ? ProductionType.sp : ProductionType.gp,
-      range: {
-        start: this.offsetToPosition(content, startOffset, lines),
-        end: this.offsetToPosition(content, endOffset, lines),
-      },
-      nameRange: {
-        start: this.offsetToPosition(content, nameStart, lines),
-        end: this.offsetToPosition(content, nameEnd, lines),
-      },
-      variables: new Map(),
+      type,
+      range: { start: tokenStart(first), end: tokenEnd(last) },
+      nameRange: nameToken ? tokenRange(nameToken) : ZERO_RANGE,
+      variables: new Map<string, SoarVariable>(),
       attributes: [],
       functionCalls: [],
     };
 
-    // Parse body - calculate the base position where the body starts
-    const bodyStartOffset = startOffset + typeMatch[0].length;
-    const bodyBasePosition = this.offsetToPosition(content, bodyStartOffset, lines);
-    const body = content.substring(bodyStartOffset, endOffset);
-    this.parseProductionBody(body, production, bodyBasePosition, document);
+    // Variables: every <var> token in the block (definition + references).
+    for (const tok of slice) {
+      if (tok.tokenType === Variable) {
+        const varName = tok.image.slice(1, -1);
+        const range = tokenRange(tok);
+        const existing = production.variables.get(varName);
+        if (existing) {
+          existing.references.push(range);
+        } else {
+          production.variables.set(varName, { name: varName, range, references: [] });
+        }
+      }
+    }
+
+    // Attributes (LHS conditions + RHS makes) and function calls.
+    if (cst) {
+      this.collectFromCst(cst, production, undefined);
+    }
 
     return production;
   }
 
-  private findMatchingBrace(
-    content: string,
-    startOffset: number
-  ): { endOffset: number; hasError: boolean } {
-    let braceCount = 0;
-    let inBraces = false;
+  /**
+   * Walk the CST collecting attributes (with their parent identifier context)
+   * and function calls. `parentId` is the identifier the current attribute
+   * makes/tests hang off of.
+   */
+  private collectFromCst(
+    node: CstNode,
+    production: SoarProduction,
+    parentId: string | undefined
+  ): void {
+    const ruleName = node.name;
 
-    for (let i = startOffset; i < content.length; i++) {
-      const char = content[i];
-      if (char === '{') {
-        braceCount++;
-        inBraces = true;
-      } else if (char === '}') {
-        braceCount--;
-        if (braceCount === 0 && inBraces) {
-          return { endOffset: i + 1, hasError: false };
-        }
+    if (ruleName === 'positiveCondition') {
+      const idParent = this.resolveConditionParent(node);
+      const attrTests = (node.children.attrValueTest as CstNode[]) || [];
+      for (const at of attrTests) {
+        this.collectAttribute(at, production, idParent);
       }
+      return;
     }
 
-    // No matching brace found
-    return { endOffset: content.length, hasError: true };
+    if (ruleName === 'makeAction') {
+      const idTok = (node.children.Variable as IToken[])?.[0];
+      const idParent = idTok ? idTok.image.slice(1, -1) : undefined;
+      const makes = (node.children.attrValueMake as CstNode[]) || [];
+      for (const mk of makes) {
+        this.collectAttribute(mk, production, idParent);
+      }
+      // Function-call values may appear inside makes.
+      this.recurseChildren(node, production, idParent);
+      return;
+    }
+
+    if (ruleName === 'functionCall') {
+      this.collectFunctionCall(node, production);
+      this.recurseChildren(node, production, parentId);
+      return;
+    }
+
+    this.recurseChildren(node, production, parentId);
   }
 
-  private validateParentheses(
-    body: string,
+  private recurseChildren(
+    node: CstNode,
     production: SoarProduction,
-    basePosition: Position,
-    document: SoarDocument
+    parentId: string | undefined
   ): void {
-    let parenCount = 0;
-    const unmatchedOpens: number[] = [];
-    let inString = false;
-
-    for (let i = 0; i < body.length; i++) {
-      const char = body[i];
-
-      // Toggle string state when encountering pipe delimiter
-      if (char === '|') {
-        inString = !inString;
-        continue;
-      }
-
-      // Skip parentheses inside strings
-      if (inString) {
-        continue;
-      }
-
-      if (char === '(') {
-        parenCount++;
-        unmatchedOpens.push(i);
-      } else if (char === ')') {
-        parenCount--;
-        if (parenCount < 0) {
-          // Extra closing paren
-          const pos = this.getPositionInBody(body, i, basePosition);
-          document.errors.push({
-            range: { start: pos, end: { line: pos.line, character: pos.character + 1 } },
-            message: `Unexpected closing parenthesis`,
-            severity: DiagnosticSeverity.error,
-            source: 'soar-parser',
-          });
-          return;
+    for (const key of Object.keys(node.children)) {
+      for (const child of node.children[key]) {
+        if (this.isCstNode(child)) {
+          this.collectFromCst(child, production, parentId);
         }
-        unmatchedOpens.pop();
       }
     }
+  }
 
-    if (parenCount > 0) {
-      // Missing closing paren - report error at the last unmatched opening paren
-      const errorPos = unmatchedOpens[unmatchedOpens.length - 1];
-      const pos = this.getPositionInBody(body, errorPos, basePosition);
-      document.errors.push({
-        range: { start: pos, end: { line: pos.line, character: pos.character + 1 } },
-        message: `Unmatched opening parenthesis (missing closing parenthesis)`,
-        severity: DiagnosticSeverity.error,
-        source: 'soar-parser',
-      });
+  /** The identifier a condition's attributes attach to (the variable, else the constant). */
+  private resolveConditionParent(positiveCondition: CstNode): string | undefined {
+    const idTest = (positiveCondition.children.idTest as CstNode[])?.[0];
+    if (!idTest) {
+      return undefined;
     }
+    const terms = (idTest.children.term as CstNode[]) || [];
+    let lastConst: string | undefined;
+    for (const term of terms) {
+      const variable = (term.children.Variable as IToken[])?.[0];
+      if (variable) {
+        return variable.image.slice(1, -1);
+      }
+      const sym = (term.children.Symbol as IToken[])?.[0];
+      if (sym) {
+        lastConst = sym.image;
+      }
+    }
+    return lastConst;
   }
 
   /**
-   * Strip comments from code while preserving line structure
-   * Replaces comment text with spaces to maintain positions
+   * Build SoarAttribute entries for one attrValueTest / attrValueMake node,
+   * expanding dotted-path disjunctions and multiple values like the previous
+   * parser did.
    */
-  private stripComments(text: string): string {
-    const lines = text.split('\n');
-    const strippedLines = lines.map(line => {
-      const commentIndex = line.indexOf('#');
-      if (commentIndex !== -1) {
-        // Replace comment with spaces to preserve positions
-        return line.substring(0, commentIndex) + ' '.repeat(line.length - commentIndex);
+  private collectAttribute(
+    node: CstNode,
+    production: SoarProduction,
+    parentId: string | undefined
+  ): void {
+    const isNegated = !!(node.children.Minus as IToken[])?.length;
+    const caret = (node.children.Caret as IToken[])?.[0];
+    const pathNode = (node.children.attributePath as CstNode[])?.[0];
+    if (!pathNode) {
+      return;
+    }
+
+    const names = this.expandAttributePaths(pathNode);
+    if (names.length === 0) {
+      return;
+    }
+
+    const values = this.collectValues(node);
+
+    const startPos = caret ? tokenStart(caret) : tokenStart(this.firstTokenOf(pathNode)!);
+    const endTok = this.lastTokenOf(pathNode);
+    const range: Range = {
+      start: startPos,
+      end: endTok ? tokenEnd(endTok) : startPos,
+    };
+
+    for (const name of names) {
+      if (values.length === 0) {
+        production.attributes.push({ name, range, value: undefined, isNegated, parentId });
+      } else {
+        for (const value of values) {
+          production.attributes.push({ name, range, value, isNegated, parentId });
+        }
       }
-      return line;
-    });
-    return strippedLines.join('\n');
+    }
   }
 
-  private parseProductionBody(
-    body: string,
-    production: SoarProduction,
-    basePosition: Position,
-    document: SoarDocument
-  ): void {
-    // Strip comments while preserving positions
-    const cleanBody = this.stripComments(body);
+  /** Produce one or more dotted-path strings, expanding `<< a b >>` segments. */
+  private expandAttributePaths(pathNode: CstNode): string[] {
+    const segNodes = (pathNode.children.attributeSegment as CstNode[]) || [];
+    const dotCount = (pathNode.children.Dot as IToken[])?.length || 0;
 
-    // Check for unmatched parentheses (use clean body with comments stripped)
-    this.validateParentheses(cleanBody, production, basePosition, document);
+    let trailingDot = dotCount >= segNodes.length && segNodes.length > 0;
 
-    // Parse variables (use clean body without comments)
-    const variableRegex = /<([a-zA-Z][a-zA-Z0-9_-]*)>/g;
-    let match;
+    let combos: string[][] = [[]];
+    for (const seg of segNodes) {
+      const variable = (seg.children.Variable as IToken[])?.[0];
+      if (variable) {
+        // A variable path segment terminates the static path (e.g. ^io.foo.<x>).
+        trailingDot = true;
+        break;
+      }
 
-    while ((match = variableRegex.exec(cleanBody)) !== null) {
-      const varName = match[1];
-      const startPos = this.getPositionInBody(body, match.index, basePosition);
-      const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
-      const range: Range = { start: startPos, end: endPos };
+      const sym = (seg.children.Symbol as IToken[])?.[0];
+      const int = (seg.children.Integer as IToken[])?.[0];
+      const disj = (seg.children.disjunction as CstNode[])?.[0];
 
-      if (!production.variables.has(varName)) {
-        production.variables.set(varName, {
-          name: varName,
-          range,
-          references: [],
-        });
-      } else {
-        production.variables.get(varName)!.references.push(range);
+      if (sym || int) {
+        const part = (sym ?? int)!.image;
+        combos = combos.map(c => [...c, part]);
+      } else if (disj) {
+        const choices = this.disjunctionChoices(disj);
+        const next: string[][] = [];
+        for (const c of combos) {
+          for (const choice of choices) {
+            next.push([...c, choice]);
+          }
+        }
+        combos = next;
       }
     }
 
-    // Parse attributes with their parent identifier context
-    // Match: (<id> ^attribute value) patterns to understand context
-    // Examples: (state <s> ^name blocks-world), (<s> ^done true), (<o> ^name initialize-blocks-world)
-    // Pattern needs to handle both: (type <var> ^attr ...) and (<var> ^attr ...)
-    // Capture everything from the variable to the closing paren
-    const contextAttributeRegex =
-      /\(\s*(?:[a-zA-Z][a-zA-Z0-9_-]*\s+)?<([a-zA-Z][a-zA-Z0-9_-]*)>\s+([^)]+)\)/g;
-    while ((match = contextAttributeRegex.exec(cleanBody)) !== null) {
-      const parentId = match[1]; // The identifier (without < >)
-      const fullMatch = match[0];
-      const attributesBlock = match[2];
-      const relativeAttributesOffset = fullMatch.indexOf(attributesBlock);
-      const blockStartOffset =
-        match.index + (relativeAttributesOffset >= 0 ? relativeAttributesOffset : 0);
+    const suffix = trailingDot ? '.' : '';
+    return combos.filter(c => c.length > 0).map(c => c.join('.') + suffix);
+  }
 
-      // Parse each attribute within this context
-      // Note: An attribute can have multiple values on the same line: ^object <a> <b> <c>
-      const attributeRegex = /(-?)\^([a-zA-Z][a-zA-Z0-9_.-]*)/g;
-      let attrMatch;
-      while ((attrMatch = attributeRegex.exec(attributesBlock)) !== null) {
-        const isNegated = attrMatch[1] === '-';
-        let attrPath = attrMatch[2];
-        const attrStartOffset = blockStartOffset + attrMatch.index;
+  private disjunctionChoices(disj: CstNode): string[] {
+    const terms = (disj.children.term as CstNode[]) || [];
+    const out: string[] = [];
+    for (const term of terms) {
+      const tok = this.firstTokenOf(term);
+      if (tok) {
+        out.push(tok.image);
+      }
+    }
+    return out;
+  }
 
-        // Check if there are multiple values following this attribute
-        // Pattern: ^attribute value1 value2 value3 (until next ^ or closing paren)
-        let remainingText = attributesBlock.substring(attrMatch.index + attrMatch[0].length);
-        const nextAttrMatch = remainingText.match(/\^/);
-        const valuesText = remainingText.substring(
-          0,
-          nextAttrMatch ? nextAttrMatch.index : remainingText.length
-        );
-
-        // Check for path disjunction syntax: ^attr.path.<< choice1 choice2 >> value
-        // This expands to multiple attributes: ^attr.path.choice1 value, ^attr.path.choice2 value
-        // Only expand if attribute path ends with a dot (indicating path disjunction, not value disjunction)
-        const disjunctionMatch = valuesText.match(/^\s*<<\s*([^>]+)>>/);
-        let attributePaths: string[] = [attrPath];
-        let actualValuesText = valuesText;
-
-        if (disjunctionMatch && attrPath.endsWith('.')) {
-          // Parse disjunction choices
-          const disjuncts = disjunctionMatch[1]
-            .trim()
-            .split(/\s+/)
-            .filter(d => d.length > 0);
-
-          // Remove trailing dot from attribute path
-          const baseAttrPath = attrPath.slice(0, -1);
-
-          // Expand to multiple attribute paths
-          attributePaths = disjuncts.map(d => `${baseAttrPath}.${d}`);
-
-          // The actual values come after the >> closing bracket
-          actualValuesText = valuesText.substring(disjunctionMatch[0].length);
+  /** All value terms under an attribute node (variables keep their <>). */
+  private collectValues(node: CstNode): string[] {
+    const values: string[] = [];
+    const visit = (n: CstNode) => {
+      if (n.name === 'term') {
+        const tok = this.firstTokenOf(n);
+        if (tok) {
+          values.push(tok.image);
         }
-
-        // Collect all values from the text following the attribute (or disjunction)
-        // Note: Filter out standalone '-' which is a WME removal operator in RHS
-        const values: string[] = [];
-        const valueRegex = /([a-zA-Z0-9_-]+|<[a-zA-Z0-9_-]+>)/g;
-        let valueMatch;
-        while ((valueMatch = valueRegex.exec(actualValuesText)) !== null) {
-          // Skip standalone '-' which is used for WME removal on RHS
-          if (valueMatch[1] !== '-') {
-            values.push(valueMatch[1]);
+        return;
+      }
+      for (const key of Object.keys(n.children)) {
+        for (const child of n.children[key]) {
+          if (this.isCstNode(child)) {
+            visit(child);
           }
         }
+      }
+    };
 
-        // Create attribute entries for each path (expanded from disjunction if present)
-        for (const path of attributePaths) {
-          // Create an attribute entry for each value (or one without value if none)
-          if (values.length === 0) {
-            const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
-            const endPos = this.getPositionInBody(
-              body,
-              attrStartOffset + attrMatch[0].length,
-              basePosition
-            );
-            production.attributes.push({
-              name: path,
-              range: { start: startPos, end: endPos },
-              value: undefined,
-              isNegated,
-              parentId,
-            });
+    // Visit only the value side (skip the attributePath child).
+    for (const key of Object.keys(node.children)) {
+      if (key === 'attributePath') {
+        continue;
+      }
+      for (const child of node.children[key]) {
+        if (this.isCstNode(child)) {
+          visit(child);
+        }
+      }
+    }
+    return values;
+  }
+
+  private collectFunctionCall(node: CstNode, production: SoarProduction): void {
+    const nameNode = (node.children.functionName as CstNode[])?.[0];
+    const lparen = (node.children.LParen as IToken[])?.[0];
+    const nameTok = nameNode ? this.firstTokenOf(nameNode) : undefined;
+    if (!nameTok) {
+      return;
+    }
+    const args: string[] = [];
+    const makes = (node.children.valueMake as CstNode[]) || [];
+    for (const mk of makes) {
+      const tok = this.firstTokenOf(mk);
+      if (tok) {
+        args.push(tok.image);
+      }
+    }
+    production.functionCalls.push({
+      name: nameTok.image,
+      args,
+      range: lparen ? tokenRange(lparen) : tokenRange(nameTok),
+    });
+  }
+
+  // ---- CST helpers -------------------------------------------------------
+
+  private isCstNode(el: CstElement): el is CstNode {
+    return (el as CstNode).children !== undefined;
+  }
+
+  private findFirstToken(node: CstNode, ruleName: string): IToken | undefined {
+    if (node.name === ruleName) {
+      return this.firstTokenOf(node);
+    }
+    for (const key of Object.keys(node.children)) {
+      for (const child of node.children[key]) {
+        if (this.isCstNode(child)) {
+          const found = this.findFirstToken(child, ruleName);
+          if (found) {
+            return found;
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private firstTokenOf(node: CstNode): IToken | undefined {
+    let best: IToken | undefined;
+    const visit = (n: CstNode) => {
+      for (const key of Object.keys(n.children)) {
+        for (const child of n.children[key]) {
+          if (this.isCstNode(child)) {
+            visit(child);
           } else {
-            // Create separate attribute for each value
-            for (const value of values) {
-              const startPos = this.getPositionInBody(body, attrStartOffset, basePosition);
-              const endPos = this.getPositionInBody(
-                body,
-                attrStartOffset + attrMatch[0].length,
-                basePosition
-              );
-              production.attributes.push({
-                name: path,
-                range: { start: startPos, end: endPos },
-                value: value,
-                isNegated,
-                parentId,
-              });
+            const tok = child as IToken;
+            if (!best || (tok.startOffset ?? 0) < (best.startOffset ?? 0)) {
+              best = tok;
             }
           }
         }
       }
-    }
-
-    // Parse function calls
-    const functionRegex = /\(([a-zA-Z][a-zA-Z0-9_+-/*]*)/g;
-    while ((match = functionRegex.exec(body)) !== null) {
-      const startPos = this.getPositionInBody(body, match.index, basePosition);
-      const endPos = this.getPositionInBody(body, match.index + match[0].length, basePosition);
-
-      production.functionCalls.push({
-        name: match[1],
-        args: [],
-        range: { start: startPos, end: endPos },
-      });
-    }
+    };
+    visit(node);
+    return best;
   }
 
-  /**
-   * Convert offset within production body to absolute position in document
-   */
-  private getPositionInBody(body: string, offset: number, basePosition: Position): Position {
-    let line = basePosition.line;
-    let character = basePosition.character;
-
-    for (let i = 0; i < offset && i < body.length; i++) {
-      if (body[i] === '\n') {
-        line++;
-        character = 0;
-      } else {
-        character++;
+  private lastTokenOf(node: CstNode): IToken | undefined {
+    let best: IToken | undefined;
+    const visit = (n: CstNode) => {
+      for (const key of Object.keys(n.children)) {
+        for (const child of n.children[key]) {
+          if (this.isCstNode(child)) {
+            visit(child);
+          } else {
+            const tok = child as IToken;
+            if (!best || (tok.endOffset ?? 0) > (best.endOffset ?? 0)) {
+              best = tok;
+            }
+          }
+        }
       }
-    }
-
-    return { line, character };
+    };
+    visit(node);
+    return best;
   }
 
-  private offsetToPosition(content: string, offset: number, lines: string[]): Position {
-    let currentOffset = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const lineLength = lines[i].length + 1; // +1 for newline
-      if (currentOffset + lineLength > offset) {
-        return { line: i, character: offset - currentOffset };
-      }
-      currentOffset += lineLength;
-    }
-    return { line: Math.max(0, lines.length - 1), character: 0 };
+  // ---- diagnostics -------------------------------------------------------
+
+  private lexErrorToDiagnostic(err: ILexingError): {
+    range: Range;
+    message: string;
+    severity: DiagnosticSeverity;
+    source: string;
+  } {
+    const line = (err.line ?? 1) - 1;
+    const character = (err.column ?? 1) - 1;
+    return {
+      range: {
+        start: { line, character },
+        end: { line, character: character + (err.length ?? 1) },
+      },
+      message: `Unexpected character(s): ${err.message}`,
+      severity: DiagnosticSeverity.error,
+      source: 'soar-parser',
+    };
+  }
+
+  private parseErrorToDiagnostic(
+    err: IRecognitionException,
+    slice: IToken[]
+  ): { range: Range; message: string; severity: DiagnosticSeverity; source: string } {
+    const token = err.token && err.token.startLine !== undefined ? err.token : slice[0];
+    return {
+      range: token ? tokenRange(token) : ZERO_RANGE,
+      message: err.message,
+      severity: DiagnosticSeverity.error,
+      source: 'soar-parser',
+    };
   }
 }

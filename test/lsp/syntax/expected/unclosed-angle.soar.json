@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "range": {
+      "start": {
+        "line": 2,
+        "character": 0
+      },
+      "end": {
+        "line": 2,
+        "character": 1
+      }
+    },
+    "message": "Expecting token of type --> Arrow <-- but found --> '}' <--",
+    "severity": 1,
+    "source": "soar-parser"
+  }
+]

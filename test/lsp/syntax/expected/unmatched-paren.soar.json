@@ -10,7 +10,37 @@
         "character": 20
       }
     },
-    "message": "Unmatched opening parenthesis (missing closing parenthesis)",
+    "message": "Expecting token of type --> RParen <-- but found --> '(' <--",
+    "severity": 1,
+    "source": "soar-parser"
+  },
+  {
+    "range": {
+      "start": {
+        "line": 2,
+        "character": 2
+      },
+      "end": {
+        "line": 2,
+        "character": 3
+      }
+    },
+    "message": "Expecting token of type --> RParen <-- but found --> '(' <--",
+    "severity": 1,
+    "source": "soar-parser"
+  },
+  {
+    "range": {
+      "start": {
+        "line": 3,
+        "character": 0
+      },
+      "end": {
+        "line": 3,
+        "character": 1
+      }
+    },
+    "message": "Expecting token of type --> Arrow <-- but found --> '}' <--",
     "severity": 1,
     "source": "soar-parser"
   }

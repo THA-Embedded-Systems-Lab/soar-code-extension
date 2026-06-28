@@ -173,6 +173,7 @@ Three separate esbuild bundles are produced into `dist/`:
 - `src/datamap/datamapValidator.ts`
   - validates Soar attributes against datamap
   - variable binding/path checks
+  - context-aware operator augmentation check: a `(<var> ^name <const>)` test narrows that variable's bindings to the datamap vertices whose `^name` enumeration includes `<const>` (`applyNameConstraints`); an augmentation on such a name-constrained variable is then flagged when the attribute is absent on every bound vertex even if it exists elsewhere in the datamap (`validateAttributeInContext` + `attributeExistsFromVertices`). Gated to name-constrained, non-`<s>` variables to avoid false positives from imprecise/`^superstate`/root bindings. Covered by `test/lsp/datamap/helpers/operator-context.test.ts`.
   - enum value validation
   - infers `<s>` state context from explicit `^name` tests and, when needed, from layout file location (high-level operator substate ancestry)
   - VS Code diagnostics creation (with non-VSCode-safe fallback used by MCP)
@@ -215,9 +216,15 @@ Three separate esbuild bundles are produced into `dist/`:
 
 ### Soar parsing and language server
 
-- `src/server/soarParser.ts`
+The Soar parser is **Chevrotain-based** (not regex). Three files:
+
+- `src/server/soarLexer.ts` — Chevrotain tokens + `soarLexer`. Soar is whitespace-delimited; a `Symbol` starts with a letter/`_`/`*` and excludes the dotted-path `.` and structural chars, so operators (`+ - = < > << >> ! ~ @`), brackets, `^` and `.` only tokenize when not part of a constant run. Token order encodes precedence (e.g. `<<`/Variable before `<`).
+- `src/server/soarGrammar.ts` — `SoarGrammar extends CstParser` (recovery enabled). Grammar for one production: `(sp|gp) { name doc? flag* condition* --> action* }`, covering LHS conditions (id-tests, `-^` negation, dotted paths, `<< >>` disjunctions, `{ }` conjunctive/relational tests) and RHS actions (`makeAction`, function calls, preferences). `eslint-disable naming-convention` because the DSL uses uppercase method names.
+- `src/server/soarParser.ts` — `SoarParser.parse(uri, content, version)` (unchanged public API → `SoarDocument`). Tokenizes once, isolates each `(sp|gp){…}` block at the token level via `findMatchingCurly` (so top-level CLI commands like `source`/`pushd` are ignored, and braces inside `|…|`/`"…"` strings don't miscount), runs the grammar per block, and walks the CST to build `SoarProduction` (variables, attributes with parent-id context + dotted-path/disjunction/multi-value expansion, function calls). Strictness: lexer errors (scoped to production blocks only), grammar errors (multiple per production via recovery), and unmatched-brace are all emitted as `soar-parser` diagnostics. An unterminated trailing production (while typing) is still best-effort parsed so completion/hover work; its grammar errors are suppressed (only the unmatched-brace diagnostic shows).
 - `src/server/soarLanguageServer.ts`
 - `src/client/lspClient.ts`
+
+`chevrotain` is a runtime dependency, bundled into all three esbuild outputs.
 
 ### Debug adapter (SML socket transport)
 
