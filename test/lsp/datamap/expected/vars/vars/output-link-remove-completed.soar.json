@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "production": "any*propose*output-link-remove-completed",
+    "attribute": "command",
+    "attributePath": "^command",
+    "line": 6,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 6
+      },
+      "end": {
+        "line": 6,
+        "character": 14
+      }
+    },
+    "message": "'command' is not a valid attribute for 'output-link-remove-completed' in the datamap",
+    "severity": "error"
+  }
+]

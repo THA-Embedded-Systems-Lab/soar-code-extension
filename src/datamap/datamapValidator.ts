@@ -111,6 +111,16 @@ export class DatamapValidator {
       targetVertices.forEach(v => variableBindings.get(varName)!.add(v));
     }
 
+    // Narrow bindings using explicit ^name constant tests so that, e.g.,
+    // (<o> ^name some-operator) restricts <o> to the operator vertices whose
+    // ^name enumeration actually includes that constant. This enables
+    // context-aware checking of augmentations on a specific named operator.
+    const variableNameConstraints = this.applyNameConstraints(
+      production,
+      variableBindings,
+      projectContext
+    );
+
     // Check for unbound variables (except <s> which is always bound to root)
     for (const attr of production.attributes) {
       if (attr.parentId && attr.parentId !== 's' && !variableBindings.has(attr.parentId)) {
@@ -157,6 +167,7 @@ export class DatamapValidator {
         production,
         projectContext,
         variableBindings,
+        variableNameConstraints,
         documentText
       );
 
@@ -166,6 +177,102 @@ export class DatamapValidator {
     }
 
     return errors;
+  }
+
+  /**
+   * Narrow variable bindings using explicit `^name <constant>` tests.
+   *
+   * For each `(<var> ^name X)` test (X a non-variable constant), keep only the
+   * bound vertices whose `^name` enumeration includes X. If no bound vertex
+   * matches (inconsistent test, or a name that enum validation will flag), the
+   * binding is left untouched to avoid cascading false positives.
+   *
+   * Returns a map of variable name -> the set of constant names constraining it
+   * (used to produce helpful context-aware error messages).
+   */
+  private applyNameConstraints(
+    production: SoarProduction,
+    variableBindings: Map<string, Set<string>>,
+    projectContext: ProjectContext
+  ): Map<string, Set<string>> {
+    const constraints = new Map<string, Set<string>>();
+
+    for (const attr of production.attributes) {
+      if (
+        attr.isNegated ||
+        !attr.parentId ||
+        attr.name !== 'name' ||
+        !attr.value ||
+        attr.value.startsWith('<')
+      ) {
+        continue;
+      }
+
+      const constant = this.normalizeSoarConstant(attr.value);
+      if (constant.length === 0) {
+        continue;
+      }
+
+      if (!constraints.has(attr.parentId)) {
+        constraints.set(attr.parentId, new Set());
+      }
+      constraints.get(attr.parentId)!.add(constant);
+    }
+
+    for (const [varName, names] of constraints) {
+      const bound = variableBindings.get(varName);
+      if (!bound || bound.size === 0) {
+        continue;
+      }
+
+      const narrowed = new Set<string>();
+      for (const vertexId of bound) {
+        if (this.vertexNameMatches(vertexId, names, projectContext)) {
+          narrowed.add(vertexId);
+        }
+      }
+
+      if (narrowed.size > 0) {
+        variableBindings.set(varName, narrowed);
+      }
+    }
+
+    return constraints;
+  }
+
+  /**
+   * True if the vertex has a `^name` edge to an ENUMERATION that includes every
+   * required name constant.
+   */
+  private vertexNameMatches(
+    vertexId: string,
+    requiredNames: Set<string>,
+    projectContext: ProjectContext
+  ): boolean {
+    const vertex = projectContext.datamapIndex.get(vertexId);
+    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+      return false;
+    }
+
+    const available = new Set<string>();
+    for (const edge of vertex.outEdges) {
+      if (edge.name !== 'name') {
+        continue;
+      }
+      const target = projectContext.datamapIndex.get(edge.toId);
+      if (target && target.type === 'ENUMERATION') {
+        for (const choice of target.choices) {
+          available.add(this.normalizeSoarConstant(choice));
+        }
+      }
+    }
+
+    for (const required of requiredNames) {
+      if (!available.has(required)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -419,6 +526,7 @@ export class DatamapValidator {
     production: SoarProduction,
     projectContext: ProjectContext,
     variableBindings: Map<string, Set<string>>,
+    variableNameConstraints: Map<string, Set<string>>,
     documentText?: string
   ): ValidationError | null {
     // Skip negated attributes for now (they test for absence)
@@ -471,6 +579,24 @@ export class DatamapValidator {
       };
     }
 
+    // Context-aware check: the attribute exists somewhere in the datamap, but if
+    // its parent variable is bound to a specific, narrowed set of vertices (e.g.
+    // a single named operator), the attribute must exist on at least one of those
+    // bound vertices. This catches augmenting an operator with an attribute that
+    // belongs to a *different* operator. Skip <s> (root/substate handling, plus
+    // ^superstate paths, are covered by the global check above).
+    const contextError = this.validateAttributeInContext(
+      attr,
+      production,
+      projectContext,
+      variableBindings,
+      variableNameConstraints,
+      documentText
+    );
+    if (contextError) {
+      return contextError;
+    }
+
     // If attribute has a value, check if it's valid for enumeration types
     if (attr.value && !attr.value.startsWith('<')) {
       // Skip if value is a variable (starts with '<')
@@ -488,6 +614,123 @@ export class DatamapValidator {
 
     // Attribute exists somewhere in datamap - assume it's valid
     return null;
+  }
+
+  /**
+   * Context-aware validation of an attribute against the specific datamap
+   * vertices its parent variable is bound to.
+   *
+   * Only fires when:
+   *  - the parent is a non-`s` variable (root/superstate special-casing makes
+   *    `<s>` unsafe for a strict context check), and
+   *  - that variable was narrowed by an explicit `^name <constant>` test (this
+   *    is the operator-distinguishing case the check targets, and it keeps us
+   *    from false-flagging variables bound through imprecise paths such as
+   *    `^io.output-link.<cmd>` where the binding set is incomplete), and
+   *  - that variable is bound to a non-empty set of vertices, and
+   *  - the attribute does NOT exist on any of those bound vertices.
+   */
+  private validateAttributeInContext(
+    attr: SoarAttribute,
+    production: SoarProduction,
+    projectContext: ProjectContext,
+    variableBindings: Map<string, Set<string>>,
+    variableNameConstraints: Map<string, Set<string>>,
+    documentText?: string
+  ): ValidationError | null {
+    if (!attr.parentId || attr.parentId === 's') {
+      return null;
+    }
+
+    // The `^name` constraint test itself is always valid here.
+    if (attr.name === 'name') {
+      return null;
+    }
+
+    const constraintNames = variableNameConstraints.get(attr.parentId);
+    if (!constraintNames || constraintNames.size === 0) {
+      return null;
+    }
+
+    const boundSet = variableBindings.get(attr.parentId);
+    if (!boundSet || boundSet.size === 0) {
+      return null;
+    }
+
+    const boundVertices = Array.from(boundSet);
+    if (this.attributeExistsFromVertices(boundVertices, attr.name, projectContext)) {
+      return null;
+    }
+
+    const pathSegments = attr.name.split('.');
+    const lastSegment = pathSegments[pathSegments.length - 1];
+
+    const contextDescription = Array.from(constraintNames)
+      .map(name => `'${name}'`)
+      .join(', ');
+
+    const preciseRange = this.findAttributeRange(attr, documentText);
+
+    return {
+      production: production.name,
+      attribute: attr.name,
+      attributePath: `^${attr.name}`,
+      line: preciseRange.start.line,
+      column: preciseRange.start.character,
+      range: preciseRange,
+      message: `'${lastSegment}' is not a valid attribute for ${contextDescription} in the datamap`,
+      severity: 'error',
+    };
+  }
+
+  /**
+   * Check whether an attribute path exists starting from a specific set of
+   * vertices (rather than searching the whole datamap). Mirrors the dotted-path
+   * and trailing-dot semantics of {@link attributeExistsInDatamap}, but anchors
+   * the first segment to the provided vertices.
+   */
+  private attributeExistsFromVertices(
+    vertexIds: string[],
+    attributeName: string,
+    projectContext: ProjectContext
+  ): boolean {
+    const trailingDot = attributeName.endsWith('.');
+    const normalizedName = trailingDot ? attributeName.slice(0, -1) : attributeName;
+    const pathSegments = normalizedName.split('.');
+    const firstSegment = pathSegments[0];
+    const remainingSegments = pathSegments.slice(1);
+
+    for (const vertexId of vertexIds) {
+      const vertex = projectContext.datamapIndex.get(vertexId);
+      if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+
+      for (const edge of vertex.outEdges) {
+        if (edge.name !== firstSegment) {
+          continue;
+        }
+
+        if (remainingSegments.length === 0) {
+          if (!trailingDot) {
+            return true;
+          }
+          const target = projectContext.datamapIndex.get(edge.toId);
+          if (target?.type === 'SOAR_ID') {
+            return true;
+          }
+        } else {
+          const ok = trailingDot
+            ? this.pathResolvesToSoarId(edge.toId, remainingSegments, projectContext)
+            : this.canNavigatePath(edge.toId, remainingSegments, projectContext);
+          if (ok) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
