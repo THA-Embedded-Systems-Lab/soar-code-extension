@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
@@ -1206,6 +1207,12 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async document => {
       if (document.languageId === 'soar') {
+        // A saved production may change operator augmentations; rebuild the
+        // project-wide index so the propose/apply check stays accurate.
+        const ctx = datamapProviderGlobal?.getProjectContext();
+        if (ctx) {
+          ctx.operatorAugmentationIndex = undefined;
+        }
         await validateDocument(document);
       }
     })
@@ -1267,6 +1274,32 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 /**
+ * Build (and cache on the project context) the project-wide operator
+ * augmentation index used by the propose/apply consistency check. No-op if it
+ * is already present; cleared on save so it rebuilds with fresh augmentations.
+ */
+async function ensureOperatorAugmentationIndex(
+  projectContext: import('./server/visualSoarProject').ProjectContext
+): Promise<void> {
+  if (projectContext.operatorAugmentationIndex) {
+    return;
+  }
+  try {
+    const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
+    const docs = await Promise.all(
+      soarFiles.map(async filePath =>
+        parser.parse(filePath, await fs.promises.readFile(filePath, 'utf8'), 0)
+      )
+    );
+    projectContext.operatorAugmentationIndex =
+      DatamapValidator.buildOperatorAugmentationIndex(docs);
+  } catch {
+    // On any IO/parse failure, use an empty index so the check is simply skipped.
+    projectContext.operatorAugmentationIndex = new Map();
+  }
+}
+
+/**
  * Validate a single document against the datamap
  */
 async function validateDocument(document: vscode.TextDocument): Promise<void> {
@@ -1316,6 +1349,10 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
       diagnosticsCollection.set(document.uri, diagnostics);
       return;
     }
+
+    // Ensure the project-wide operator augmentation index is available so the
+    // cross-file propose/apply consistency check can run.
+    await ensureOperatorAugmentationIndex(projectContext);
 
     const soarDoc = parser.parse(document.uri.toString(), documentText, document.version);
 

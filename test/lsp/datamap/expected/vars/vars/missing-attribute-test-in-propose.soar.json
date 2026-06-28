@@ -1,0 +1,21 @@
+[
+  {
+    "production": "apply*missing-attribute-test-in-propose",
+    "attribute": "not-tested",
+    "attributePath": "^not-tested",
+    "line": 10,
+    "column": 6,
+    "range": {
+      "start": {
+        "line": 10,
+        "character": 6
+      },
+      "end": {
+        "line": 10,
+        "character": 17
+      }
+    },
+    "message": "Operator 'missing-attribute-test-in-propose' is tested with '^not-tested' on the apply side, but no rule in the project creates '^not-tested' on it. This rule can never match.",
+    "severity": "error"
+  }
+]

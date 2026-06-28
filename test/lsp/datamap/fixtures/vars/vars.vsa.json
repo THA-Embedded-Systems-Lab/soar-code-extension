@@ -50,6 +50,10 @@
           {
             "name": "operator",
             "toId": "0e9a15b9ea27abe37c742661db9e0e3f"
+          },
+          {
+            "name": "operator",
+            "toId": "5e06f71198ae609b9eab248ed9eda8aa"
           }
         ]
       },
@@ -301,6 +305,30 @@
         "id": "f2991b06aa6d7b23cd596f310d7c074c",
         "type": "ENUMERATION",
         "choices": ["complete"]
+      },
+      {
+        "id": "5e06f71198ae609b9eab248ed9eda8aa",
+        "type": "SOAR_ID",
+        "outEdges": [
+          {
+            "name": "name",
+            "toId": "0c5cc89ac2a10bafcef64abf9af3c0e3"
+          },
+          {
+            "name": "not-tested",
+            "toId": "4047a70a5783e32a090532f98dcb75b2"
+          }
+        ]
+      },
+      {
+        "id": "0c5cc89ac2a10bafcef64abf9af3c0e3",
+        "type": "ENUMERATION",
+        "choices": ["missing-attribute-test-in-propose"]
+      },
+      {
+        "id": "4047a70a5783e32a090532f98dcb75b2",
+        "type": "SOAR_ID",
+        "outEdges": []
       }
     ]
   },
@@ -355,6 +383,13 @@
         "name": "output-link-remove-completed",
         "file": "output-link-remove-completed.soar",
         "dmId": "0e9a15b9ea27abe37c742661db9e0e3f"
+      },
+      {
+        "type": "OPERATOR",
+        "id": "4",
+        "name": "missing-attribute-test-in-propose",
+        "file": "missing-attribute-test-in-propose.soar",
+        "dmId": "5e06f71198ae609b9eab248ed9eda8aa"
       }
     ]
   }

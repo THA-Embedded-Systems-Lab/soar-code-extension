@@ -187,6 +187,14 @@ export interface ProjectContext {
   datamapIndex: Map<string, DMVertex>;
   layoutIndex: Map<string, LayoutNode>;
   validationErrors?: ProjectValidationError[];
+  /**
+   * Project-wide map of operator name → set of first-segment attribute names
+   * created (RHS) on that operator anywhere in the project. Populated by
+   * `DatamapValidator.buildOperatorAugmentationIndex` and consulted by the
+   * propose/apply consistency check. Absent when project-wide scanning has not
+   * run (the check is then skipped to avoid false positives).
+   */
+  operatorAugmentationIndex?: Map<string, Set<string>>;
 }
 
 // Type Guards

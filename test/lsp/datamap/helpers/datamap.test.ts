@@ -73,6 +73,14 @@ suite('Datamap Validation Fixtures', () => {
 
         // Find all .soar files referenced in the project layout
         soarFiles = collectSoarFilesFromLayout(projectContext.project.layout, projectDir);
+
+        // Build the project-wide operator augmentation index so the propose/apply
+        // consistency check has cross-file creation data.
+        const docs = soarFiles
+          .filter(f => fs.existsSync(f))
+          .map(f => parser.parse(f, fs.readFileSync(f, 'utf8'), 0));
+        (projectContext as any).operatorAugmentationIndex =
+          DatamapValidator.buildOperatorAugmentationIndex(docs);
       });
 
       test('Project should have at least one .soar file', () => {

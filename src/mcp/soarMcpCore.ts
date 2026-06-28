@@ -303,7 +303,7 @@ export class SoarMcpCore {
       targetVertexId: edge.toId,
       comment: edge.comment ?? null,
       enumChoices:
-        resultVertex && resultVertex.type === 'ENUMERATION' ? (resultVertex.choices ?? []) : null,
+        resultVertex && resultVertex.type === 'ENUMERATION' ? resultVertex.choices ?? [] : null,
     };
   }
 
@@ -326,13 +326,22 @@ export class SoarMcpCore {
     let totalIssues = 0;
     let filesWithIssues = 0;
 
+    // First pass: parse every file and build the project-wide operator
+    // augmentation index for the propose/apply consistency check.
+    const parsedDocs: Array<{ relativePath: string; absolutePath: string; fileText: string }> = [];
+    const allDocs = [];
     for (const relativePath of soarFiles) {
       const absolutePath = path.resolve(projectDir, relativePath);
       if (!fs.existsSync(absolutePath)) {
         continue;
       }
-
       const fileText = await fs.promises.readFile(absolutePath, 'utf-8');
+      parsedDocs.push({ relativePath, absolutePath, fileText });
+      allDocs.push(this.parser.parse(absolutePath, fileText, 1));
+    }
+    context.operatorAugmentationIndex = DatamapValidator.buildOperatorAugmentationIndex(allDocs);
+
+    for (const { relativePath, absolutePath, fileText } of parsedDocs) {
       const soarDoc = this.parser.parse(absolutePath, fileText, 1);
       const errors = this.validator.validateDocument(soarDoc, context, fileText, {
         sourceFilePath: absolutePath,
@@ -615,7 +624,11 @@ export class SoarMcpCore {
       const needle = input.name!.toLowerCase();
       candidateIds = [];
       for (const [id, node] of context.layoutIndex) {
-        if ('name' in node && typeof node.name === 'string' && node.name.toLowerCase().includes(needle)) {
+        if (
+          'name' in node &&
+          typeof node.name === 'string' &&
+          node.name.toLowerCase().includes(needle)
+        ) {
           candidateIds.push(id);
         }
       }
@@ -631,7 +644,12 @@ export class SoarMcpCore {
 
     const matches = candidateIds.map(id => {
       const node = context.layoutIndex.get(id)!;
-      return this.buildLayoutNodeDetail(context, node, workspaceFolder, input.includeChildren ?? false);
+      return this.buildLayoutNodeDetail(
+        context,
+        node,
+        workspaceFolder,
+        input.includeChildren ?? false
+      );
     });
 
     return { matches };

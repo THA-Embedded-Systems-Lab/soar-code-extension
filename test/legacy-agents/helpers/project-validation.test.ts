@@ -125,6 +125,12 @@ suite('Legacy Project Validation', () => {
         `${projectName} should reference at least one existing .soar file`
       );
 
+      // Build the project-wide operator augmentation index for the propose/apply
+      // consistency check.
+      const allDocs = soarFiles.map(f => parser.parse(f, fs.readFileSync(f, 'utf8'), 0));
+      (projectContext as any).operatorAugmentationIndex =
+        DatamapValidator.buildOperatorAugmentationIndex(allDocs);
+
       const validationErrorsByFile: Array<{ filePath: string; errors: string[] }> = [];
 
       for (const soarFile of soarFiles) {

@@ -196,7 +196,7 @@ export class SoarParser {
       const idParent = this.resolveConditionParent(node);
       const attrTests = (node.children.attrValueTest as CstNode[]) || [];
       for (const at of attrTests) {
-        this.collectAttribute(at, production, idParent);
+        this.collectAttribute(at, production, idParent, 'lhs');
       }
       return;
     }
@@ -206,7 +206,7 @@ export class SoarParser {
       const idParent = idTok ? idTok.image.slice(1, -1) : undefined;
       const makes = (node.children.attrValueMake as CstNode[]) || [];
       for (const mk of makes) {
-        this.collectAttribute(mk, production, idParent);
+        this.collectAttribute(mk, production, idParent, 'rhs');
       }
       // Function-call values may appear inside makes.
       this.recurseChildren(node, production, idParent);
@@ -265,7 +265,8 @@ export class SoarParser {
   private collectAttribute(
     node: CstNode,
     production: SoarProduction,
-    parentId: string | undefined
+    parentId: string | undefined,
+    side: 'lhs' | 'rhs'
   ): void {
     const isNegated = !!(node.children.Minus as IToken[])?.length;
     const caret = (node.children.Caret as IToken[])?.[0];
@@ -290,10 +291,10 @@ export class SoarParser {
 
     for (const name of names) {
       if (values.length === 0) {
-        production.attributes.push({ name, range, value: undefined, isNegated, parentId });
+        production.attributes.push({ name, range, value: undefined, isNegated, parentId, side });
       } else {
         for (const value of values) {
-          production.attributes.push({ name, range, value, isNegated, parentId });
+          production.attributes.push({ name, range, value, isNegated, parentId, side });
         }
       }
     }

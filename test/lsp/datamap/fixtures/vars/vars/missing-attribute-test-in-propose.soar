@@ -1,0 +1,14 @@
+sp {vars*propose*missing-attribute-test-in-propose
+   (state <s> ^name vars)
+-->
+   (<s> ^operator <op> + =)
+   (<op> ^name missing-attribute-test-in-propose)
+}
+
+sp {apply*missing-attribute-test-in-propose
+   (state <s> ^operator <op>)
+   (<op> ^name missing-attribute-test-in-propose
+      ^not-tested <nt>)
+-->
+   (<s>)
+}

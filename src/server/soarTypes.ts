@@ -31,6 +31,7 @@ export interface SoarAttribute {
   value?: string;
   isNegated: boolean;
   parentId?: string; // The identifier this attribute is attached to (e.g., 's', 'o', 'i1')
+  side?: 'lhs' | 'rhs'; // Whether the attribute is a condition test (LHS) or an action make (RHS)
 }
 
 export interface SoarTest {

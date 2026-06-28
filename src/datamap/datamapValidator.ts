@@ -55,6 +55,168 @@ export class DatamapValidator {
       errors.push(...productionErrors);
     }
 
+    errors.push(
+      ...this.validateOperatorProposeApplyConsistency(document, projectContext, documentText)
+    );
+
+    return errors;
+  }
+
+  private static readonly OPERATOR_ATTR_EXEMPT = new Set(['name', 'operator']);
+
+  private static isOperatorAttributeName(name: string): boolean {
+    return name === 'operator' || name.endsWith('.operator');
+  }
+
+  /**
+   * For one production, find the variables bound to an operator (`^operator
+   * <op>`) and, where determinable, the operator name each is constrained to
+   * (`<op> ^name <const>`).
+   */
+  private resolveOperatorContext(production: SoarProduction): {
+    operatorVars: Set<string>;
+    varToName: Map<string, string>;
+  } {
+    const operatorVars = new Set<string>();
+    for (const attr of production.attributes) {
+      if (
+        !attr.isNegated &&
+        DatamapValidator.isOperatorAttributeName(attr.name) &&
+        attr.value?.startsWith('<')
+      ) {
+        operatorVars.add(attr.value.slice(1, -1));
+      }
+    }
+
+    const varToName = new Map<string, string>();
+    if (operatorVars.size > 0) {
+      for (const attr of production.attributes) {
+        if (
+          attr.parentId &&
+          attr.name === 'name' &&
+          attr.value &&
+          !attr.value.startsWith('<') &&
+          operatorVars.has(attr.parentId)
+        ) {
+          varToName.set(attr.parentId, this.normalizeSoarConstant(attr.value));
+        }
+      }
+    }
+
+    return { operatorVars, varToName };
+  }
+
+  /**
+   * Build the project-wide index of operator name → set of first-segment
+   * attribute names created (RHS) on that operator across all given documents.
+   * Attach the result to `projectContext.operatorAugmentationIndex` to enable
+   * the propose/apply consistency check.
+   */
+  static buildOperatorAugmentationIndex(documents: SoarDocument[]): Map<string, Set<string>> {
+    const validator = new DatamapValidator();
+    const index = new Map<string, Set<string>>();
+
+    for (const document of documents) {
+      for (const production of document.productions) {
+        const { operatorVars, varToName } = validator.resolveOperatorContext(production);
+        if (operatorVars.size === 0) {
+          continue;
+        }
+        for (const attr of production.attributes) {
+          if (attr.side !== 'rhs' || !attr.parentId || !operatorVars.has(attr.parentId)) {
+            continue;
+          }
+          const operatorName = varToName.get(attr.parentId);
+          if (!operatorName) {
+            continue;
+          }
+          const firstSegment = attr.name.split('.')[0];
+          if (DatamapValidator.OPERATOR_ATTR_EXEMPT.has(firstSegment)) {
+            continue;
+          }
+          if (!index.has(operatorName)) {
+            index.set(operatorName, new Set());
+          }
+          index.get(operatorName)!.add(firstSegment);
+        }
+      }
+    }
+
+    return index;
+  }
+
+  /**
+   * Project-wide check: an operator attribute tested on the apply side (LHS)
+   * must be created (RHS) for that operator *somewhere in the project*, or the
+   * apply rule can never match. Requires `projectContext.operatorAugmentationIndex`
+   * (project-wide scan); skipped otherwise to avoid false positives.
+   *
+   * `^name`/`^operator` and negated tests are exempt, and comparison is by first
+   * path segment so a tested `^desired.x` is satisfied by a created `^desired`.
+   */
+  private validateOperatorProposeApplyConsistency(
+    document: SoarDocument,
+    projectContext: ProjectContext,
+    documentText?: string
+  ): ValidationError[] {
+    const createdIndex = projectContext.operatorAugmentationIndex;
+    if (!createdIndex) {
+      return [];
+    }
+
+    const errors: ValidationError[] = [];
+    const seen = new Set<string>();
+
+    for (const production of document.productions) {
+      const { operatorVars, varToName } = this.resolveOperatorContext(production);
+      if (operatorVars.size === 0) {
+        continue;
+      }
+
+      for (const attr of production.attributes) {
+        if (
+          attr.side !== 'lhs' ||
+          attr.isNegated ||
+          !attr.parentId ||
+          !operatorVars.has(attr.parentId)
+        ) {
+          continue;
+        }
+        const operatorName = varToName.get(attr.parentId);
+        if (!operatorName) {
+          continue; // generic operator rule (no ^name) — cannot attribute reliably
+        }
+        const firstSegment = attr.name.split('.')[0];
+        if (DatamapValidator.OPERATOR_ATTR_EXEMPT.has(firstSegment)) {
+          continue;
+        }
+
+        const created = createdIndex.get(operatorName);
+        if (created && created.has(firstSegment)) {
+          continue;
+        }
+
+        // The attribute may expand to several entries (one per value); report once.
+        const dedupeKey = `${production.name}|${operatorName}|${attr.name}|${attr.range.start.line}:${attr.range.start.character}`;
+        if (seen.has(dedupeKey)) {
+          continue;
+        }
+        seen.add(dedupeKey);
+
+        const preciseRange = this.findAttributeRange(attr, documentText);
+        errors.push({
+          production: production.name,
+          attribute: attr.name,
+          attributePath: `^${attr.name}`,
+          line: preciseRange.start.line,
+          column: preciseRange.start.character,
+          range: preciseRange,
+          message: `Operator '${operatorName}' is tested with '^${attr.name}' on the apply side, but no rule in the project creates '^${firstSegment}' on it. This rule can never match.`,
+          severity: 'error',
+        });
+      }
+    }
+
     return errors;
   }
 

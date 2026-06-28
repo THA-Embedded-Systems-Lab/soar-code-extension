@@ -1,1 +1,40 @@
-[]
+[
+  {
+    "production": "apply*anchor-object-class*update-desired-relation",
+    "attribute": "desireds.desired.on",
+    "attributePath": "^desireds.desired.on",
+    "line": 16,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 16,
+        "character": 9
+      },
+      "end": {
+        "line": 16,
+        "character": 38
+      }
+    },
+    "message": "Operator 'anchor-object-class' is tested with '^desireds.desired.on' on the apply side, but no rule in the project creates '^desireds' on it. This rule can never match.",
+    "severity": "error"
+  },
+  {
+    "production": "apply*anchor-object-class*update-desired-relation",
+    "attribute": "desireds.desired.in",
+    "attributePath": "^desireds.desired.in",
+    "line": 16,
+    "column": 9,
+    "range": {
+      "start": {
+        "line": 16,
+        "character": 9
+      },
+      "end": {
+        "line": 16,
+        "character": 38
+      }
+    },
+    "message": "Operator 'anchor-object-class' is tested with '^desireds.desired.in' on the apply side, but no rule in the project creates '^desireds' on it. This rule can never match.",
+    "severity": "error"
+  }
+]
