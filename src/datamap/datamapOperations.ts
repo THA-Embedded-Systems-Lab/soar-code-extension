@@ -46,26 +46,29 @@ export class DatamapOperations {
 
     for (const vertex of projectContext.project.datamap.vertices) {
       if (vertex.type === 'SOAR_ID') {
-        // Find a descriptive name for this vertex by looking for edges pointing to it
-        let name = vertex.id;
-        let description =
-          vertex.id === parentVertexId ? 'SOAR_ID (self, recursive link)' : 'SOAR_ID';
+        const isSelf = vertex.id === parentVertexId;
 
-        // Try to find attribute name pointing to this vertex
-        for (const v of projectContext.project.datamap.vertices) {
-          if (v.type === 'SOAR_ID' && v.outEdges) {
-            for (const edge of v.outEdges) {
-              if (edge.toId === vertex.id) {
-                name = edge.name;
-                description = edge.comment || description;
-                break;
-              }
-            }
+        // Use the vertex's stable owning-edge name (not just whichever
+        // inbound edge is encountered first) so a shared/linked vertex keeps
+        // a consistent label regardless of array order.
+        const canonicalName = projectContext.datamapMetadata.getCanonicalName(vertex.id);
+        const name = canonicalName ?? vertex.id;
+        let description = isSelf ? 'SOAR_ID (self, recursive link)' : 'SOAR_ID';
+
+        if (canonicalName) {
+          const ownerId = projectContext.datamapMetadata.getOwner(vertex.id);
+          const ownerVertex = ownerId ? projectContext.datamapIndex.get(ownerId) : undefined;
+          const ownerEdge =
+            ownerVertex?.type === 'SOAR_ID'
+              ? ownerVertex.outEdges?.find(e => e.name === canonicalName && e.toId === vertex.id)
+              : undefined;
+          if (ownerEdge?.comment) {
+            description = ownerEdge.comment;
           }
         }
 
         linkableVertices.push({
-          label: vertex.id === parentVertexId ? `${name} (self)` : name,
+          label: isSelf ? `${name} (self)` : name,
           vertexId: vertex.id,
           description: description,
         });
@@ -889,9 +892,9 @@ export class DatamapOperations {
       return `${projectContext.project.layout.name || 'root'} (root)`;
     }
 
-    const inboundEdges = projectContext.datamapMetadata.getInboundReferences(vertexId);
-    if (inboundEdges.length > 0) {
-      return `${inboundEdges[0].edgeName} (${vertexId})`;
+    const canonicalName = projectContext.datamapMetadata.getCanonicalName(vertexId);
+    if (canonicalName) {
+      return `${canonicalName} (${vertexId})`;
     }
 
     return vertexId;

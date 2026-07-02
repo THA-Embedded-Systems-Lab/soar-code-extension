@@ -457,6 +457,24 @@ export class DatamapMetadataCache {
     return this.inboundMap.get(vertexId) ?? [];
   }
 
+  /**
+   * The stable display name for a vertex: the attribute name of its owning
+   * inbound edge (per `buildOwnershipMap`'s BFS-from-root), not just
+   * whichever inbound edge happens to be encountered first. Vertices don't
+   * carry their own name in the schema, so a shared/linked vertex's identity
+   * is otherwise ambiguous whenever more than one attribute points at it.
+   * Returns undefined for the root vertex or a vertex with no inbound edges.
+   */
+  getCanonicalName(vertexId: string): string | undefined {
+    const inbound = this.inboundMap.get(vertexId);
+    if (!inbound || inbound.length === 0) {
+      return undefined;
+    }
+    const ownerId = this.vertexOwners.get(vertexId);
+    const ownerEdge = inbound.find(e => e.parentId === ownerId) ?? inbound[0];
+    return ownerEdge.edgeName;
+  }
+
   private static isMutuallyLinked(
     parentId: string,
     targetId: string,

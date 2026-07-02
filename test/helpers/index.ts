@@ -40,3 +40,4 @@ import '../mcp/helpers/update-attribute.test';
 import '../lsp/datamap/helpers/datamap-integrity.test';
 import '../lsp/datamap/helpers/inline-substate.test';
 import '../lsp/datamap/helpers/state-variable-naming.test';
+import '../lsp/datamap/helpers/canonical-name.test';

@@ -162,7 +162,7 @@ Three separate esbuild bundles are produced into `dist/`:
   - edit flow supports parent reassignment:
     - `Change Parent`: move attribute (and referenced subtree) to a new SOAR_ID parent
     - `Change Parent + Link`: move ownership and keep a linked reference on previous parent
-  - linked attribute operations: `addLinkedAttribute` lets a vertex link to itself (self-referential/recursive structures, e.g. a linked-list-style `^next` pointing back to the same SOAR_ID vertex), labeled `(self)` in the picker
+  - linked attribute operations: `addLinkedAttribute` lets a vertex link to itself (self-referential/recursive structures, e.g. a linked-list-style `^next` pointing back to the same SOAR_ID vertex), labeled `(self)` in the picker; both `addLinkedAttribute`'s target picker and `getParentDisplayName` (used by the re-parent picker) label a shared/linked vertex using `DatamapMetadataCache.getCanonicalName`, not an ad-hoc scan for the first inbound edge — see below
   - uses shared `generateVertexId` for new datamap vertices
   - datamap persistence and metadata refresh
 - `src/datamap/datamapMetadata.ts`
@@ -189,6 +189,7 @@ Three separate esbuild bundles are produced into `dist/`:
     - `unreachable-root`: linked attribute (shared-target edge) whose target vertex cannot be reached from the datamap root via the ownership DFS
   - `DatamapIntegrityIssue` carries `kind`, `parentVertexId`, `attributeName`, `targetVertexId`, and a human-readable `message`
   - called automatically by `validateProjectAgainstDatamap` (result appears in `ValidationSummary.datamapIssues`) and exposed standalone via the MCP tool `datamap_check_integrity`
+  - `DatamapMetadataCache.getCanonicalName(vertexId)` — a vertex has no name field of its own in the schema (only inbound edges have names), so a shared/linked vertex's display name is ambiguous whenever more than one attribute points at it. This resolves it deterministically via the vertex's BFS-from-root owner (`getOwner`/`buildOwnershipMap`), not whichever inbound edge is encountered first by array order. Used by `DatamapOperations.addLinkedAttribute`'s target picker and `getParentDisplayName` (re-parent picker) instead of ad-hoc inbound-edge scans. Covered by `test/lsp/datamap/helpers/canonical-name.test.ts`.
 - Deletion clean-up (`src/datamap/datamapOperations.ts`):
   - `DatamapOperations.removeVertexRecursive` (public static): two-pass strategy — collect full subtree IDs, then sweep every SOAR_ID vertex and strip any outgoing edge pointing into the deleted set, preventing dangling link edges after an owned-vertex deletion
   - `DatamapOperations.deleteAttributeCore(context, parentVertexId, attributeName, removeLinkOnly?)` (public static): pure deletion logic with no VS Code UI calls. Removes the named edge from the parent, determines ownership via `ownerParentId` from edge metadata, calls `removeVertexRecursive` when appropriate, saves the project, and returns `{ parentVertexId, attributeName, targetVertexId, removedAsLinkOnly }`. Used directly by tests and delegated to by both the UI path and MCP layer.
