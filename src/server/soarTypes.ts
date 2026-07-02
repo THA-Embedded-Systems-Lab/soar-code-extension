@@ -32,6 +32,15 @@ export interface SoarAttribute {
   isNegated: boolean;
   parentId?: string; // The identifier this attribute is attached to (e.g., 's', 'o', 'i1')
   side?: 'lhs' | 'rhs'; // Whether the attribute is a condition test (LHS) or an action make (RHS)
+  /**
+   * When the attribute name is itself a bare variable (`^<var>`), the variable
+   * it binds. Soar allows a variable in attribute position (it ranges over the
+   * parent's attributes and can be dereferenced as an identifier, e.g. the
+   * "duplicates table" idiom `(<d> ^<id> <v>) (<id> ^…)`). `name` is `''`
+   * (wildcard) in this case; this field preserves the binding so the variable
+   * isn't later reported as unbound.
+   */
+  attributeVariable?: string;
 }
 
 export interface SoarTest {
@@ -57,6 +66,13 @@ export interface SoarProduction {
   functionCalls: SoarFunctionCall[];
   /** The variable bound by the LHS `(state <var> ...)` condition, whatever it's named (e.g. 's', 's1'). */
   stateVariable?: string;
+  /**
+   * Variables bound by additional `(state <var> ...)` conditions beyond the
+   * first (e.g. a second impasse-state test in the same production). Each is
+   * architecturally guaranteed to be *some* state, just not necessarily this
+   * production's "main" one.
+   */
+  additionalStateVariables?: string[];
 }
 
 export interface SoarDocument {

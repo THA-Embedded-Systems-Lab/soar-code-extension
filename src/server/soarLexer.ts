@@ -71,7 +71,9 @@ export const Dot = createToken({ name: 'Dot', pattern: /\./ });
 export const Flag = createToken({ name: 'Flag', pattern: /:[A-Za-z][A-Za-z0-9-]*/ });
 
 // Numbers (signed). Float before Integer; both before Minus.
-export const Float = createToken({ name: 'Float', pattern: /-?\d+\.\d+/ });
+// Allows a leading-zero-elided form (`.3` meaning `0.3`), a common Soar
+// shorthand for float values.
+export const Float = createToken({ name: 'Float', pattern: /-?\d*\.\d+/ });
 export const Integer = createToken({ name: 'Integer', pattern: /-?\d+/ });
 
 // Single-character operators / preferences.
@@ -116,9 +118,9 @@ export const allTokens: TokenType[] = [
   LParen,
   RParen,
   Caret,
-  Dot,
   Flag,
   Float,
+  Dot,
   Integer,
   Plus,
   Equal,

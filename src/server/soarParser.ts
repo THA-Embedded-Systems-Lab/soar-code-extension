@@ -194,8 +194,12 @@ export class SoarParser {
 
     if (ruleName === 'positiveCondition') {
       const idParent = this.resolveConditionParent(node);
-      if (!production.stateVariable && idParent && this.isStateCondition(node)) {
-        production.stateVariable = idParent;
+      if (idParent && this.isStateCondition(node)) {
+        if (!production.stateVariable) {
+          production.stateVariable = idParent;
+        } else if (idParent !== production.stateVariable) {
+          (production.additionalStateVariables ??= []).push(idParent);
+        }
       }
       const attrTests = (node.children.attrValueTest as CstNode[]) || [];
       for (const at of attrTests) {
@@ -303,6 +307,10 @@ export class SoarParser {
       return;
     }
 
+    // A bare-variable attribute name (`^<var>`) binds that variable; preserve it
+    // so a later identifier dereference of the variable isn't flagged unbound.
+    const attributeVariable = this.attributePathVariable(pathNode);
+
     const values = this.collectValues(node);
 
     const startPos = caret ? tokenStart(caret) : tokenStart(this.firstTokenOf(pathNode)!);
@@ -314,13 +322,49 @@ export class SoarParser {
 
     for (const name of names) {
       if (values.length === 0) {
-        production.attributes.push({ name, range, value: undefined, isNegated, parentId, side });
+        production.attributes.push({
+          name,
+          range,
+          value: undefined,
+          isNegated,
+          parentId,
+          side,
+          attributeVariable,
+        });
       } else {
         for (const value of values) {
-          production.attributes.push({ name, range, value, isNegated, parentId, side });
+          // A literal reached via a non-equality relational test (e.g. `<> foo`,
+          // `> foo`) isn't an assertion that the value equals foo — it's the
+          // opposite — so it shouldn't be checked against the datamap's
+          // enumeration/attribute-existence rules. Variables are unaffected:
+          // they still need normal binding tracking regardless of the operator.
+          const skipValueValidation = !value.equality && !value.value.startsWith('<');
+          production.attributes.push({
+            name,
+            range,
+            value: value.value,
+            isNegated: isNegated || skipValueValidation,
+            parentId,
+            side,
+            attributeVariable,
+          });
         }
       }
     }
+  }
+
+  /**
+   * If the attribute path is exactly one bare variable segment (`^<var>`),
+   * returns the variable name (without angle brackets); otherwise undefined.
+   */
+  private attributePathVariable(pathNode: CstNode): string | undefined {
+    const segNodes = (pathNode.children.attributeSegment as CstNode[]) || [];
+    const dotCount = (pathNode.children.Dot as IToken[])?.length || 0;
+    if (segNodes.length !== 1 || dotCount !== 0) {
+      return undefined;
+    }
+    const variable = (segNodes[0].children.Variable as IToken[])?.[0];
+    return variable ? variable.image.slice(1, -1) : undefined;
   }
 
   /** Produce one or more dotted-path strings, expanding `<< a b >>` segments. */
@@ -342,24 +386,78 @@ export class SoarParser {
       const sym = (seg.children.Symbol as IToken[])?.[0];
       const int = (seg.children.Integer as IToken[])?.[0];
       const disj = (seg.children.disjunction as CstNode[])?.[0];
+      const conjunctiveSeg = (seg.children.attributeConjunctiveSegment as CstNode[])?.[0];
 
       if (sym || int) {
         const part = (sym ?? int)!.image;
         combos = combos.map(c => [...c, part]);
       } else if (disj) {
-        const choices = this.disjunctionChoices(disj);
-        const next: string[][] = [];
-        for (const c of combos) {
-          for (const choice of choices) {
-            next.push([...c, choice]);
-          }
+        combos = this.crossJoin(combos, this.disjunctionChoices(disj));
+      } else if (conjunctiveSeg) {
+        const choices = this.conjunctiveAttributeLiterals(conjunctiveSeg);
+        if (choices.length === 0) {
+          // A conjunctive attribute test with no positive equality constraint
+          // (e.g. `^{ <ta> <> name }`, or just `^{ <a> }`): the attribute name
+          // is only determined at runtime, so the path is dynamic from here.
+          trailingDot = true;
+          break;
         }
-        combos = next;
+        combos = this.crossJoin(combos, choices);
       }
     }
 
     const suffix = trailingDot ? '.' : '';
-    return combos.filter(c => c.length > 0).map(c => c.join('.') + suffix);
+    const named = combos.filter(c => c.length > 0).map(c => c.join('.') + suffix);
+    if (named.length === 0) {
+      // No static attribute name could be derived — a fully dynamic attribute
+      // (`(<id> ^<var> <value>)` / a wildcard conjunction) or a degenerate
+      // empty disjunction. Represent it as the wildcard `''` so a value binding
+      // is still recorded and the whole attribute test is never silently
+      // dropped by the caller.
+      return [''];
+    }
+    return named;
+  }
+
+  /** Append each choice to every current combo (Cartesian product step). */
+  private crossJoin(combos: string[][], choices: string[]): string[][] {
+    const next: string[][] = [];
+    for (const c of combos) {
+      for (const choice of choices) {
+        next.push([...c, choice]);
+      }
+    }
+    return next;
+  }
+
+  /**
+   * Positive equality constraints on an attribute name from a conjunctive
+   * attribute test `^{ ... }`. A bare constant term (`foo`) or a disjunction
+   * (`<< a b >>`) constrains the name to those literals; a relational/predicate
+   * test (`<> name`, `< 5`) is exclusionary and a lone variable (`<ta>`) only
+   * captures the matched name — neither yields a positive literal, so those
+   * leave the attribute name dynamic (empty result → wildcard).
+   */
+  private conjunctiveAttributeLiterals(conjNode: CstNode): string[] {
+    const choices: string[] = [];
+    const valueTests = (conjNode.children.valueTest as CstNode[]) || [];
+    for (const vt of valueTests) {
+      const disj = (vt.children.disjunction as CstNode[])?.[0];
+      if (disj) {
+        choices.push(...this.disjunctionChoices(disj));
+        continue;
+      }
+      // Only a bare constant term counts as a positive equality constraint.
+      // A term nested under a relationalTest (e.g. `<> name`) lives under
+      // `vt.children.relationalTest`, not `vt.children.term`, so it's excluded.
+      const term = (vt.children.term as CstNode[])?.[0];
+      const sym = term && (term.children.Symbol as IToken[])?.[0];
+      const int = term && (term.children.Integer as IToken[])?.[0];
+      if (sym || int) {
+        choices.push((sym ?? int)!.image);
+      }
+    }
+    return choices;
   }
 
   private disjunctionChoices(disj: CstNode): string[] {
@@ -374,21 +472,44 @@ export class SoarParser {
     return out;
   }
 
-  /** All value terms under an attribute node (variables keep their <>). */
-  private collectValues(node: CstNode): string[] {
-    const values: string[] = [];
-    const visit = (n: CstNode) => {
+  /**
+   * All value terms under an attribute node (variables keep their <>).
+   * `equality` is false when the term is reached through a non-equality
+   * relational operator (`<>`, `<`, `>`, `<=`, `>=`, `<=>`) rather than a
+   * bare term or an explicit `=`.
+   */
+  private collectValues(node: CstNode): Array<{ value: string; equality: boolean }> {
+    const values: Array<{ value: string; equality: boolean }> = [];
+    const nonEqualityOperators = new Set([
+      'NotEqual',
+      'Less',
+      'Greater',
+      'LessEqual',
+      'GreaterEqual',
+      'SameType',
+    ]);
+
+    const visit = (n: CstNode, equality: boolean) => {
       if (n.name === 'term') {
         const tok = this.firstTokenOf(n);
         if (tok) {
-          values.push(tok.image);
+          values.push({ value: tok.image, equality });
         }
         return;
       }
+      if (n.name === 'functionCall') {
+        // e.g. (<e> ^expected-value (* .9 <ev>)): the RHS value is computed
+        // at runtime, so its arguments aren't literal values of the
+        // attribute and shouldn't be checked against the datamap.
+        return;
+      }
+      const isNonEqualityRelation =
+        n.name === 'relationalTest' &&
+        Object.keys(n.children).some(key => nonEqualityOperators.has(key));
       for (const key of Object.keys(n.children)) {
         for (const child of n.children[key]) {
           if (this.isCstNode(child)) {
-            visit(child);
+            visit(child, equality && !isNonEqualityRelation);
           }
         }
       }
@@ -401,7 +522,7 @@ export class SoarParser {
       }
       for (const child of node.children[key]) {
         if (this.isCstNode(child)) {
-          visit(child);
+          visit(child, true);
         }
       }
     }

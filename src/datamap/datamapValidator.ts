@@ -75,20 +75,40 @@ export class DatamapValidator {
    */
   private resolveOperatorContext(production: SoarProduction): {
     operatorVars: Set<string>;
-    varToName: Map<string, string>;
+    varToNames: Map<string, Set<string>>;
+    ancestorOperatorVars: Set<string>;
   } {
     const operatorVars = new Set<string>();
+    // Vars reached via an ancestor state's operator — either directly
+    // (`^superstate.operator <so>`) or decomposed across two conditions
+    // (`(<s> ^superstate <ss>) (<ss> ^operator <so>)`) — as opposed to the
+    // current state's own `^operator`. These can legitimately resolve to any
+    // operator proposed anywhere that leads into this substate, so they
+    // can't be attributed to one literal operator name by local inspection.
+    const ancestorOperatorVars = new Set<string>();
+    const stateVariable = production.stateVariable ?? 's';
     for (const attr of production.attributes) {
       if (
         !attr.isNegated &&
         DatamapValidator.isOperatorAttributeName(attr.name) &&
         attr.value?.startsWith('<')
       ) {
-        operatorVars.add(attr.value.slice(1, -1));
+        const varName = attr.value.slice(1, -1);
+        operatorVars.add(varName);
+        if (attr.name !== 'operator' || attr.parentId !== stateVariable) {
+          ancestorOperatorVars.add(varName);
+        }
       }
     }
 
-    const varToName = new Map<string, string>();
+    const addName = (varName: string, name: string): void => {
+      if (!varToNames.has(varName)) {
+        varToNames.set(varName, new Set());
+      }
+      varToNames.get(varName)!.add(name);
+    };
+
+    const varToNames = new Map<string, Set<string>>();
     if (operatorVars.size > 0) {
       for (const attr of production.attributes) {
         if (
@@ -98,12 +118,45 @@ export class DatamapValidator {
           !attr.value.startsWith('<') &&
           operatorVars.has(attr.parentId)
         ) {
-          varToName.set(attr.parentId, this.normalizeSoarConstant(attr.value));
+          addName(attr.parentId, this.normalizeSoarConstant(attr.value));
+        }
+      }
+
+      // `(<op> ^name <var>)` where <var> is not a literal: if the same
+      // production tests <var> against a disjunction of literals elsewhere
+      // on the LHS (e.g. `^operation { << add subtract >> <var> }`), the
+      // operator resolves to each of those literals. This is a common Soar
+      // idiom for proposing a family of operators from one rule.
+      for (const attr of production.attributes) {
+        if (
+          !attr.parentId ||
+          attr.name !== 'name' ||
+          !attr.value?.startsWith('<') ||
+          !operatorVars.has(attr.parentId)
+        ) {
+          continue;
+        }
+        const nameVar = attr.value.slice(1, -1);
+        const siblings = production.attributes.filter(
+          a => a.side === 'lhs' && a.parentId && a.value === `<${nameVar}>`
+        );
+        for (const sibling of siblings) {
+          for (const literalSibling of production.attributes) {
+            if (
+              literalSibling.side === 'lhs' &&
+              literalSibling.name === sibling.name &&
+              literalSibling.parentId === sibling.parentId &&
+              literalSibling.value &&
+              !literalSibling.value.startsWith('<')
+            ) {
+              addName(attr.parentId, this.normalizeSoarConstant(literalSibling.value));
+            }
+          }
         }
       }
     }
 
-    return { operatorVars, varToName };
+    return { operatorVars, varToNames, ancestorOperatorVars };
   }
 
   /**
@@ -118,7 +171,8 @@ export class DatamapValidator {
 
     for (const document of documents) {
       for (const production of document.productions) {
-        const { operatorVars, varToName } = validator.resolveOperatorContext(production);
+        const { operatorVars, varToNames, ancestorOperatorVars } =
+          validator.resolveOperatorContext(production);
         if (operatorVars.size === 0) {
           continue;
         }
@@ -126,18 +180,34 @@ export class DatamapValidator {
           if (attr.side !== 'rhs' || !attr.parentId || !operatorVars.has(attr.parentId)) {
             continue;
           }
-          const operatorName = varToName.get(attr.parentId);
-          if (!operatorName) {
-            continue;
+          if (attr.name === '') {
+            continue; // fully-dynamic attribute test, e.g. ^<var>
           }
           const firstSegment = attr.name.split('.')[0];
           if (DatamapValidator.OPERATOR_ATTR_EXEMPT.has(firstSegment)) {
             continue;
           }
-          if (!index.has(operatorName)) {
-            index.set(operatorName, new Set());
+          const operatorNames = varToNames.get(attr.parentId);
+          if (!operatorNames || operatorNames.size === 0) {
+            // An ancestor-state operator (e.g. `^superstate.operator`) can
+            // resolve to whichever operator proposed the impasse that led
+            // here, which this single-production, syntactic check cannot
+            // determine. Record it as a wildcard rather than dropping it, so
+            // it isn't mistaken project-wide for "never created".
+            if (ancestorOperatorVars.has(attr.parentId)) {
+              if (!index.has('')) {
+                index.set('', new Set());
+              }
+              index.get('')!.add(firstSegment);
+            }
+            continue;
           }
-          index.get(operatorName)!.add(firstSegment);
+          for (const operatorName of operatorNames) {
+            if (!index.has(operatorName)) {
+              index.set(operatorName, new Set());
+            }
+            index.get(operatorName)!.add(firstSegment);
+          }
         }
       }
     }
@@ -168,7 +238,8 @@ export class DatamapValidator {
     const seen = new Set<string>();
 
     for (const production of document.productions) {
-      const { operatorVars, varToName } = this.resolveOperatorContext(production);
+      const { operatorVars, varToNames, ancestorOperatorVars } =
+        this.resolveOperatorContext(production);
       if (operatorVars.size === 0) {
         continue;
       }
@@ -182,19 +253,39 @@ export class DatamapValidator {
         ) {
           continue;
         }
-        const operatorName = varToName.get(attr.parentId);
-        if (!operatorName) {
+        if (ancestorOperatorVars.has(attr.parentId)) {
+          // An ancestor-state operator, even with a known literal ^name,
+          // could be populated by whichever rule (anywhere in the project,
+          // or in an embedding agent for a shared library like this one)
+          // proposed it — not reliably verifiable from this production alone.
+          continue;
+        }
+        const operatorNames = varToNames.get(attr.parentId);
+        if (!operatorNames || operatorNames.size === 0) {
           continue; // generic operator rule (no ^name) — cannot attribute reliably
+        }
+        if (attr.name === '') {
+          continue; // fully-dynamic attribute test, e.g. ^<var>
         }
         const firstSegment = attr.name.split('.')[0];
         if (DatamapValidator.OPERATOR_ATTR_EXEMPT.has(firstSegment)) {
           continue;
         }
 
-        const created = createdIndex.get(operatorName);
-        if (created && created.has(firstSegment)) {
+        // Satisfied if every possible name this operator could resolve to
+        // has a rule somewhere in the project creating this attribute, or a
+        // rule creates it via an unattributable ancestor-operator reference
+        // (wildcard bucket — see buildOperatorAugmentationIndex).
+        if (createdIndex.get('')?.has(firstSegment)) {
           continue;
         }
+        const allCreated = Array.from(operatorNames).every(
+          name => createdIndex.get(name)?.has(firstSegment)
+        );
+        if (allCreated) {
+          continue;
+        }
+        const operatorName = Array.from(operatorNames)[0];
 
         // The attribute may expand to several entries (one per value); report once.
         const dedupeKey = `${production.name}|${operatorName}|${attr.name}|${attr.range.start.line}:${attr.range.start.character}`;
@@ -244,35 +335,65 @@ export class DatamapValidator {
     );
     variableBindings.set(stateVariable, new Set(initialStateBindings));
 
-    // First pass: build variable bindings by following attribute paths with variable values
+    // A second (or further) `(state <var> ...)` condition in the same
+    // production is architecturally guaranteed to bind a real state, just
+    // not necessarily reachable from the main state variable by attribute
+    // path (e.g. a fresh impasse substate introduced only to test its own
+    // ^impasse/^attribute/^quiescence). Bind it the same way as the main
+    // state variable so it isn't flagged as unbound.
+    for (const extraStateVar of production.additionalStateVariables ?? []) {
+      if (!variableBindings.has(extraStateVar)) {
+        variableBindings.set(extraStateVar, new Set(initialStateBindings));
+      }
+    }
+
+    // First pass: build variable bindings by following attribute paths with
+    // variable values, and by capturing variables used as attribute names.
     for (const attr of production.attributes) {
-      if (!attr.parentId || !attr.value || !attr.value.startsWith('<')) {
-        continue; // Only process variable bindings like (<s> ^operator <o>)
+      if (!attr.parentId) {
+        continue;
       }
 
-      // Get the parent vertex IDs
       const parentVertices = variableBindings.get(attr.parentId);
       if (!parentVertices) {
         continue; // Parent not bound yet
       }
 
-      const dmMeta = (projectContext as any).datamapMetadata as DatamapMetadataCache | undefined;
-      const pathSegments = attr.name.split('.');
-      const targetVertices =
-        (dmMeta &&
-          dmMeta.findTargetVerticesForPath(
-            Array.from(parentVertices),
-            pathSegments,
-            projectContext.project
-          )) ||
-        this.findTargetVerticesForPath(Array.from(parentVertices), pathSegments, projectContext);
-
-      // Bind the variable to these target vertices
-      const varName = attr.value.substring(1, attr.value.length - 1); // Remove < >
-      if (!variableBindings.has(varName)) {
-        variableBindings.set(varName, new Set());
+      // A variable used as the attribute name (`^<var>`) binds that variable.
+      // In Soar it ranges over the parent's attributes and may be dereferenced
+      // as an identifier (the "duplicates table" idiom). We model it leniently
+      // as the union of the parent's child targets so it's bound (not flagged)
+      // and downstream dereferences don't false-positive.
+      if (attr.attributeVariable) {
+        const attrVarTargets = this.childTargetVertices(parentVertices, projectContext);
+        this.addBindings(variableBindings, attr.attributeVariable, attrVarTargets);
       }
-      targetVertices.forEach(v => variableBindings.get(varName)!.add(v));
+
+      if (!attr.value || !attr.value.startsWith('<')) {
+        continue; // Only follow variable *values* like (<s> ^operator <o>) below.
+      }
+
+      const dmMeta = (projectContext as any).datamapMetadata as DatamapMetadataCache | undefined;
+      let targetVertices: string[];
+      if (attr.name === '') {
+        // Fully-dynamic attribute test, e.g. (<id> ^<var> <value>): the
+        // attribute could be any child, so bind to all of them.
+        targetVertices = this.childTargetVertices(parentVertices, projectContext);
+      } else {
+        const pathSegments = attr.name.split('.');
+        targetVertices =
+          (dmMeta &&
+            dmMeta.findTargetVerticesForPath(
+              Array.from(parentVertices),
+              pathSegments,
+              projectContext.project
+            )) ||
+          this.findTargetVerticesForPath(Array.from(parentVertices), pathSegments, projectContext);
+      }
+
+      // Bind the value variable to these target vertices
+      const varName = attr.value.substring(1, attr.value.length - 1); // Remove < >
+      this.addBindings(variableBindings, varName, targetVertices);
     }
 
     // Narrow bindings using explicit ^name constant tests so that, e.g.,
@@ -441,6 +562,35 @@ export class DatamapValidator {
       }
     }
     return true;
+  }
+
+  /** Union of the outgoing-edge targets of the given parent vertices. */
+  private childTargetVertices(
+    parentVertices: Set<string>,
+    projectContext: ProjectContext
+  ): string[] {
+    const targets = new Set<string>();
+    for (const parentVertexId of parentVertices) {
+      const parentVertex = projectContext.datamapIndex.get(parentVertexId);
+      if (parentVertex && 'outEdges' in parentVertex) {
+        parentVertex.outEdges?.forEach(edge => targets.add(edge.toId));
+      }
+    }
+    return Array.from(targets);
+  }
+
+  /** Add vertex ids to a variable's binding set, creating the set if needed. */
+  private addBindings(
+    variableBindings: Map<string, Set<string>>,
+    varName: string,
+    vertexIds: string[]
+  ): void {
+    let set = variableBindings.get(varName);
+    if (!set) {
+      set = new Set();
+      variableBindings.set(varName, set);
+    }
+    vertexIds.forEach(v => set!.add(v));
   }
 
   /**
@@ -705,6 +855,12 @@ export class DatamapValidator {
   ): ValidationError | null {
     // Skip negated attributes for now (they test for absence)
     if (attr.isNegated) {
+      return null;
+    }
+
+    // Skip fully-dynamic attribute tests like (<id> ^<var> <value>) — the
+    // attribute name is only known at runtime, so it can match anything.
+    if (attr.name === '') {
       return null;
     }
 

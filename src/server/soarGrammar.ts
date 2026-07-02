@@ -95,7 +95,23 @@ export class SoarGrammar extends CstParser {
       { ALT: () => this.CONSUME(t.Integer) },
       { ALT: () => this.CONSUME(t.Variable) },
       { ALT: () => this.SUBRULE(this.disjunction) },
+      { ALT: () => this.SUBRULE(this.attributeConjunctiveSegment) },
     ]);
+  });
+
+  // Attribute-name conjunctive test, `^{ test* }`. Per the Soar manual, "all of
+  // the tests that can be used for values can also be used for attributes and
+  // identifiers", so a conjunctive attribute test may contain any value tests:
+  // a literal or disjunction that constrains the attribute name
+  // (`^{ << left-side right-side >> <side> }`), a relational/predicate test
+  // (`^{ <ta> <> name }` — any attribute except `name`), and/or a variable that
+  // captures whichever attribute name matched. Structurally identical to
+  // `conjunctiveTest`, but kept as its own rule so the CST walk can tell an
+  // attribute-position conjunction from a value-position one.
+  public attributeConjunctiveSegment = this.RULE('attributeConjunctiveSegment', () => {
+    this.CONSUME(t.LCurly);
+    this.MANY(() => this.SUBRULE(this.valueTest));
+    this.CONSUME(t.RCurly);
   });
 
   public valueTest = this.RULE('valueTest', () => {
