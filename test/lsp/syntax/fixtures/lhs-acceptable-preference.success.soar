@@ -1,0 +1,28 @@
+# Operator-preference tests on the LHS are valid Soar.
+# WM-update operators drain before decompose-task.
+sp {Sander*compare*wm-update*before*decompose-task
+   (state <s> ^name Sander
+              ^operator <o1> +
+              ^operator <o2> +)
+   (<o1> ^name << item-create item-delete send-user-command
+                  workspace-read-items item-get-possible-processes
+                  task-complete-ack >>)
+   (<o2> ^name decompose-task)
+-->
+   (<s> ^operator <o1> > <o2>)
+}
+
+# Every unary/binary preference marker testable on the LHS:
+#   acceptable (+), reject (-), require (!), prohibit (~),
+#   better/worse/best/worst (> <), indifferent (=).
+sp {test*lhs*preference*markers
+   (state <s> ^operator <o1> +
+              ^operator <o2> -
+              ^operator <o3> !
+              ^operator <o4> ~
+              ^operator <o5> =
+              ^operator <o6> > <o7>
+              ^operator <o8> < <o9>)
+-->
+   (<s> ^done true)
+}

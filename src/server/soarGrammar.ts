@@ -73,7 +73,12 @@ export class SoarGrammar extends CstParser {
     this.OPTION(() => this.CONSUME(t.Minus));
     this.CONSUME(t.Caret);
     this.SUBRULE(this.attributePath);
-    this.MANY(() => this.SUBRULE(this.valueTest));
+    // Stop before a following `-^attr` so its negation Minus is not mistaken
+    // for a reject-preference test on the current attribute (and vice-versa).
+    this.MANY({
+      GATE: () => !(this.LA(1).tokenType === t.Minus && this.LA(2).tokenType === t.Caret),
+      DEF: () => this.SUBRULE(this.valueTest),
+    });
   });
 
   public attributePath = this.RULE('attributePath', () => {
@@ -99,6 +104,21 @@ export class SoarGrammar extends CstParser {
       { ALT: () => this.SUBRULE(this.conjunctiveTest) },
       { ALT: () => this.SUBRULE(this.disjunction) },
       { ALT: () => this.SUBRULE(this.term) },
+      // Unary operator-preference tests on the LHS, e.g. `(<s> ^operator <o> +)`.
+      { ALT: () => this.SUBRULE(this.preferenceTest) },
+    ]);
+  });
+
+  // Unary operator-preference markers testable on the LHS: acceptable (+),
+  // reject (-), require (!), and prohibit (~). The binary/unary better (>),
+  // worse (<), best (>), worst (<), and indifferent (=) markers are covered by
+  // relationalTest (which allows an optional operand).
+  public preferenceTest = this.RULE('preferenceTest', () => {
+    this.OR([
+      { ALT: () => this.CONSUME(t.Plus) },
+      { ALT: () => this.CONSUME(t.Minus) },
+      { ALT: () => this.CONSUME(t.Bang) },
+      { ALT: () => this.CONSUME(t.Tilde) },
     ]);
   });
 
