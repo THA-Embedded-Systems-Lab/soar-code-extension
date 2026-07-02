@@ -1,3 +1,23 @@
+## [0.8.0] - 2026-07-02
+
+### Features
+
+- Add icon for sidebar and vs code marketplace ([52df547](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/52df547b56e415e4db0b1631dc6dd0af1d8cc29f))
+- Implement inline high-level operator substate expansion in datamap ([9b8274a](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/9b8274ac38c2a21a041de8257b0e3781407d010f))
+- Operator rename/datamap sync, drag-and-drop move, duplicate guards ([c6584b3](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/c6584b3e796e2ba87baa04f5f802ae97dd7275d8))
+- Add context-aware operator augmentation validation and tests ([272b966](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/272b966896d8782246f1fb516c158c6f1fea6715))
+- _(parser)_ [**breaking**] Implement Chevrotain-based lexer and parser for Soar language ([e7a28ff](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/e7a28ffb05b140003c6a4b8e601586eb64594610))
+- Implement project-wide operator augmentation index for propose/apply consistency checks ([4ab1fd8](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/4ab1fd80e4288f51d0a1c4b3e28f1d1d5a06f38f))
+
+### Bug Fixes
+
+- Change callout in README.md to correctly render in vs code marketplace ([a3bed2a](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/a3bed2afd9a7b76a050544663e3a640eed2c48a9))
+- [**breaking**] Rename from soar-tool to soar-tools ([088785b](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/088785b2001611ba9c025aa590bf6d26b0d7c98c))
+
+### Documentation
+
+- Add mcp documentation to README.md ([2a37c42](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/2a37c42709054a2bb032e465100f8a3961db1f9f))
+
 ## [0.7.1] - 2026-06-22
 
 ### Bug Fixes
