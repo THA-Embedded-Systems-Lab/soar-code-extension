@@ -1,3 +1,16 @@
+## [0.8.1] - 2026-07-02
+
+### Bug Fixes
+
+- Restore strict typing after dependency update ([4cf07d1](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/4cf07d1b9c36efe73b45c71ea6f1f9fefc7a4305))
+- Correct extension ID in integration tests ([1f01e4b](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/1f01e4b7c3259bab6d7c94c02abd04ff7b0b855c))
+
+### Miscellaneous Tasks
+
+- [**breaking**] Upgrade minimal supported vs code version to 1.120+ and increase node to 24.x ([ed90b16](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/ed90b160f0643968ace1a358587da4ac64d68ac2))
+- [**breaking**] Update deps ([9c8a8c0](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/9c8a8c0053ad12805dff569c8906317b66abc500))
+- Update vscode engine requirement to ^1.125.0 ([6c4aa48](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/6c4aa48a4f6716a5f36475af839e0e8c1e41400e))
+
 ## [0.8.0] - 2026-07-02
 
 ### Features
