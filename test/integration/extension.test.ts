@@ -36,7 +36,7 @@ suite('Extension Integration Tests', () => {
     workspaceSoarFileUri = vscode.Uri.file(findTopLevelSoarFile(testProjectPath));
 
     // Ensure extension is activated
-    extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar-tool');
+    extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar-tools');
     if (!extension?.isActive) {
       await extension?.activate();
     }
