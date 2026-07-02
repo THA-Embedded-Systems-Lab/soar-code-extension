@@ -234,13 +234,15 @@ export class DatamapValidator {
     // Build a map of variable bindings to their potential vertex IDs
     const variableBindings = new Map<string, Set<string>>();
 
-    // Start with the best available state binding for <s>
+    // Start with the best available state binding for the production's state
+    // variable, whatever it's named (e.g. <s>, <s1>).
+    const stateVariable = production.stateVariable ?? 's';
     const initialStateBindings = this.resolveInitialStateBindings(
       production,
       projectContext,
       validationContext
     );
-    variableBindings.set('s', new Set(initialStateBindings));
+    variableBindings.set(stateVariable, new Set(initialStateBindings));
 
     // First pass: build variable bindings by following attribute paths with variable values
     for (const attr of production.attributes) {
@@ -283,9 +285,13 @@ export class DatamapValidator {
       projectContext
     );
 
-    // Check for unbound variables (except <s> which is always bound to root)
+    // Check for unbound variables (except the state variable, which is always bound to root)
     for (const attr of production.attributes) {
-      if (attr.parentId && attr.parentId !== 's' && !variableBindings.has(attr.parentId)) {
+      if (
+        attr.parentId &&
+        attr.parentId !== stateVariable &&
+        !variableBindings.has(attr.parentId)
+      ) {
         // Calculate precise range for the variable identifier
         const line = attr.range.start.line;
         const variableText = `<${attr.parentId}>`;
@@ -474,9 +480,15 @@ export class DatamapValidator {
 
   private getExplicitStateNames(production: SoarProduction): string[] {
     const names = new Set<string>();
+    const stateVariable = production.stateVariable ?? 's';
 
     for (const attr of production.attributes) {
-      if (attr.isNegated || attr.parentId !== 's' || attr.name !== 'name' || !attr.value) {
+      if (
+        attr.isNegated ||
+        attr.parentId !== stateVariable ||
+        attr.name !== 'name' ||
+        !attr.value
+      ) {
         continue;
       }
 
@@ -800,7 +812,7 @@ export class DatamapValidator {
     variableNameConstraints: Map<string, Set<string>>,
     documentText?: string
   ): ValidationError | null {
-    if (!attr.parentId || attr.parentId === 's') {
+    if (!attr.parentId || attr.parentId === (production.stateVariable ?? 's')) {
       return null;
     }
 

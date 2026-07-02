@@ -20,7 +20,7 @@ export function buildVariableBindings(
 ): Map<string, Set<string>> {
   const variableBindings = new Map<string, Set<string>>();
   const rootId = projectContext.project.datamap.rootId;
-  variableBindings.set('s', new Set([rootId]));
+  variableBindings.set(production.stateVariable ?? 's', new Set([rootId]));
 
   for (const attr of production.attributes) {
     if (!attr.parentId || !attr.value || !attr.value.startsWith('<')) {

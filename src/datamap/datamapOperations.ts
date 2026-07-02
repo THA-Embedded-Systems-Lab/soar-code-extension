@@ -45,10 +45,11 @@ export class DatamapOperations {
     const linkableVertices: Array<{ label: string; vertexId: string; description: string }> = [];
 
     for (const vertex of projectContext.project.datamap.vertices) {
-      if (vertex.type === 'SOAR_ID' && vertex.id !== parentVertexId) {
+      if (vertex.type === 'SOAR_ID') {
         // Find a descriptive name for this vertex by looking for edges pointing to it
         let name = vertex.id;
-        let description = 'SOAR_ID';
+        let description =
+          vertex.id === parentVertexId ? 'SOAR_ID (self, recursive link)' : 'SOAR_ID';
 
         // Try to find attribute name pointing to this vertex
         for (const v of projectContext.project.datamap.vertices) {
@@ -56,7 +57,7 @@ export class DatamapOperations {
             for (const edge of v.outEdges) {
               if (edge.toId === vertex.id) {
                 name = edge.name;
-                description = edge.comment || 'SOAR_ID';
+                description = edge.comment || description;
                 break;
               }
             }
@@ -64,7 +65,7 @@ export class DatamapOperations {
         }
 
         linkableVertices.push({
-          label: name,
+          label: vertex.id === parentVertexId ? `${name} (self)` : name,
           vertexId: vertex.id,
           description: description,
         });

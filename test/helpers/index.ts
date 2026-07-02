@@ -39,3 +39,4 @@ import '../mcp/helpers/update-attribute.test';
 // import '../lsp/orphaned-files/helpers/orphaned-files.test';
 import '../lsp/datamap/helpers/datamap-integrity.test';
 import '../lsp/datamap/helpers/inline-substate.test';
+import '../lsp/datamap/helpers/state-variable-naming.test';

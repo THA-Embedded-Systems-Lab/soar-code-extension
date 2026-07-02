@@ -55,6 +55,8 @@ export interface SoarProduction {
   variables: Map<string, SoarVariable>;
   attributes: SoarAttribute[];
   functionCalls: SoarFunctionCall[];
+  /** The variable bound by the LHS `(state <var> ...)` condition, whatever it's named (e.g. 's', 's1'). */
+  stateVariable?: string;
 }
 
 export interface SoarDocument {

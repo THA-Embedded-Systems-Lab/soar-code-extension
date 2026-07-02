@@ -162,7 +162,7 @@ Three separate esbuild bundles are produced into `dist/`:
   - edit flow supports parent reassignment:
     - `Change Parent`: move attribute (and referenced subtree) to a new SOAR_ID parent
     - `Change Parent + Link`: move ownership and keep a linked reference on previous parent
-  - linked attribute operations
+  - linked attribute operations: `addLinkedAttribute` lets a vertex link to itself (self-referential/recursive structures, e.g. a linked-list-style `^next` pointing back to the same SOAR_ID vertex), labeled `(self)` in the picker
   - uses shared `generateVertexId` for new datamap vertices
   - datamap persistence and metadata refresh
 - `src/datamap/datamapMetadata.ts`
@@ -176,7 +176,8 @@ Three separate esbuild bundles are produced into `dist/`:
   - context-aware operator augmentation check: a `(<var> ^name <const>)` test narrows that variable's bindings to the datamap vertices whose `^name` enumeration includes `<const>` (`applyNameConstraints`); an augmentation on such a name-constrained variable is then flagged when the attribute is absent on every bound vertex even if it exists elsewhere in the datamap (`validateAttributeInContext` + `attributeExistsFromVertices`). Gated to name-constrained, non-`<s>` variables to avoid false positives from imprecise/`^superstate`/root bindings. Covered by `test/lsp/datamap/helpers/operator-context.test.ts`.
   - operator propose/apply consistency check (`validateOperatorProposeApplyConsistency`): an operator attribute _tested_ on the apply side (LHS) but _created_ (RHS) by no rule **anywhere in the project** is flagged ("this rule can never match"). This is project-wide, so it requires `projectContext.operatorAugmentationIndex` — a `Map<operatorName, Set<first-path-segment>>` built by the static `DatamapValidator.buildOperatorAugmentationIndex(documents)` over all project files; the check is skipped when the index is absent (avoids cross-file false positives). It relies on the parser's per-attribute `side: 'lhs' | 'rhs'` field, exempts `^name`/`^operator` and negated tests, compares by first path segment, and dedupes value-expanded entries. The index is built in the MCP project validator (`soarMcpCore.validateProjectAgainstDatamap`), the datamap/legacy test harnesses, and lazily (cached, cleared on save) in `src/extension.ts` (`ensureOperatorAugmentationIndex`). Covered by `test/lsp/datamap/fixtures/vars/vars/missing-attribute-test-in-propose.soar`.
   - enum value validation
-  - infers `<s>` state context from explicit `^name` tests and, when needed, from layout file location (high-level operator substate ancestry)
+  - infers state context from explicit `^name` tests and, when needed, from layout file location (high-level operator substate ancestry)
+  - the state variable is not hardcoded to `<s>`: `SoarParser` records whichever variable is actually bound by the LHS `(state <var> ...)` condition in `SoarProduction.stateVariable` (set in `soarParser.ts`'s `collectFromCst`/`isStateCondition`), and the validator (`resolveInitialStateBindings`, unbound-variable check, `getExplicitStateNames`, `validateAttributeInContext`) and `completionProvider.ts`'s `buildVariableBindings` all key off `production.stateVariable ?? 's'` instead of the literal `'s'`. Covered by `test/lsp/datamap/helpers/state-variable-naming.test.ts`.
   - VS Code diagnostics creation (with non-VSCode-safe fallback used by MCP)
 
 ### Datamap structural integrity

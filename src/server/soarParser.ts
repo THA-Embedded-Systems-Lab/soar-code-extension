@@ -194,6 +194,9 @@ export class SoarParser {
 
     if (ruleName === 'positiveCondition') {
       const idParent = this.resolveConditionParent(node);
+      if (!production.stateVariable && idParent && this.isStateCondition(node)) {
+        production.stateVariable = idParent;
+      }
       const attrTests = (node.children.attrValueTest as CstNode[]) || [];
       for (const at of attrTests) {
         this.collectAttribute(at, production, idParent, 'lhs');
@@ -234,6 +237,26 @@ export class SoarParser {
         }
       }
     }
+  }
+
+  /** Whether this condition's idTest begins with the literal `state` keyword. */
+  private isStateCondition(positiveCondition: CstNode): boolean {
+    const idTest = (positiveCondition.children.idTest as CstNode[])?.[0];
+    if (!idTest) {
+      return false;
+    }
+    const terms = (idTest.children.term as CstNode[]) || [];
+    for (const term of terms) {
+      const sym = (term.children.Symbol as IToken[])?.[0];
+      if (sym) {
+        return sym.image === 'state';
+      }
+      if ((term.children.Variable as IToken[])?.[0]) {
+        // A variable term before any constant means there's no leading keyword.
+        return false;
+      }
+    }
+    return false;
   }
 
   /** The identifier a condition's attributes attach to (the variable, else the constant). */
