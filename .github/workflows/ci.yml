@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
