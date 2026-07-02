@@ -175,8 +175,9 @@ export class SmlSocketClient {
       socket.once('error', reject);
     });
 
-    this.socket.on('data', chunk => {
-      this.receiveBuffer = Buffer.concat([this.receiveBuffer, chunk]);
+    this.socket.on('data', (chunk: string | Buffer) => {
+      const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+      this.receiveBuffer = Buffer.concat([this.receiveBuffer, bytes]);
       this.processIncomingFrames();
     });
 
