@@ -447,7 +447,15 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
         edges = edges.filter(e => this.edgeMatchesFilter(e.name, e.toId, filterLower));
       }
 
-      // Sort: by type priority first, then alphabetically by name
+      // Sort: by type priority first, then alphabetically by display name.
+      // Operator edges are all named "operator", so tie-break on the operator's
+      // ^name enumeration rather than leaving them in datamap order.
+      const sortName = (edgeName: string, vertex: DMVertex | undefined): string => {
+        if (edgeName === 'operator' && vertex) {
+          return this.getOperatorName(vertex) ?? edgeName;
+        }
+        return edgeName;
+      };
       edges = [...edges].sort((a, b) => {
         const vA = this.projectContext!.datamapIndex.get(a.toId);
         const vB = this.projectContext!.datamapIndex.get(b.toId);
@@ -456,7 +464,7 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
         if (tA !== tB) {
           return tA - tB;
         }
-        return a.name.localeCompare(b.name);
+        return sortName(a.name, vA).localeCompare(sortName(b.name, vB));
       });
 
       for (const edge of edges) {
