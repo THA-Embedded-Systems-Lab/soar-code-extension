@@ -6,9 +6,10 @@ A comprehensive VS Code extension for the Soar cognitive architecture, providing
 syntax highlighting, intelligent code validation, datamap management, and
 seamless VisualSoar project integration.
 
-> [!IMPORTANT]
+> **⚠️ Important**
+>
 > This does not include a Soar installation, for some functionality, e.g.
-> debugging, the [Soar library](https://github.com/soargroup/soar/) must be
+> launching a Soar kernel, the [Soar library](https://github.com/soargroup/soar/) must be
 > installed.
 
 ## Features
@@ -59,8 +60,9 @@ seamless VisualSoar project integration.
 
 ### MCP
 
-> [!NOTE]
-> The MCP requires a nodejs installation on your system.
+> **ℹ️ Note**
+>
+> The MCP requires a nodejs 24.x installation on your system.
 
 A built-in MCP server exposes the extension's functionality to LLM/agent
 workflows (auto-registered for VS Code and Claude Code). Its tools fall into

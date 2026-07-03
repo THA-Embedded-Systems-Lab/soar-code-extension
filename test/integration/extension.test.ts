@@ -30,13 +30,13 @@ suite('Extension Integration Tests', () => {
     // Get the test workspace folder
     const testProjectPath = path.resolve(
       __dirname,
-      '../../../test/legacy-agents/fixtures/BW-Hierarchical'
+      '../../../test/legacy-agents/Agents/BW-Hierarchical'
     );
     workspaceUri = vscode.Uri.file(testProjectPath);
     workspaceSoarFileUri = vscode.Uri.file(findTopLevelSoarFile(testProjectPath));
 
     // Ensure extension is activated
-    extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar-tools');
+    extension = vscode.extensions.getExtension('tha-embedded-systems-lab.soar-dev-tools');
     if (!extension?.isActive) {
       await extension?.activate();
     }
