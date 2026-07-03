@@ -89,7 +89,7 @@ suite('Extension Integration Tests', () => {
     await vscode.commands.executeCommand('soar.loadDatamap');
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    await vscode.commands.executeCommand('soar.validateSelectedProjectAgainstDatamap');
+    await vscode.commands.executeCommand('soar.checkProject');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     assert.ok(true, 'Validation command should execute without error');

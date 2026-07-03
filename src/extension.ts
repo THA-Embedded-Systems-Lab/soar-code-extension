@@ -16,6 +16,7 @@ import { ProjectSync } from './layout/projectSync';
 import { loadSoarIgnore, isIgnoredByPatterns, SOAR_IGNORE_FILENAME } from './layout/soarIgnore';
 import { Ignore } from 'ignore';
 import { SoarParser } from './server/soarParser';
+import { ProjectContext } from './server/visualSoarProject';
 import { ProjectManager } from './projectManager';
 import { SourceScriptAnalyzer } from './server/sourceScriptParser';
 import { getUndoManager, resetUndoManager, UndoManager } from './layout/undoManager';
@@ -1175,31 +1176,11 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Register validate selected project command
+  // Register the combined project-wide check command (datamap + LSP validation,
+  // datamap integrity, and operator/datamap sync in one pass)
   context.subscriptions.push(
-    vscode.commands.registerCommand('soar.validateSelectedProjectAgainstDatamap', async () => {
-      await validateSelectedProject();
-    })
-  );
-
-  // Register validate selected project against LSP command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.validateSelectedProjectAgainstLsp', async () => {
-      await validateSelectedProjectAgainstLsp();
-    })
-  );
-
-  // Register datamap integrity check command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.checkDatamapIntegrity', async () => {
-      await checkDatamapIntegrity();
-    })
-  );
-
-  // Register operator/datamap name-sync verification command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.checkOperatorDatamapSync', async () => {
-      await checkOperatorDatamapSync(layoutProvider);
+    vscode.commands.registerCommand('soar.checkProject', async () => {
+      await checkProject(layoutProvider);
     })
   );
 
@@ -1416,19 +1397,19 @@ async function validateCurrentDocument(): Promise<void> {
 /**
  * Validate all Soar files in the selected/active project
  */
-async function validateSelectedProject(): Promise<void> {
-  const projectContext = datamapProviderGlobal.getProjectContext();
-  if (!projectContext) {
-    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
-    return;
-  }
-
+/**
+ * Run datamap validation across every Soar file in the project.
+ * Returns null when there is nothing to validate (no project / no files);
+ * otherwise the file count and total number of datamap issues found.
+ */
+async function runDatamapValidation(
+  projectContext: ProjectContext
+): Promise<{ fileCount: number; totalErrors: number } | null> {
   const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
   const soarFileUris = soarFiles.map(filePath => vscode.Uri.file(filePath));
 
   if (soarFileUris.length === 0) {
-    vscode.window.showInformationMessage('No Soar files found in project');
-    return;
+    return null;
   }
 
   let totalErrors = 0;
@@ -1456,17 +1437,7 @@ async function validateSelectedProject(): Promise<void> {
     }
   );
 
-  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
-
-  if (totalErrors === 0) {
-    vscode.window.showInformationMessage(
-      `✓ Validated ${soarFileUris.length} file(s) in project "${projectName}". No datamap issues found.`
-    );
-  } else {
-    vscode.window.showWarningMessage(
-      `Validated ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalErrors} datamap issue(s). Check the Problems panel.`
-    );
-  }
+  return { fileCount: soarFileUris.length, totalErrors };
 }
 
 function getLspDiagnostics(documentUri: vscode.Uri): readonly vscode.Diagnostic[] {
@@ -1506,19 +1477,18 @@ async function waitForDiagnosticsUpdate(documentUri: vscode.Uri, timeoutMs: numb
 /**
  * Check all Soar files in the selected/active project against LSP diagnostics
  */
-async function validateSelectedProjectAgainstLsp(): Promise<void> {
-  const projectContext = datamapProviderGlobal.getProjectContext();
-  if (!projectContext) {
-    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
-    return;
-  }
-
+/**
+ * Run LSP diagnostics across every Soar file in the project.
+ * Returns null when there is nothing to check; otherwise file/issue counts.
+ */
+async function runLspValidation(
+  projectContext: ProjectContext
+): Promise<{ fileCount: number; totalIssues: number; filesWithIssues: number } | null> {
   const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
   const soarFileUris = soarFiles.map(filePath => vscode.Uri.file(filePath));
 
   if (soarFileUris.length === 0) {
-    vscode.window.showInformationMessage('No Soar files found in project');
-    return;
+    return null;
   }
 
   let totalIssues = 0;
@@ -1551,122 +1521,92 @@ async function validateSelectedProjectAgainstLsp(): Promise<void> {
     }
   );
 
-  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
-
-  if (totalIssues === 0) {
-    vscode.window.showInformationMessage(
-      `✓ LSP checked ${soarFileUris.length} file(s) in project "${projectName}". No issues found.`
-    );
-    return;
-  }
-
-  vscode.window.showWarningMessage(
-    `LSP checked ${soarFileUris.length} file(s) in project "${projectName}". Found ${totalIssues} issue(s) across ${filesWithIssues} file(s). Check the Problems panel.`
-  );
+  return { fileCount: soarFileUris.length, totalIssues, filesWithIssues };
 }
 
 /**
- * Check structural integrity of the active project's datamap
- * (dangling edges and unreachable-root linked attributes).
+ * Run every project-wide check in one pass:
+ *  - datamap validation across all Soar files (Problems panel)
+ *  - LSP diagnostics across all Soar files (Problems panel)
+ *  - datamap structural integrity (dangling / unreachable-root edges)
+ *  - operator ↔ datamap name sync
+ * Presents a single combined summary with an optional detailed report.
  */
-async function checkDatamapIntegrity(): Promise<void> {
+async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
   const projectContext = datamapProviderGlobal.getProjectContext();
   if (!projectContext) {
     vscode.window.showWarningMessage('No project loaded. Load a project file first.');
     return;
   }
 
-  const issues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
+  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
+
+  const datamapResult = await runDatamapValidation(projectContext);
+  const lspResult = await runLspValidation(projectContext);
+  const integrityIssues = DatamapMetadataCache.checkLinkedAttributeIntegrity(
     projectContext.project,
     projectContext.datamapIndex
   );
+  const syncIssues = LayoutOperations.checkOperatorDatamapSync(projectContext);
 
-  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
-
-  if (issues.length === 0) {
-    vscode.window.showInformationMessage(
-      `✓ Datamap integrity OK — no issues found in "${projectName}".`
-    );
+  if (!datamapResult && !lspResult) {
+    vscode.window.showInformationMessage('No Soar files found in project');
     return;
   }
 
-  // Group issues by kind for a concise summary
-  const dangling = issues.filter(i => i.kind === 'dangling');
-  const unreachable = issues.filter(i => i.kind === 'unreachable-root');
+  const datamapErrors = datamapResult?.totalErrors ?? 0;
+  const lspIssues = lspResult?.totalIssues ?? 0;
+  const fileCount = datamapResult?.fileCount ?? lspResult?.fileCount ?? 0;
+  const totalProblems = datamapErrors + lspIssues + integrityIssues.length + syncIssues.length;
+
+  if (totalProblems === 0) {
+    vscode.window.showInformationMessage(
+      `✓ Project "${projectName}" passed all checks (${fileCount} file(s), datamap + LSP + integrity + operator sync).`
+    );
+    return;
+  }
 
   const parts: string[] = [];
-  if (dangling.length > 0) {
-    parts.push(`${dangling.length} dangling edge(s)`);
+  if (datamapErrors > 0) {
+    parts.push(`${datamapErrors} datamap issue(s)`);
   }
-  if (unreachable.length > 0) {
-    parts.push(`${unreachable.length} unreachable-root linked attribute(s)`);
+  if (lspIssues > 0) {
+    parts.push(`${lspIssues} LSP issue(s)`);
   }
-
-  const detail = issues
-    .map(
-      i => `• [${i.kind}] ^${i.attributeName} (parent: ${i.parentVertexId} → ${i.targetVertexId})`
-    )
-    .join('\n');
+  if (integrityIssues.length > 0) {
+    parts.push(`${integrityIssues.length} integrity issue(s)`);
+  }
+  if (syncIssues.length > 0) {
+    parts.push(`${syncIssues.length} operator-sync issue(s)`);
+  }
 
   const action = await vscode.window.showWarningMessage(
-    `Datamap integrity issues in "${projectName}": ${parts.join(', ')}.`,
+    `Project "${projectName}": ${parts.join(', ')}. Datamap/LSP issues are in the Problems panel.`,
     'Show Details'
   );
 
   if (action === 'Show Details') {
+    const lines: string[] = [
+      `Project check report for "${projectName}"`,
+      `${'─'.repeat(60)}`,
+      `Files checked: ${fileCount}`,
+      `Datamap validation issues: ${datamapErrors} (see Problems panel)`,
+      `LSP issues: ${lspIssues} across ${
+        lspResult?.filesWithIssues ?? 0
+      } file(s) (see Problems panel)`,
+      '',
+      `Datamap integrity issues: ${integrityIssues.length}`,
+      ...integrityIssues.map(
+        i =>
+          `  • [${i.kind}] ^${i.attributeName} (parent: ${i.parentVertexId} → ${i.targetVertexId})`
+      ),
+      '',
+      `Operator/datamap sync issues: ${syncIssues.length}`,
+      ...syncIssues.map(i => `  • [${i.nodeType}] ${i.message}`),
+    ];
     const doc = await vscode.workspace.openTextDocument({
       language: 'plaintext',
-      content: [
-        `Datamap integrity report for "${projectName}"`,
-        `${'─'.repeat(60)}`,
-        `Total issues: ${issues.length}  (dangling: ${dangling.length}, unreachable-root: ${unreachable.length})`,
-        '',
-        detail,
-      ].join('\n'),
-    });
-    await vscode.window.showTextDocument(doc);
-  }
-}
-
-/**
- * Verify that every operator layout node has a matching `^operator` entry in its
- * parent state's datamap, surfacing any mismatches (e.g. after a rename that did
- * not propagate). Mirrors the datamap-integrity command's UX.
- */
-async function checkOperatorDatamapSync(layoutProvider: LayoutTreeProvider): Promise<void> {
-  const projectContext = layoutProvider.getProjectContext();
-  if (!projectContext) {
-    vscode.window.showWarningMessage('No project loaded. Load a project file first.');
-    return;
-  }
-
-  const issues = LayoutOperations.checkOperatorDatamapSync(projectContext);
-  const projectName = path.basename(projectContext.projectFile, '.vsa.json');
-
-  if (issues.length === 0) {
-    vscode.window.showInformationMessage(
-      `✓ Operators in sync — every operator in "${projectName}" matches the datamap.`
-    );
-    return;
-  }
-
-  const detail = issues.map(i => `• [${i.nodeType}] ${i.message}`).join('\n');
-
-  const action = await vscode.window.showWarningMessage(
-    `${issues.length} operator(s) out of sync with the datamap in "${projectName}".`,
-    'Show Details'
-  );
-
-  if (action === 'Show Details') {
-    const doc = await vscode.workspace.openTextDocument({
-      language: 'plaintext',
-      content: [
-        `Operator/datamap sync report for "${projectName}"`,
-        `${'─'.repeat(60)}`,
-        `Total out-of-sync operators: ${issues.length}`,
-        '',
-        detail,
-      ].join('\n'),
+      content: lines.join('\n'),
     });
     await vscode.window.showTextDocument(doc);
   }

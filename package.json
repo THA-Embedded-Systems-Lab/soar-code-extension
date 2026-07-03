@@ -215,16 +215,10 @@
         "icon": "$(check)"
       },
       {
-        "command": "soar.validateSelectedProjectAgainstDatamap",
-        "title": "Validate Selected Project Against Datamap",
+        "command": "soar.checkProject",
+        "title": "Check Project",
         "category": "Soar",
         "icon": "$(checklist)"
-      },
-      {
-        "command": "soar.validateSelectedProjectAgainstLsp",
-        "title": "Validate Selected Project Against LSP",
-        "category": "Soar",
-        "icon": "$(search-check)"
       },
       {
         "command": "soar.addAttribute",
@@ -347,18 +341,6 @@
         "icon": "$(home)"
       },
       {
-        "command": "soar.checkDatamapIntegrity",
-        "title": "Check Datamap Integrity",
-        "category": "Soar",
-        "icon": "$(shield)"
-      },
-      {
-        "command": "soar.checkOperatorDatamapSync",
-        "title": "Verify Operator/Datamap Sync",
-        "category": "Soar",
-        "icon": "$(check-all)"
-      },
-      {
         "command": "soar.setupMcpServer",
         "title": "Setup MCP Server",
         "category": "Soar",
@@ -439,7 +421,7 @@
           "group": "navigation@2"
         },
         {
-          "command": "soar.checkDatamapIntegrity",
+          "command": "soar.checkProject",
           "when": "view == soarDatamap",
           "group": "navigation@3"
         },
@@ -467,11 +449,6 @@
           "command": "soar.refreshLayout",
           "when": "view == soarLayout",
           "group": "navigation@1"
-        },
-        {
-          "command": "soar.checkOperatorDatamapSync",
-          "when": "view == soarLayout",
-          "group": "navigation@2"
         },
         {
           "command": "soar.findOrphanedFiles",
