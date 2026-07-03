@@ -192,18 +192,6 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "soar.searchDatamap",
-        "title": "Search Datamap by Name",
-        "category": "Soar",
-        "icon": "$(search)"
-      },
-      {
-        "command": "soar.clearDatamapSearch",
-        "title": "Clear Datamap Search",
-        "category": "Soar",
-        "icon": "$(search-stop)"
-      },
-      {
         "command": "soar.loadDatamap",
         "title": "Load Datamap",
         "category": "Soar"
@@ -261,18 +249,6 @@
         "title": "Refresh Project Structure",
         "category": "Soar",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "soar.searchLayout",
-        "title": "Search Project Structure by Name",
-        "category": "Soar",
-        "icon": "$(search)"
-      },
-      {
-        "command": "soar.clearLayoutSearch",
-        "title": "Clear Project Structure Search",
-        "category": "Soar",
-        "icon": "$(search-stop)"
       },
       {
         "command": "soar.addOperator",
@@ -387,6 +363,14 @@
           "name": "Datamap",
           "icon": "$(type-hierarchy)",
           "contextualTitle": "Soar Datamap"
+        },
+        {
+          "id": "soarSearch",
+          "name": "Search",
+          "type": "webview",
+          "icon": "$(search)",
+          "contextualTitle": "Soar Search",
+          "initialSize": 1
         }
       ],
       "debug": [
@@ -426,16 +410,6 @@
           "group": "navigation@3"
         },
         {
-          "command": "soar.searchDatamap",
-          "when": "view == soarDatamap && !soar.datamapSearchActive",
-          "group": "navigation@4"
-        },
-        {
-          "command": "soar.clearDatamapSearch",
-          "when": "view == soarDatamap && soar.datamapSearchActive",
-          "group": "navigation@4"
-        },
-        {
           "command": "soar.undo",
           "when": "view == soarLayout && soar.canUndo",
           "group": "navigation@0"
@@ -464,16 +438,6 @@
           "command": "soar.syncProjectFiles",
           "when": "view == soarLayout",
           "group": "navigation@3"
-        },
-        {
-          "command": "soar.searchLayout",
-          "when": "view == soarLayout && !soar.layoutSearchActive",
-          "group": "navigation@4"
-        },
-        {
-          "command": "soar.clearLayoutSearch",
-          "when": "view == soarLayout && soar.layoutSearchActive",
-          "group": "navigation@4"
         },
         {
           "command": "soar.refreshStopPhaseView",

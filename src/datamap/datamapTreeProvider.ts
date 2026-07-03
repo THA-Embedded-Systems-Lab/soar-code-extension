@@ -372,7 +372,15 @@ export class DatamapTreeProvider implements vscode.TreeDataProvider<DatamapTreeI
     }
     visited.add(targetId);
     const vertex = this.projectContext!.datamapIndex.get(targetId);
-    if (!vertex || vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+    if (!vertex) {
+      return false;
+    }
+    // Match enumeration values too (e.g. an operator's ^name choices like
+    // "move-block") so a search hits the displayed name, not just the edge name.
+    if (vertex.type === 'ENUMERATION') {
+      return vertex.choices.some(choice => choice.toLowerCase().includes(filter));
+    }
+    if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
       return false;
     }
     return vertex.outEdges.some(e => this.edgeMatchesFilter(e.name, e.toId, filter, visited));

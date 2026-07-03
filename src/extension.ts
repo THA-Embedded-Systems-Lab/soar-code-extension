@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as lspClient from './client/lspClient';
 import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
+import { SoarSearchViewProvider } from './soarSearchViewProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
 import { DatamapMetadataCache } from './datamap/datamapMetadata';
 import { DatamapOperations } from './datamap/datamapOperations';
@@ -387,34 +388,6 @@ export async function activate(context: vscode.ExtensionContext) {
   await vscode.commands.executeCommand('setContext', 'soar.canUndo', false);
   await vscode.commands.executeCommand('setContext', 'soar.canRedo', false);
 
-  // Register datamap search and sort commands
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.searchDatamap', async () => {
-      const current = datamapProvider.searchFilter;
-      const filter = await vscode.window.showInputBox({
-        prompt: 'Search datamap attributes by name',
-        placeHolder: 'Attribute name…',
-        value: current,
-      });
-      if (filter === undefined) {
-        return; // cancelled
-      }
-      datamapProvider.setSearchFilter(filter);
-      await vscode.commands.executeCommand(
-        'setContext',
-        'soar.datamapSearchActive',
-        filter.trim().length > 0
-      );
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.clearDatamapSearch', async () => {
-      datamapProvider.setSearchFilter('');
-      await vscode.commands.executeCommand('setContext', 'soar.datamapSearchActive', false);
-    })
-  );
-
   // Register commands for datamap tree
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshDatamap', async () => {
@@ -659,6 +632,14 @@ export async function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(layoutTreeView);
 
+  // Single persistent search field (webview) at the bottom of the Soar sidebar
+  // that filters both the layout and datamap trees. Replaces the focus-stealing
+  // input box popups.
+  const searchProvider = new SoarSearchViewProvider(datamapProvider, layoutProvider);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(SoarSearchViewProvider.viewType, searchProvider)
+  );
+
   // Track the current project to avoid resetting undo on reload
   let currentProjectFile: string | null = null;
 
@@ -688,33 +669,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(projectChangeDisposable);
 
   // Register commands for layout tree
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.searchLayout', async () => {
-      const current = layoutProvider.searchFilter;
-      const filter = await vscode.window.showInputBox({
-        prompt: 'Search project structure by name',
-        placeHolder: 'Node name…',
-        value: current,
-      });
-      if (filter === undefined) {
-        return; // cancelled
-      }
-      layoutProvider.setSearchFilter(filter);
-      await vscode.commands.executeCommand(
-        'setContext',
-        'soar.layoutSearchActive',
-        filter.trim().length > 0
-      );
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('soar.clearLayoutSearch', async () => {
-      layoutProvider.setSearchFilter('');
-      await vscode.commands.executeCommand('setContext', 'soar.layoutSearchActive', false);
-    })
-  );
-
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.refreshLayout', async () => {
       const activeProject = projectManager.getActiveProject();
