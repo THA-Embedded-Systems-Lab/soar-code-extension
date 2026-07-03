@@ -1,3 +1,27 @@
+## [0.8.2] - 2026-07-03
+
+### Features
+
+- Add support for operator-preference tests in Soar grammar ([913a986](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/913a98620d7f9a0c48278d8f08f8447355d252ee))
+- Enhance datamap validation and parsing for conjunctive attribute tests ([367946e](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/367946e01951d64d0e2550f17608bc71673f7230))
+- Implement a persistent search field for datamap and layout trees in a webview ([d91ce33](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/d91ce33b3ee478f67ed44c6181c9b9365a58138e))
+
+### Bug Fixes
+
+- Allow self-linked datamap attributes and non-<s> state variable names ([7491536](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/74915361d9a6f5b397e6679d9d94fff0076c0e43))
+- Stabilize datamap linked-vertex display names in editor pickers ([9a60cd8](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/9a60cd8ac1dc5dbc050dff97beb758d1d39eeb24))
+- Update sorting logic in datamap tree provider ([5abc19b](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/5abc19b12749e944e4185aa2a59641b6640032b3))
+
+### Refactor
+
+- Consolidate project validation commands into a single 'Check Project' command ([e08377d](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/e08377d2bfca394fb307949daccbbae0413d990c))
+
+### Miscellaneous Tasks
+
+- Update actions/checkout and actions/setup-node to latest version ([3164045](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/31640450fd30365a265323bb83a8fb0f0ead3419))
+- Replace legacy agents with git submodule ([83385e0](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/83385e045768814d142c4301bf34a6b63aaa01ea))
+- [**breaking**] Rename extension due to vs code marketplace naming conflicts to Soar Development Tools (soar-dev-tools) ([082273c](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/082273c7461bf2ba94c0f785aacfad9f6c6bf4a8))
+
 ## [0.8.1] - 2026-07-02
 
 ### Bug Fixes
