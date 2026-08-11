@@ -340,7 +340,10 @@ export const SOAR_MCP_TOOLS = [
   {
     name: SOAR_MCP_TOOL_NAMES.cliPrint,
     description:
-      'Print items from production memory or working memory. Options: --all/-a, --chunks/-c, --defaults/-D, --justifications/-j, --rl/-r, --template/-T, --user/-u, --full/-f, --filename/-F, --internal/-i, --name/-n, --depth/-d <n>, --exact/-e, --tree/-t, --varprint/-v, --stack/-s, --operators/-o, --states/-S, --gds. Accepts a production name, identifier, timetag, or WME pattern.',
+      'Print items from production memory or working memory. `target` must be a real Soar identifier (e.g. "S1", "O3"), a production name, a timetag number, or a WME pattern in parentheses (e.g. "(S1 ^operator)") — plain attribute names like "^operator" or bare numbers like "0" are NOT valid targets on their own. Leave `target` empty to print the current state. ' +
+      'Common recipes: print the whole current state 2 levels deep -> options="--depth 2"; print with a tree layout -> options="--tree"; print everything on an identifier including sub-structure -> target="S1", options="--depth 4"; print all WMEs matching a pattern (e.g. every operator WME on S1) -> target="(S1 ^operator)"; print only WMEs, not the augmented identifier -> options="--internal"; print the goal/operator stack -> options="--stack" (or --operators/--states for just one), target left empty; print a production\'s rule text -> target="my-rule-name". ' +
+      'Flags: --all/-a, --chunks/-c, --defaults/-D, --justifications/-j, --rl/-r, --template/-T, --user/-u (production-type filters, used with no target to list all productions of that type), --full/-f (full augmented form for identifiers), --filename/-F, --internal/-i (raw WMEs only), --name/-n, --depth/-d <n> (identifier expansion depth), --exact/-e (WME pattern must match exactly, no substructure), --tree/-t (tree layout instead of depth-indented), --varprint/-v (print WME identifiers as variables), --stack/-s (full goal stack), --operators/-o (operator stack only), --states/-S (state stack only), --gds (goal dependency set). ' +
+      'Structured output is on by default: the result includes a `names` array of every identifier/timetag mentioned in the output (SML output="structured"), useful for chaining further print/preferences calls without parsing text. Set structuredOutput=false to get plain SML output="raw" text only.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -351,12 +354,17 @@ export const SOAR_MCP_TOOLS = [
         target: {
           type: 'string',
           description:
-            'What to print: a production name, identifier (e.g. "S1"), timetag, WME pattern (e.g. "(s1 ^* v2)"), or omit for current state/operator',
+            'What to print: a production name, identifier (e.g. "S1"), timetag, WME pattern in parentheses (e.g. "(S1 ^operator)"), or omit for current state. Do not pass a bare attribute name or number.',
         },
         options: {
           type: 'string',
           description:
             'Additional flags and options, e.g. "--depth 2 --tree" or "--internal" or "--stack"',
+        },
+        structuredOutput: {
+          type: 'boolean',
+          description:
+            'Defaults to true: requests SML structured output (output="structured") and returns an additional `names` array alongside the text output, listing identifiers/timetags found in the result. Set to false for plain output="raw" text only.',
         },
       },
     },
@@ -364,7 +372,7 @@ export const SOAR_MCP_TOOLS = [
   {
     name: SOAR_MCP_TOOL_NAMES.cliPreferences,
     description:
-      'Examine preferences supporting an identifier and attribute. Options: --none/-0/-n (preferences only), --names/-1/-N (+ production names), --timetags/-2/-t (+ timetags), --wmes/-3/-w (+ full WMEs), --object/-o (all WMEs for the identifier). Defaults to current state ^operator when no args given.',
+      'Examine preferences supporting an identifier and attribute. These are detail-level flags, not independent switches — pick exactly one from --none/-0 (preferences only, default), --names/-1 (+ which production created each preference), --timetags/-2 (+ timetags), --wmes/-3 (+ the full resulting WMEs). --object/-o is separate and orthogonal: it shows every WME for the identifier itself rather than preferences for one attribute (so "--object --names" means "show all WMEs on this identifier, and use the ^name form", not "combine object detail with names detail"). Example: preferences for the current state\'s ^operator including which rules proposed each candidate -> options="--names" with identifier/attribute both omitted. Defaults to current state ^operator when no args given.',
     inputSchema: {
       type: 'object',
       properties: {

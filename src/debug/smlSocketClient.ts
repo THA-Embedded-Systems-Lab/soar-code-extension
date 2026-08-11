@@ -82,6 +82,50 @@ function stripTags(xml: string): string {
   return xml.replace(/<[^>]+>/g, '');
 }
 
+function findTagAttrs(xml: string, tagName: string): string[] {
+  const regex = new RegExp(`<${tagName}\\b([^>]*)\\/?>`, 'gi');
+  const attrsList: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(xml)) !== null) {
+    attrsList.push(match[1] ?? '');
+  }
+  return attrsList;
+}
+
+// Extracts identifiers mentioned in a <result> body. Two shapes are seen in
+// practice: a flat list of <name>...</name> elements (e.g. get_agent_list),
+// and structured `print` output, which nests <id id="S1"> elements containing
+// <wme ... valtype="id" value="E1" /> children for every identifier-valued WME.
+function extractNames(body: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string | undefined): void => {
+    if (value && !seen.has(value)) {
+      seen.add(value);
+      names.push(value);
+    }
+  };
+
+  const nameRegex = /<name\b[^>]*>([\s\S]*?)<\/name>/gi;
+  let nameMatch: RegExpExecArray | null;
+  while ((nameMatch = nameRegex.exec(body)) !== null) {
+    push(decodeXmlEntities(stripTags(nameMatch[1] ?? '')).trim() || undefined);
+  }
+
+  for (const attrs of findTagAttrs(body, 'id')) {
+    push(parseAttributes(attrs).id);
+  }
+
+  for (const attrs of findTagAttrs(body, 'wme')) {
+    const wmeAttrs = parseAttributes(attrs);
+    if (wmeAttrs.valtype === 'id') {
+      push(wmeAttrs.value);
+    }
+  }
+
+  return names;
+}
+
 function parseSmlMessage(xml: string): SmlMessage {
   const rootMatch = xml.match(/<sml\b([^>]*)>/i);
   if (!rootMatch) {
@@ -101,20 +145,11 @@ function parseSmlMessage(xml: string): SmlMessage {
   if (resultTag) {
     const resultAttributes = parseAttributes(resultTag.attrs);
     const output = resultAttributes.output ?? 'raw';
-    const names: string[] = [];
-    const nameRegex = /<name\b[^>]*>([\s\S]*?)<\/name>/gi;
-    let nameMatch: RegExpExecArray | null;
-    while ((nameMatch = nameRegex.exec(resultTag.body)) !== null) {
-      const parsed = decodeXmlEntities(stripTags(nameMatch[1] ?? '')).trim();
-      if (parsed.length > 0) {
-        names.push(parsed);
-      }
-    }
 
     result = {
       output,
       text: decodeXmlEntities(stripTags(resultTag.body)).trim(),
-      names,
+      names: extractNames(resultTag.body),
     };
   }
 

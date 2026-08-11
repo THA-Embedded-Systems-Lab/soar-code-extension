@@ -537,6 +537,7 @@ async function main() {
             const input: DebugEvalInput = {
               agent: asStringOrUndefined(args.agent),
               line: parts.join(' '),
+              structuredOutput: asBooleanOrUndefined(args.structuredOutput) ?? true,
             };
             const result = await core.debugEval(input);
             log('info', 'Tool call succeeded', {

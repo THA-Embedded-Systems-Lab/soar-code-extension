@@ -142,6 +142,7 @@ export interface DebugPauseInput {
 export interface DebugEvalInput {
   agent?: string;
   line: string;
+  structuredOutput?: boolean;
 }
 
 interface DebugSessionState {
@@ -535,7 +536,7 @@ export class SoarMcpCore {
     const agent = await this.resolveDebugAgent(input.agent);
     const count = this.normalizePositiveInteger(input.count, 'count');
     const command = count ? `run ${count}` : 'run';
-    const output = await this.runSmlCmdline(command, agent);
+    const output = (await this.runSmlCmdline(command, agent)).text;
     this.debugSession!.soarCycleExecuting = true;
 
     return {
@@ -558,7 +559,7 @@ export class SoarMcpCore {
     const output: string[] = [];
 
     for (let index = 0; index < count; index += 1) {
-      output.push(await this.runSmlCmdline('step', agent));
+      output.push((await this.runSmlCmdline('step', agent)).text);
     }
 
     this.debugSession!.soarCycleExecuting = false;
@@ -578,7 +579,7 @@ export class SoarMcpCore {
   }> {
     await this.ensureDebugSession();
     const agent = await this.resolveDebugAgent(input.agent);
-    const output = await this.runSmlCmdline('stop', agent);
+    const output = (await this.runSmlCmdline('stop', agent)).text;
     this.debugSession!.soarCycleExecuting = false;
 
     return {
@@ -592,6 +593,7 @@ export class SoarMcpCore {
     agent: string;
     line: string;
     output: string;
+    names?: readonly string[];
   }> {
     await this.ensureDebugSession();
     const line = input.line?.trim();
@@ -600,11 +602,15 @@ export class SoarMcpCore {
     }
 
     const agent = await this.resolveDebugAgent(input.agent);
-    const output = await this.runSmlCmdline(line, agent);
+    const structuredOutput = input.structuredOutput ?? true;
+    const result = await this.runSmlCmdline(line, agent, {
+      output: structuredOutput ? 'structured' : 'raw',
+    });
     return {
       agent,
       line,
-      output,
+      output: result.text,
+      ...(structuredOutput ? { names: result.names } : {}),
     };
   }
 
@@ -1320,19 +1326,28 @@ export class SoarMcpCore {
     return this.debugSession!.currentAgent;
   }
 
-  private async runSmlCmdline(line: string, agent: string): Promise<string> {
+  private async runSmlCmdline(
+    line: string,
+    agent: string,
+    options: { output?: 'raw' | 'structured' } = {}
+  ): Promise<{ text: string; names: readonly string[] }> {
     await this.ensureDebugSession();
     const args: SmlArgument[] = [
       { param: 'agent', value: agent },
       { param: 'line', value: line },
     ];
 
-    const response = await this.debugClient!.call('cmdline', args, { output: 'raw' });
+    const response = await this.debugClient!.call('cmdline', args, {
+      output: options.output ?? 'raw',
+    });
     if (response.errorText) {
       throw new Error(response.errorText);
     }
 
-    return response.result?.text ?? '';
+    return {
+      text: response.result?.text ?? '',
+      names: response.result?.names ?? [],
+    };
   }
 
   private async getAgentListFromKernel(): Promise<string[]> {
