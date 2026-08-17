@@ -15,10 +15,10 @@ import * as path from 'path';
 import {
   DatamapMetadataCache,
   DatamapProjectContext,
-} from '../../../../src/datamap/datamapMetadata';
-import { DatamapOperations } from '../../../../src/datamap/datamapOperations';
-import { ProjectLoader } from '../../../../src/server/projectLoader';
-import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject';
+} from '../../../../src/datamap/datamapMetadata.js';
+import { DatamapOperations } from '../../../../src/datamap/datamapOperations.js';
+import { ProjectLoader } from '../../../../src/server/projectLoader.js';
+import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -10,8 +10,8 @@
  */
 
 import * as assert from 'assert';
-import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata';
-import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject';
+import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata.js';
+import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject.js';
 
 function makeProject(vertices: DMVertex[], rootId: string = '0'): VisualSoarProject {
   return {

@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { SOAR_MCP_TOOLS } from '../../../src/mcp/soarMcpTools';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { SOAR_MCP_TOOLS } from '../../../src/mcp/soarMcpTools.js';
 
 suite('MCP Tool Detection Fixtures', () => {
   test('Tool names should match fixture and VS Code validity rules', () => {

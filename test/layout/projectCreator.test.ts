@@ -8,7 +8,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectCreator } from '../../src/layout/projectCreator';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { ProjectCreator } from '../../src/layout/projectCreator.js';
 
 suite('ProjectCreator', () => {
   const testDir = path.join(__dirname, '../../test-output');

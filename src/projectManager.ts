@@ -152,7 +152,7 @@ export class ProjectManager {
     console.log('Project file watcher set up');
 
     // Notify LSP server of project change
-    const lspClient = await import('./client/lspClient');
+    const lspClient = await import('./client/lspClient.js');
     await lspClient.notifyProjectChanged(project.projectFile);
     console.log('LSP server notified');
 
@@ -205,12 +205,12 @@ export class ProjectManager {
   private async validateProjectFiles(project: SoarProjectInfo): Promise<void> {
     try {
       // Load the project using ProjectLoader to get full context
-      const { ProjectLoader: projectLoaderClass } = await import('./server/projectLoader');
+      const { ProjectLoader: projectLoaderClass } = await import('./server/projectLoader.js');
       const projectLoader = new projectLoaderClass();
       const projectContext = await projectLoader.loadProject(project.projectFile);
 
       // Import ProjectSync
-      const { ProjectSync: projectSync } = await import('./layout/projectSync');
+      const { ProjectSync: projectSync } = await import('./layout/projectSync.js');
 
       // Check for orphaned and missing files in parallel
       const [orphanedFiles, missingFiles] = await Promise.all([

@@ -21,9 +21,9 @@ import {
   SoarVariable,
   SoarAttribute,
   SoarFunctionCall,
-} from './soarTypes';
-import { soarLexer, Sp, Gp, LCurly, RCurly, Variable } from './soarLexer';
-import { soarGrammar } from './soarGrammar';
+} from './soarTypes.js';
+import { soarLexer, Sp, Gp, LCurly, RCurly, Variable } from './soarLexer.js';
+import { soarGrammar } from './soarGrammar.js';
 
 /** Convert a Chevrotain token to a 0-based Range. */
 function tokenRange(token: IToken): Range {

@@ -4,16 +4,16 @@ import {
   DatamapIntegrityIssue,
   DatamapMetadataCache,
   DatamapProjectContext,
-} from '../datamap/datamapMetadata';
-import { DatamapOperations } from '../datamap/datamapOperations';
-import { DatamapUsageAnalyzer, StaleDatamapItem } from '../datamap/datamapUsage';
-import { SoarTemplates } from '../layout/soarTemplates';
-import { SourceScriptManager } from '../layout/sourceScriptManager';
-import { DatamapValidator, ValidationError } from '../datamap/datamapValidator';
-import { SmlArgument, SmlSocketClient } from '../debug/smlSocketClient';
-import { generateVertexId } from '../server/idGeneration';
-import { ProjectLoader } from '../server/projectLoader';
-import { SoarParser } from '../server/soarParser';
+} from '../datamap/datamapMetadata.js';
+import { DatamapOperations } from '../datamap/datamapOperations.js';
+import { DatamapUsageAnalyzer, StaleDatamapItem } from '../datamap/datamapUsage.js';
+import { SoarTemplates } from '../layout/soarTemplates.js';
+import { SourceScriptManager } from '../layout/sourceScriptManager.js';
+import { DatamapValidator, ValidationError } from '../datamap/datamapValidator.js';
+import { SmlArgument, SmlSocketClient } from '../debug/smlSocketClient.js';
+import { generateVertexId } from '../server/idGeneration.js';
+import { ProjectLoader } from '../server/projectLoader.js';
+import { SoarParser } from '../server/soarParser.js';
 import {
   DMVertex,
   ImpasseName,
@@ -22,7 +22,7 @@ import {
   ProjectContext,
   SoarIdVertex,
   hasChildren,
-} from '../server/visualSoarProject';
+} from '../server/visualSoarProject.js';
 
 export type DatamapValueType = 'SOAR_ID' | 'ENUMERATION' | 'INTEGER' | 'FLOAT' | 'STRING';
 

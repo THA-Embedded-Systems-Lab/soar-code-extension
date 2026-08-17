@@ -14,9 +14,11 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectLoader } from '../../../../src/server/projectLoader';
-import { SoarParser } from '../../../../src/server/soarParser';
-import { getDatamapCompletions } from '../../../../src/server/completionProvider';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { ProjectLoader } from '../../../../src/server/projectLoader.js';
+import { SoarParser } from '../../../../src/server/soarParser.js';
+import { getDatamapCompletions } from '../../../../src/server/completionProvider.js';
 
 suite('LSP Completion Fixtures', () => {
   const fixturesDir = path.resolve(__dirname, '../fixtures');

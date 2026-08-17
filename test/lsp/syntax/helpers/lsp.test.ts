@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { SoarParser } from '../../../../src/server/soarParser';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { SoarParser } from '../../../../src/server/soarParser.js';
 
 suite('LSP Syntax Fixtures', () => {
   const fixturesDir = path.resolve(__dirname, '../fixtures');

@@ -20,11 +20,11 @@ import {
   FolderNode,
   hasChildren,
   DMVertex,
-} from '../server/visualSoarProject';
-import { generateVertexId } from '../server/idGeneration';
-import { SoarTemplates } from './soarTemplates';
-import { SourceScriptManager } from './sourceScriptManager';
-import { UndoManager, getUndoManager } from './undoManager';
+} from '../server/visualSoarProject.js';
+import { generateVertexId } from '../server/idGeneration.js';
+import { SoarTemplates } from './soarTemplates.js';
+import { SourceScriptManager } from './sourceScriptManager.js';
+import { UndoManager, getUndoManager } from './undoManager.js';
 
 export interface DeleteResult {
   success: boolean;

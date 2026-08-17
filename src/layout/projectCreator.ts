@@ -8,8 +8,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { VisualSoarProject } from '../server/visualSoarProject';
-import { SOAR_IGNORE_FILENAME, DEFAULT_SOARIGNORE_CONTENT } from './soarIgnore';
+import { VisualSoarProject } from '../server/visualSoarProject.js';
+import { SOAR_IGNORE_FILENAME, DEFAULT_SOARIGNORE_CONTENT } from './soarIgnore.js';
 
 export interface ProjectCreationOptions {
   directory: string; // Parent directory where project will be created

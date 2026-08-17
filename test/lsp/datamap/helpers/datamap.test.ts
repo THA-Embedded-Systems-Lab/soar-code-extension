@@ -1,10 +1,12 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectLoader } from '../../../../src/server/projectLoader';
-import { SoarParser } from '../../../../src/server/soarParser';
-import { DatamapValidator, ValidationError } from '../../../../src/datamap/datamapValidator';
-import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { ProjectLoader } from '../../../../src/server/projectLoader.js';
+import { SoarParser } from '../../../../src/server/soarParser.js';
+import { DatamapValidator, ValidationError } from '../../../../src/datamap/datamapValidator.js';
+import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata.js';
 
 suite('Datamap Validation Fixtures', () => {
   const fixturesDir = path.resolve(__dirname, '../fixtures');

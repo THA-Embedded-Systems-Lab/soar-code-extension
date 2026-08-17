@@ -16,8 +16,8 @@
  * that are reached through a different datamap path.
  */
 
-import { DMVertex, VisualSoarProject } from '../server/visualSoarProject';
-import { SoarDocument } from '../server/soarTypes';
+import { DMVertex, VisualSoarProject } from '../server/visualSoarProject.js';
+import { SoarDocument } from '../server/soarTypes.js';
 
 export type DatamapUsageKind =
   | 'never-tested-or-created'

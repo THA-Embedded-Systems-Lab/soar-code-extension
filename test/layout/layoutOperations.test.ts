@@ -8,18 +8,20 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import Ajv from 'ajv';
-import { ProjectCreator } from '../../src/layout/projectCreator';
-import { ProjectLoader } from '../../src/server/projectLoader';
-import { LayoutOperations } from '../../src/layout/layoutOperations';
-import { SoarParser } from '../../src/server/soarParser';
-import { DiagnosticSeverity } from '../../src/server/soarTypes';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { Ajv } from 'ajv';
+import { ProjectCreator } from '../../src/layout/projectCreator.js';
+import { ProjectLoader } from '../../src/server/projectLoader.js';
+import { LayoutOperations } from '../../src/layout/layoutOperations.js';
+import { SoarParser } from '../../src/server/soarParser.js';
+import { DiagnosticSeverity } from '../../src/server/soarTypes.js';
 import {
   ProjectContext,
   LayoutNode,
   DMVertex,
   isSoarIdVertex,
-} from '../../src/server/visualSoarProject';
+} from '../../src/server/visualSoarProject.js';
 
 suite('LayoutOperations - Comprehensive Manipulation Tests', () => {
   const testDir = path.join(__dirname, '../../test-output/layout-operations');

@@ -2,10 +2,14 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { DatamapOperations } from '../../../src/datamap/datamapOperations';
-import { DatamapMetadataCache, DatamapProjectContext } from '../../../src/datamap/datamapMetadata';
-import { ProjectLoader } from '../../../src/server/projectLoader';
-import { SoarIdVertex } from '../../../src/server/visualSoarProject';
+import { DatamapOperationsUi } from '../../../src/datamap/datamapOperationsUi.js';
+import * as vscode from 'vscode';
+import {
+  DatamapMetadataCache,
+  DatamapProjectContext,
+} from '../../../src/datamap/datamapMetadata.js';
+import { ProjectLoader } from '../../../src/server/projectLoader.js';
+import { SoarIdVertex } from '../../../src/server/visualSoarProject.js';
 
 interface QuickPickLike {
   label: string;
@@ -72,7 +76,7 @@ suite('Datamap Manipulation - Parent Reassignment', () => {
 
     const projectContext = await createContext(projectFilePath);
 
-    const vscodeAny = require('vscode') as any;
+    const vscodeAny = vscode as any;
     const windowApi = vscodeAny.window;
     const originalShowQuickPick = windowApi.showQuickPick;
     const originalShowInputBox = windowApi.showInputBox;
@@ -94,7 +98,7 @@ suite('Datamap Manipulation - Parent Reassignment', () => {
     windowApi.showErrorMessage = async () => undefined;
 
     try {
-      const success = await DatamapOperations.editAttribute(projectContext, '1', 'foo');
+      const success = await DatamapOperationsUi.editAttribute(projectContext, '1', 'foo');
       assert.strictEqual(success, true);
 
       const reloaded = await createContext(projectFilePath);
@@ -167,7 +171,7 @@ suite('Datamap Manipulation - Parent Reassignment', () => {
 
     const projectContext = await createContext(projectFilePath);
 
-    const vscodeAny = require('vscode') as any;
+    const vscodeAny = vscode as any;
     const windowApi = vscodeAny.window;
     const originalShowQuickPick = windowApi.showQuickPick;
     const originalShowInputBox = windowApi.showInputBox;
@@ -189,7 +193,7 @@ suite('Datamap Manipulation - Parent Reassignment', () => {
     windowApi.showErrorMessage = async () => undefined;
 
     try {
-      const success = await DatamapOperations.editAttribute(projectContext, '1', 'foo');
+      const success = await DatamapOperationsUi.editAttribute(projectContext, '1', 'foo');
       assert.strictEqual(success, true);
 
       const reloaded = await createContext(projectFilePath);

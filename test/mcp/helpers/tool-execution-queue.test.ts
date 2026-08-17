@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { ToolExecutionQueue } from '../../../src/mcp/toolExecutionQueue';
+import { ToolExecutionQueue } from '../../../src/mcp/toolExecutionQueue.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

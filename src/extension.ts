@@ -1,37 +1,38 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as lspClient from './client/lspClient';
-import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider';
-import { SoarSearchViewProvider } from './soarSearchViewProvider';
-import { DatamapValidator } from './datamap/datamapValidator';
-import { DatamapMetadataCache } from './datamap/datamapMetadata';
-import { DatamapUsageAnalyzer } from './datamap/datamapUsage';
-import { DatamapOperations } from './datamap/datamapOperations';
+import * as lspClient from './client/lspClient.js';
+import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvider.js';
+import { SoarSearchViewProvider } from './soarSearchViewProvider.js';
+import { DatamapValidator } from './datamap/datamapValidator.js';
+import { createDiagnostics } from './datamap/datamapDiagnostics.js';
+import { DatamapMetadataCache } from './datamap/datamapMetadata.js';
+import { DatamapUsageAnalyzer } from './datamap/datamapUsage.js';
+import { DatamapOperationsUi } from './datamap/datamapOperationsUi.js';
 import {
   LayoutTreeProvider,
   LayoutTreeItem,
   LayoutDragAndDropController,
-} from './layout/layoutTreeProvider';
-import { LayoutOperations } from './layout/layoutOperations';
-import { ProjectSync } from './layout/projectSync';
-import { loadSoarIgnore, isIgnoredByPatterns, SOAR_IGNORE_FILENAME } from './layout/soarIgnore';
+} from './layout/layoutTreeProvider.js';
+import { LayoutOperations } from './layout/layoutOperations.js';
+import { ProjectSync } from './layout/projectSync.js';
+import { loadSoarIgnore, isIgnoredByPatterns, SOAR_IGNORE_FILENAME } from './layout/soarIgnore.js';
 import { Ignore } from 'ignore';
-import { SoarParser } from './server/soarParser';
-import { ProjectContext } from './server/visualSoarProject';
-import { ProjectManager } from './projectManager';
-import { SourceScriptAnalyzer } from './server/sourceScriptParser';
-import { getUndoManager, resetUndoManager, UndoManager } from './layout/undoManager';
-import { ensureWorkspaceMcpRegistration } from './mcp/mcpRegistration';
+import { SoarParser } from './server/soarParser.js';
+import { ProjectContext } from './server/visualSoarProject.js';
+import { ProjectManager } from './projectManager.js';
+import { SourceScriptAnalyzer } from './server/sourceScriptParser.js';
+import { getUndoManager, resetUndoManager, UndoManager } from './layout/undoManager.js';
+import { ensureWorkspaceMcpRegistration } from './mcp/mcpRegistration.js';
 import {
   SoarSmlDebugAdapterDescriptorFactory,
   SoarSmlDebugConfigurationProvider,
-} from './debug/soarSmlDebugAdapter';
+} from './debug/soarSmlDebugAdapter.js';
 import {
   StopPhase,
   StopPhaseTreeProvider,
   parseStopPhaseText,
-} from './debug/stopPhaseTreeProvider';
+} from './debug/stopPhaseTreeProvider.js';
 
 // Global validator and diagnostics collection
 let validator: DatamapValidator;
@@ -241,7 +242,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register create project command
   context.subscriptions.push(
     vscode.commands.registerCommand('soar.createProject', async () => {
-      const { ProjectCreator: projectCreator } = await import('./layout/projectCreator');
+      const { ProjectCreator: projectCreator } = await import('./layout/projectCreator.js');
 
       // Get directory from user
       const directoryUri = await vscode.window.showOpenDialog({
@@ -422,7 +423,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const vertexId = treeItem?.vertexId || projectContext.project.datamap.rootId;
-      const success = await DatamapOperations.addAttribute(projectContext, vertexId);
+      const success = await DatamapOperationsUi.addAttribute(projectContext, vertexId);
       if (success) {
         datamapProvider.refresh();
       }
@@ -456,7 +457,7 @@ export async function activate(context: vscode.ExtensionContext) {
           return;
         }
         datamapProvider.setDatamapRoot(ownerParentId);
-        const success = await DatamapOperations.editAttribute(
+        const success = await DatamapOperationsUi.editAttribute(
           projectContext,
           targetId,
           ownerEdge.name
@@ -467,7 +468,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const success = await DatamapOperations.editAttribute(
+      const success = await DatamapOperationsUi.editAttribute(
         projectContext,
         treeItem.vertexId,
         treeItem.edgeName
@@ -493,7 +494,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const success = await DatamapOperations.deleteAttribute(
+      const success = await DatamapOperationsUi.deleteAttribute(
         projectContext,
         treeItem.vertexId,
         treeItem.edgeName
@@ -513,7 +514,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const vertexId = treeItem?.vertexId || projectContext.project.datamap.rootId;
-      const success = await DatamapOperations.addLinkedAttribute(projectContext, vertexId);
+      const success = await DatamapOperationsUi.addLinkedAttribute(projectContext, vertexId);
       if (success) {
         datamapProvider.refresh();
       }
@@ -576,7 +577,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const undoManager = getUndoManager();
         const beforeSnapshot = await UndoManager.captureSnapshot(projectContext);
 
-        const success = await DatamapOperations.removeLinkedAttribute(
+        const success = await DatamapOperationsUi.removeLinkedAttribute(
           projectContext,
           treeItem.edgeMetadata
         );
@@ -1206,7 +1207,7 @@ export async function activate(context: vscode.ExtensionContext) {
  * is already present; cleared on save so it rebuilds with fresh augmentations.
  */
 async function ensureOperatorAugmentationIndex(
-  projectContext: import('./server/visualSoarProject').ProjectContext
+  projectContext: import('./server/visualSoarProject.js').ProjectContext
 ): Promise<void> {
   if (projectContext.operatorAugmentationIndex) {
     return;
@@ -1235,10 +1236,10 @@ async function ensureOperatorAugmentationIndex(
  * Returns empty arrays when disabled or on any parse/IO failure.
  */
 async function runStaleDatamapCheck(
-  projectContext: import('./server/visualSoarProject').ProjectContext
+  projectContext: import('./server/visualSoarProject.js').ProjectContext
 ): Promise<{
-  stale: import('./datamap/datamapUsage').StaleDatamapItem[];
-  testedNotCreated: import('./datamap/datamapUsage').StaleDatamapItem[];
+  stale: import('./datamap/datamapUsage.js').StaleDatamapItem[];
+  testedNotCreated: import('./datamap/datamapUsage.js').StaleDatamapItem[];
 }> {
   const empty = { stale: [], testedNotCreated: [] };
   const enabled = vscode.workspace
@@ -1329,7 +1330,7 @@ async function validateDocument(document: vscode.TextDocument): Promise<void> {
     });
 
     // Create diagnostics
-    const diagnostics = validator.createDiagnostics(errors, document);
+    const diagnostics = createDiagnostics(errors);
 
     // Update diagnostics collection
     diagnosticsCollection.set(document.uri, diagnostics);

@@ -79,20 +79,24 @@ Pushing the tag runs the `release` job in `.github/workflows/ci.yml`, which pack
 Run a single unit test file:
 
 ```bash
-npx mocha --ui tdd -r ts-node/register test/helpers/index.ts test/lsp/datamap/helpers/datamap.test.ts
+NODE_OPTIONS="--import tsx --import ./test/helpers/register-vscode-mock.mjs" npx mocha --ui tdd test/helpers/index.ts test/lsp/datamap/helpers/datamap.test.ts
 ```
 
 The pre-commit hook (`npm run precommit`) runs format, lint, and markdown lint — these are enforced before every commit.
 
 ## Build system
 
-Three separate esbuild bundles are produced into `dist/`:
+The project is authored as ES modules (`package.json` has `"type": "module"`, `tsconfig.json` uses `"module"`/`"moduleResolution": "NodeNext"`) — every relative import needs an explicit `.js` extension, and `__dirname`/`__filename` aren't available (use `path.dirname(fileURLToPath(import.meta.url))`, as in `src/server/projectLoader.ts`). This is unrelated to the packaged output format below — it's how the TypeScript source itself is written.
+
+Three separate esbuild bundles are produced into `dist/`, all still `format: 'cjs'` (VS Code's extension host loads `dist/extension.js` via `require()`, and the MCP server is spawned as a plain child process):
 
 - `extension.js` — VS Code extension host entry (`src/extension.ts`)
 - `server.js` — LSP language server (`src/server/soarLanguageServer.ts`)
 - `mcpServer.js` — Standalone MCP stdio server (`src/mcp/soarMcpServer.ts`)
 
-`tsc` (via `compile-server`) compiles everything to `out/` and is what the unit tests use via `ts-node`. The `dist/` bundles are what VS Code actually runs.
+`esbuild.cjs` (the build script itself is CJS, hence the `.cjs` extension — it would be treated as ESM otherwise and its top-level `require()` calls would fail) writes a `dist/package.json` with `{ "type": "commonjs" }` after every build (`distPackageJsonPlugin`), so Node treats the bundles as CJS despite the root `package.json`'s `"type": "module"`. It also defines `import.meta.url` → a `banner`-injected `importMetaUrl` const computed from the CJS wrapper's real `__filename` (esbuild does not auto-shim `import.meta.url` for `format: 'cjs'` — it warns and leaves it `{}` — so this define+banner pair is required, not optional, for `projectLoader.ts`'s schema-path resolution to work in the bundled output). `eslint.config.cjs` is likewise `.cjs` for the same require()-must-stay-CJS reason.
+
+`tsc` (via `compile-server`) compiles everything to `out/` for type-checking. Unit tests run the TypeScript source directly via `tsx` (`--import tsx`, see the `test` script) rather than `out/` or `dist/`. The `dist/` bundles are what VS Code actually runs.
 
 ## Architecture
 
@@ -109,32 +113,35 @@ Three separate esbuild bundles are produced into `dist/`:
 
 ### Subsystem map
 
-| Area               | Key files                                                       | Responsibility                                                                                                                                   |
-| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Project I/O        | `src/server/projectLoader.ts`                                   | Load/save `.vsa.json`, build indices                                                                                                             |
-| Project discovery  | `src/projectManager.ts`                                         | Scan for `.vsa.json`, manage active project, persist to `.vscode/soar-active-project.json`                                                       |
-| LSP server         | `src/server/soarLanguageServer.ts`, `soarParser.ts`             | Parse Soar productions, provide diagnostics                                                                                                      |
-| LSP client         | `src/client/lspClient.ts`                                       | Bridge extension ↔ server                                                                                                                       |
-| Datamap tree       | `src/datamap/datamapTreeProvider.ts`                            | Tree rendering, cycle detection, search/sort                                                                                                     |
-| Datamap CRUD       | `src/datamap/datamapOperations.ts`                              | Add/edit/delete attributes; `deleteAttributeCore` (no UI) used by both UI path and MCP                                                           |
-| Datamap validation | `src/datamap/datamapValidator.ts`                               | Validate `.soar` files against datamap; creates VS Code diagnostics                                                                              |
-| Datamap integrity  | `src/datamap/datamapMetadata.ts`                                | `DatamapMetadataCache.checkLinkedAttributeIntegrity` — dangling/unreachable edge detection                                                       |
-| Datamap usage      | `src/datamap/datamapUsage.ts`                                   | `DatamapUsageAnalyzer.analyzeDatamapUsage` — datamap edges classified by tested/created usage across all `.soar` files (VisualSoar-style sweeps) |
-| Layout tree        | `src/layout/layoutTreeProvider.ts`, `layoutOperations.ts`       | Project structure CRUD                                                                                                                           |
-| Project sync       | `src/layout/projectSync.ts`                                     | Find/import orphaned `.soar` files; respects `.soarignore`                                                                                       |
-| `.soarignore`      | `src/layout/soarIgnore.ts`                                      | Gitignore-semantics file exclusion (`ignore` npm package)                                                                                        |
-| Project creation   | `src/layout/projectCreator.ts`                                  | Creates new project, writes default `.soarignore`                                                                                                |
-| Undo/redo          | `src/layout/undoManager.ts`                                     | Undo stack for layout+datamap ops                                                                                                                |
-| Debug adapter      | `src/debug/soarSmlDebugAdapter.ts`, `smlSocketClient.ts`        | DAP↔SML XML socket bridge for live Soar kernel debugging                                                                                        |
-| Stop phase view    | `src/debug/stopPhaseTreeProvider.ts`                            | Sidebar for selecting Soar stop phase                                                                                                            |
-| MCP server         | `src/mcp/soarMcpServer.ts`, `soarMcpTools.ts`, `soarMcpCore.ts` | Exposes project/datamap/runtime tools over MCP stdio                                                                                             |
-| MCP registration   | `src/mcp/mcpRegistration.ts`                                    | Writes MCP entry to `.vscode/mcp.json` and `.mcp.json`, run via `soar.setupMcpServer`                                                            |
-| ID generation      | `src/server/idGeneration.ts`                                    | `generateVertexId()` — shared canonical hex-string ID generator                                                                                  |
+| Area                | Key files                                                       | Responsibility                                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project I/O         | `src/server/projectLoader.ts`                                   | Load/save `.vsa.json`, build indices                                                                                                                                |
+| Project discovery   | `src/projectManager.ts`                                         | Scan for `.vsa.json`, manage active project, persist to `.vscode/soar-active-project.json`                                                                          |
+| LSP server          | `src/server/soarLanguageServer.ts`, `soarParser.ts`             | Parse Soar productions, provide diagnostics                                                                                                                         |
+| LSP client          | `src/client/lspClient.ts`                                       | Bridge extension ↔ server                                                                                                                                          |
+| Datamap tree        | `src/datamap/datamapTreeProvider.ts`                            | Tree rendering, cycle detection, search/sort                                                                                                                        |
+| Datamap CRUD (core) | `src/datamap/datamapOperations.ts`                              | Pure, no-`vscode`-import CRUD logic (`deleteAttributeCore`, `removeVertexRecursive`, `saveProject`); runs in both the extension host and the standalone MCP process |
+| Datamap CRUD (UI)   | `src/datamap/datamapOperationsUi.ts`                            | Interactive add/edit/delete/link flows (quick-pick/input-box prompts); imports `vscode`, so used only from `src/extension.ts`, never from MCP                       |
+| Datamap validation  | `src/datamap/datamapValidator.ts`                               | Validate `.soar` files against datamap; pure logic, no `vscode` import                                                                                              |
+| Datamap diagnostics | `src/datamap/datamapDiagnostics.ts`                             | Converts `ValidationError[]` to VS Code `Diagnostic[]`; imports `vscode`, extension-host-only                                                                       |
+| Datamap integrity   | `src/datamap/datamapMetadata.ts`                                | `DatamapMetadataCache.checkLinkedAttributeIntegrity` — dangling/unreachable edge detection                                                                          |
+| Datamap usage       | `src/datamap/datamapUsage.ts`                                   | `DatamapUsageAnalyzer.analyzeDatamapUsage` — datamap edges classified by tested/created usage across all `.soar` files (VisualSoar-style sweeps)                    |
+| Layout tree         | `src/layout/layoutTreeProvider.ts`, `layoutOperations.ts`       | Project structure CRUD                                                                                                                                              |
+| Project sync        | `src/layout/projectSync.ts`                                     | Find/import orphaned `.soar` files; respects `.soarignore`                                                                                                          |
+| `.soarignore`       | `src/layout/soarIgnore.ts`                                      | Gitignore-semantics file exclusion (`ignore` npm package)                                                                                                           |
+| Project creation    | `src/layout/projectCreator.ts`                                  | Creates new project, writes default `.soarignore`                                                                                                                   |
+| Undo/redo           | `src/layout/undoManager.ts`                                     | Undo stack for layout+datamap ops                                                                                                                                   |
+| Debug adapter       | `src/debug/soarSmlDebugAdapter.ts`, `smlSocketClient.ts`        | DAP↔SML XML socket bridge for live Soar kernel debugging                                                                                                           |
+| Stop phase view     | `src/debug/stopPhaseTreeProvider.ts`                            | Sidebar for selecting Soar stop phase                                                                                                                               |
+| MCP server          | `src/mcp/soarMcpServer.ts`, `soarMcpTools.ts`, `soarMcpCore.ts` | Exposes project/datamap/runtime tools over MCP stdio                                                                                                                |
+| MCP registration    | `src/mcp/mcpRegistration.ts`                                    | Writes MCP entry to `.vscode/mcp.json` and `.mcp.json`, run via `soar.setupMcpServer`                                                                               |
+| ID generation       | `src/server/idGeneration.ts`                                    | `generateVertexId()` — shared canonical hex-string ID generator                                                                                                     |
 
 ### Key design invariants
 
 - **`generateVertexId`** from `src/server/idGeneration.ts` is the single source for new vertex/node IDs. Use it everywhere — not inline Math.random or uuid.
 - **`deleteAttributeCore`** in `datamapOperations.ts` is the pure (no-UI) deletion path. Both the interactive command and MCP delegate to it.
+- **`vscode` import boundary**: `datamapOperations.ts` and `datamapValidator.ts` are pure logic with no `vscode` import (so they load safely in the standalone MCP process, run via `tsx`/bundled by esbuild without a real `vscode` module present). Their interactive/VS-Code-rendering counterparts — `datamapOperationsUi.ts` (prompts/quick-picks) and `datamapDiagnostics.ts` (`Diagnostic` construction) — do import `vscode` and are wired in only from `src/extension.ts`. When adding a new datamap operation, put the core logic in the non-UI file and only the prompts/notifications in the UI file, rather than reaching for a lazy `require('vscode')`/`Proxy` shim.
 - **MCP per-project serialization**: `soarMcpServer.ts` serializes concurrent tool calls per `projectFile` via `toolExecutionQueue.ts` to prevent load/modify/save races.
 - **`.soarignore`**: New projects get a default `.soarignore`. Orphan-file discovery and datamap validation both respect it.
 - Prefer reusing existing core logic (especially in datamap and project loader flows) rather than creating parallel implementations.
@@ -157,15 +164,15 @@ Three separate esbuild bundles are produced into `dist/`:
   - search filter: `setSearchFilter(text)` / `searchFilter` — filters children by attribute name AND by enumeration value, so a search matches an operator's displayed `^name` (e.g. `move-block`), not just the `operator` edge name (`edgeMatchesFilter` recurses into `ENUMERATION` choices). A single persistent search field — a webview view (`soarSearch`, `src/soarSearchViewProvider.ts`) pinned to the bottom of the Soar sidebar — drives the filter on BOTH the datamap and layout (`LayoutTreeProvider.setSearchFilter`) trees at once, updating the `soar.datamapSearchActive` / `soar.layoutSearchActive` context keys. It replaces the old focus-stealing input-box popups: the `soar.searchDatamap` / `soar.clearDatamapSearch` / `soar.searchLayout` / `soar.clearLayoutSearch` commands and their toolbar buttons were removed.
   - sort: children are always sorted by type priority (SOAR_ID → ENUMERATION → INTEGER → FLOAT → STRING → JAVA_FILE) then alphabetically by display name. Operator edges are all named `operator`, so they tie-break on the operator's `^name` enumeration (via `getOperatorName`) rather than staying in datamap order. The layout tree (`layoutTreeProvider.ts`) applies the same type-then-name sort using each node's real `name`.
   - inline high-level-operator substate expansion: when setting `soar.datamap.expandHighLevelOperators` is `true`, a high-level operator's substate datamap (a disconnected subgraph reachable only via the layout node's `dmId`) is shown inline as a `<name> (substate)` child directly under its operator vertex, so the full datamap is navigable without switching the datamap root. Operator vertices are matched to layout `HIGH_LEVEL_OPERATOR`/`HIGH_LEVEL_FILE_OPERATOR` nodes by operator name (`buildHighLevelSubstateMap` → `highLevelSubstates`, resolved per-edge by `resolveSubstateRoot`). Default `false` for VisualSoar compatibility. The ancestor set is the cycle guard, so `^superstate`/`^top-state` back-references and nested substates are flagged `(cycle)` instead of recursing infinitely. `src/extension.ts` refreshes the tree on `onDidChangeConfiguration` for this key.
-- `src/datamap/datamapOperations.ts`
-  - add/edit/delete attributes
+- `src/datamap/datamapOperations.ts` (pure, no `vscode` import) and `src/datamap/datamapOperationsUi.ts` (interactive, extension-host-only)
+  - add/edit/delete attributes — the interactive flows (prompts, quick-picks, confirmations) live in `datamapOperationsUi.ts`; `deleteAttributeCore`/`removeVertexRecursive`/`collectSubtreeIds`/`saveProject` stay in `datamapOperations.ts` since they're also called from the MCP process
   - edit flow supports updating enumeration values (e.g., `^impasse` choices)
   - edit flow supports parent reassignment:
     - `Change Parent`: move attribute (and referenced subtree) to a new SOAR_ID parent
     - `Change Parent + Link`: move ownership and keep a linked reference on previous parent
   - linked attribute operations: `addLinkedAttribute` lets a vertex link to itself (self-referential/recursive structures, e.g. a linked-list-style `^next` pointing back to the same SOAR_ID vertex), labeled `(self)` in the picker; both `addLinkedAttribute`'s target picker and `getParentDisplayName` (used by the re-parent picker) label a shared/linked vertex using `DatamapMetadataCache.getCanonicalName`, not an ad-hoc scan for the first inbound edge — see below
   - uses shared `generateVertexId` for new datamap vertices
-  - datamap persistence and metadata refresh
+  - datamap persistence and metadata refresh (`DatamapOperations.saveProject`, public so `datamapOperationsUi.ts` can wrap it with a VS Code error notification on failure)
 - `src/datamap/datamapMetadata.ts`
   - ownership/link metadata, inbound edge maps, path/attribute helpers
 
@@ -181,7 +188,7 @@ Three separate esbuild bundles are produced into `dist/`:
   - enum value validation
   - infers state context from explicit `^name` tests and, when needed, from layout file location (high-level operator substate ancestry)
   - the state variable is not hardcoded to `<s>`: `SoarParser` records whichever variable is actually bound by the LHS `(state <var> ...)` condition in `SoarProduction.stateVariable` (set in `soarParser.ts`'s `collectFromCst`/`isStateCondition`), and the validator (`resolveInitialStateBindings`, unbound-variable check, `getExplicitStateNames`, `validateAttributeInContext`) and `completionProvider.ts`'s `buildVariableBindings` all key off `production.stateVariable ?? 's'` instead of the literal `'s'`. Covered by `test/lsp/datamap/helpers/state-variable-naming.test.ts`.
-  - VS Code diagnostics creation (with non-VSCode-safe fallback used by MCP)
+  - VS Code diagnostics creation moved to `src/datamap/datamapDiagnostics.ts` (`createDiagnostics(errors)`), so `datamapValidator.ts` itself has no `vscode` import and is safe in the MCP process
 
 ### Datamap structural integrity
 
@@ -208,7 +215,7 @@ Three separate esbuild bundles are produced into `dist/`:
 - Deletion clean-up (`src/datamap/datamapOperations.ts`):
   - `DatamapOperations.removeVertexRecursive` (public static): two-pass strategy — collect full subtree IDs, then sweep every SOAR_ID vertex and strip any outgoing edge pointing into the deleted set, preventing dangling link edges after an owned-vertex deletion
   - `DatamapOperations.deleteAttributeCore(context, parentVertexId, attributeName, removeLinkOnly?)` (public static): pure deletion logic with no VS Code UI calls. Removes the named edge from the parent, determines ownership via `ownerParentId` from edge metadata, calls `removeVertexRecursive` when appropriate, saves the project, and returns `{ parentVertexId, attributeName, targetVertexId, removedAsLinkOnly }`. Used directly by tests and delegated to by both the UI path and MCP layer.
-  - `DatamapOperations.deleteAttribute` (public static): UI path — shows a confirmation dialog (`showWarningMessage`) then delegates to `deleteAttributeCore`
+  - `DatamapOperationsUi.deleteAttribute` (public static, in `datamapOperationsUi.ts`): UI path — shows a confirmation dialog (`showWarningMessage`) then delegates to `DatamapOperations.deleteAttributeCore`
   - `SoarMcpCore.deleteAttribute`: thin wrapper — loads context, delegates to `DatamapOperations.deleteAttributeCore`
 
 ### Layout / project structure editing
@@ -369,7 +376,7 @@ Datamap and layout persist into the project file directly.
 
 ## Test structure
 
-Unit tests use mocha with `ts-node` directly — no VS Code needed. Test bootstrap is `test/helpers/index.ts` (sets up the VS Code mock at `test/helpers/vscode-mock.ts`).
+Unit tests use mocha with `tsx` directly (`--import tsx`) — no VS Code needed. Test bootstrap is `test/helpers/index.ts` (populates the VS Code mock object at `test/helpers/vscode-mock.ts`). Since the extension imports `vscode` via ES `import` (not CJS `require`), the mock is wired in via a Node module customization hook — `test/helpers/vscode-mock-loader.mjs` intercepts the `vscode` specifier and re-exports properties off `globalThis.vscode`, registered by `test/helpers/register-vscode-mock.mjs` (preloaded with `--import`, see the `test` script in `package.json`).
 
 | Test area                    | Location                                                                                                                                                                                                                                  |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

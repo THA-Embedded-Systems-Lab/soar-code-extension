@@ -1,22 +1,16 @@
 /**
  * Datamap Validator
  *
- * Validates Soar code against the datamap structure in the project file
+ * Validates Soar code against the datamap structure in the project file.
+ * Pure logic — no `vscode` import. Runs both inside the extension host and
+ * in the standalone MCP process. VS Code `Diagnostic` conversion lives in
+ * datamapDiagnostics.ts, imported only from the extension host.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { ProjectContext } from '../server/visualSoarProject';
-import { SoarDocument, SoarProduction, SoarAttribute } from '../server/soarTypes';
-import { DatamapMetadataCache } from './datamapMetadata';
-
-const vscodeApi: typeof import('vscode') | undefined = (() => {
-  try {
-    return require('vscode') as typeof import('vscode');
-  } catch {
-    return undefined;
-  }
-})();
+import { ProjectContext } from '../server/visualSoarProject.js';
+import { SoarDocument, SoarProduction, SoarAttribute } from '../server/soarTypes.js';
+import { DatamapMetadataCache } from './datamapMetadata.js';
 
 export interface ValidationError {
   production: string;
@@ -1661,36 +1655,5 @@ export class DatamapValidator {
     }
 
     return dp[m][n];
-  }
-
-  /**
-   * Generate a diagnostic collection for VS Code
-   */
-  createDiagnostics(errors: ValidationError[], document: vscode.TextDocument): vscode.Diagnostic[] {
-    if (!vscodeApi) {
-      return [];
-    }
-
-    return errors.map(error => {
-      // Use the range from the parser which has the correct line/column positions
-      const range = new vscodeApi.Range(
-        error.range.start.line,
-        error.range.start.character,
-        error.range.end.line,
-        error.range.end.character
-      );
-
-      const severity =
-        error.severity === 'error'
-          ? vscodeApi.DiagnosticSeverity.Error
-          : error.severity === 'warning'
-            ? vscodeApi.DiagnosticSeverity.Warning
-            : vscodeApi.DiagnosticSeverity.Information;
-
-      const diagnostic = new vscodeApi.Diagnostic(range, error.message, severity);
-
-      diagnostic.source = 'soar-datamap';
-      return diagnostic;
-    });
   }
 }

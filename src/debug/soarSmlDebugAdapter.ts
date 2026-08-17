@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SmlArgument, SmlSocketClient } from './smlSocketClient';
+import { SmlArgument, SmlSocketClient } from './smlSocketClient.js';
 
 type DapMessageType = 'request' | 'response' | 'event';
 

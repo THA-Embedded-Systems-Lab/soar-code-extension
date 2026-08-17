@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { DatamapTreeProvider } from './datamap/datamapTreeProvider';
-import { LayoutTreeProvider } from './layout/layoutTreeProvider';
+import { DatamapTreeProvider } from './datamap/datamapTreeProvider.js';
+import { LayoutTreeProvider } from './layout/layoutTreeProvider.js';
 
 function getNonce(): string {
   let text = '';

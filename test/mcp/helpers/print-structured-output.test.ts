@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as net from 'net';
-import { SoarMcpCore } from '../../../src/mcp/soarMcpCore';
+import { SoarMcpCore } from '../../../src/mcp/soarMcpCore.js';
 
 // Minimal fake SML kernel: implements the 4-byte length-framed XML protocol
 // used by SmlSocketClient, just enough to exercise agent_runtime_connect and

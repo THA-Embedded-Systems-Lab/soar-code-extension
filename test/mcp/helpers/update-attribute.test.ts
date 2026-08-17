@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { SoarMcpCore } from '../../../src/mcp/soarMcpCore';
+import { SoarMcpCore } from '../../../src/mcp/soarMcpCore.js';
 
 suite('MCP Datamap Update Attribute', () => {
   test('Should update impasse enumeration values', async () => {

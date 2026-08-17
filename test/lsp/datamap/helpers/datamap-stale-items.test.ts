@@ -8,10 +8,10 @@
  */
 
 import * as assert from 'assert';
-import { DatamapUsageAnalyzer, DatamapUsageKind } from '../../../../src/datamap/datamapUsage';
-import { SoarParser } from '../../../../src/server/soarParser';
-import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject';
-import { SoarDocument } from '../../../../src/server/soarTypes';
+import { DatamapUsageAnalyzer, DatamapUsageKind } from '../../../../src/datamap/datamapUsage.js';
+import { SoarParser } from '../../../../src/server/soarParser.js';
+import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject.js';
+import { SoarDocument } from '../../../../src/server/soarTypes.js';
 
 function makeProject(vertices: DMVertex[], rootId = '0'): VisualSoarProject {
   return {

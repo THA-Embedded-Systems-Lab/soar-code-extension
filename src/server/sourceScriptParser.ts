@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Range } from './soarTypes';
+import { Range } from './soarTypes.js';
 
 export type SourceCommandType = 'source' | 'pushd' | 'popd';
 

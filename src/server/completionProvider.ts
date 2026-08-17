@@ -6,9 +6,9 @@
  */
 
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver/node';
-import { ProjectContext } from './visualSoarProject';
-import { ProjectLoader } from './projectLoader';
-import { SoarProduction } from './soarTypes';
+import { ProjectContext } from './visualSoarProject.js';
+import { ProjectLoader } from './projectLoader.js';
+import { SoarProduction } from './soarTypes.js';
 
 /**
  * Build a map of variable name → set of datamap vertex IDs by tracing attribute

@@ -8,11 +8,13 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectCreator } from '../../src/layout/projectCreator';
-import { ProjectLoader } from '../../src/server/projectLoader';
-import { LayoutOperations } from '../../src/layout/layoutOperations';
-import { UndoManager, getUndoManager, resetUndoManager } from '../../src/layout/undoManager';
-import { ProjectContext } from '../../src/server/visualSoarProject';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { ProjectCreator } from '../../src/layout/projectCreator.js';
+import { ProjectLoader } from '../../src/server/projectLoader.js';
+import { LayoutOperations } from '../../src/layout/layoutOperations.js';
+import { UndoManager, getUndoManager, resetUndoManager } from '../../src/layout/undoManager.js';
+import { ProjectContext } from '../../src/server/visualSoarProject.js';
 
 suite('UndoManager', () => {
   const testDir = path.join(__dirname, '../../test-output/undo-test');

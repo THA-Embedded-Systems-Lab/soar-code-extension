@@ -7,16 +7,18 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import {
   VisualSoarProject,
   ProjectContext,
   LayoutNode,
   DMVertex,
   hasChildren,
-} from '../../../src/server/visualSoarProject';
-import { ProjectLoader } from '../../../src/server/projectLoader';
-import { ProjectCreator } from '../../../src/layout/projectCreator';
-import { LayoutOperations } from '../../../src/layout/layoutOperations';
+} from '../../../src/server/visualSoarProject.js';
+import { ProjectLoader } from '../../../src/server/projectLoader.js';
+import { ProjectCreator } from '../../../src/layout/projectCreator.js';
+import { LayoutOperations } from '../../../src/layout/layoutOperations.js';
 
 /**
  * Test operation: describes a single datamap manipulation step

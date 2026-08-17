@@ -7,14 +7,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ProjectLoader } from '../server/projectLoader';
+import { ProjectLoader } from '../server/projectLoader.js';
 import {
   VisualSoarProject,
   LayoutNode,
   ProjectContext,
   hasChildren,
-} from '../server/visualSoarProject';
-import { LayoutOperations } from './layoutOperations';
+} from '../server/visualSoarProject.js';
+import { LayoutOperations } from './layoutOperations.js';
 
 /** Mime type for dragging layout nodes within the Soar layout tree view. */
 const LAYOUT_DND_MIME = 'application/vnd.code.tree.soarlayout';

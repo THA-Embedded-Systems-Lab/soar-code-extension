@@ -22,9 +22,9 @@ import {
   SoarMcpCore,
   UpdateAttributeInput,
   ValidateProjectInput,
-} from './soarMcpCore';
-import { SOAR_MCP_TOOL_NAMES, SOAR_MCP_TOOLS } from './soarMcpTools';
-import { ToolExecutionQueue } from './toolExecutionQueue';
+} from './soarMcpCore.js';
+import { SOAR_MCP_TOOL_NAMES, SOAR_MCP_TOOLS } from './soarMcpTools.js';
+import { ToolExecutionQueue } from './toolExecutionQueue.js';
 
 type LogLevel = 'error' | 'info' | 'debug';
 

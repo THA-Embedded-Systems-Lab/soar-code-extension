@@ -7,9 +7,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectContext, LayoutNode, hasChildren } from '../server/visualSoarProject';
-import { loadSoarIgnore, isIgnoredByPatterns } from './soarIgnore';
-import { getUndoManager, UndoManager } from './undoManager';
+import { ProjectContext, LayoutNode, hasChildren } from '../server/visualSoarProject.js';
+import { loadSoarIgnore, isIgnoredByPatterns } from './soarIgnore.js';
+import { getUndoManager, UndoManager } from './undoManager.js';
 
 export interface OrphanedFile {
   absolutePath: string;

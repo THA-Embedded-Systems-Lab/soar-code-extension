@@ -8,7 +8,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import Ajv, { ErrorObject } from 'ajv';
+import { fileURLToPath } from 'url';
+import { Ajv } from 'ajv';
+import type { ErrorObject } from 'ajv';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import {
   VisualSoarProject,
   ProjectContext,
@@ -16,7 +20,7 @@ import {
   DMVertex,
   LayoutNode,
   hasChildren,
-} from './visualSoarProject';
+} from './visualSoarProject.js';
 
 export class ProjectLoader {
   private ajv: Ajv;

@@ -24,6 +24,31 @@ const copySchemaPlugin = {
   },
 };
 
+/**
+ * Plugin to mark dist/ as CommonJS.
+ *
+ * The root package.json has "type": "module" (source is authored as ESM),
+ * but these bundles are still emitted as CJS (format: 'cjs' below) — VS
+ * Code's extension host loads dist/extension.js via require(), and the MCP
+ * server is spawned as a plain child process. Without this, Node would
+ * treat dist/*.js as ESM (inheriting the root package.json) and refuse to
+ * run the bundled require() calls.
+ */
+const distPackageJsonPlugin = {
+  name: 'dist-package-json',
+  setup(build) {
+    build.onEnd(() => {
+      const distPackageJson = path.join(__dirname, 'dist', 'package.json');
+      try {
+        fs.writeFileSync(distPackageJson, JSON.stringify({ type: 'commonjs' }, null, 2) + '\n');
+        console.log('[dist] Wrote dist/package.json ({ type: "commonjs" })');
+      } catch (err) {
+        console.error('[dist] Failed to write dist/package.json:', err.message);
+      }
+    });
+  },
+};
+
 async function main() {
   // Build extension
   const extensionCtx = await esbuild.context({
@@ -37,7 +62,9 @@ async function main() {
     outfile: 'dist/extension.js',
     external: ['vscode'],
     logLevel: 'silent',
-    plugins: [esbuildProblemMatcherPlugin, copySchemaPlugin],
+    define: { 'import.meta.url': 'importMetaUrl' },
+    banner: { js: "const importMetaUrl = require('url').pathToFileURL(__filename).href;" },
+    plugins: [esbuildProblemMatcherPlugin, copySchemaPlugin, distPackageJsonPlugin],
   });
 
   // Build language server
@@ -52,7 +79,9 @@ async function main() {
     outfile: 'dist/server.js',
     external: ['vscode'],
     logLevel: 'silent',
-    plugins: [esbuildProblemMatcherPlugin],
+    define: { 'import.meta.url': 'importMetaUrl' },
+    banner: { js: "const importMetaUrl = require('url').pathToFileURL(__filename).href;" },
+    plugins: [esbuildProblemMatcherPlugin, distPackageJsonPlugin],
   });
 
   // Build MCP server
@@ -67,7 +96,9 @@ async function main() {
     outfile: 'dist/mcpServer.js',
     external: ['vscode'],
     logLevel: 'silent',
-    plugins: [esbuildProblemMatcherPlugin],
+    define: { 'import.meta.url': 'importMetaUrl' },
+    banner: { js: "const importMetaUrl = require('url').pathToFileURL(__filename).href;" },
+    plugins: [esbuildProblemMatcherPlugin, distPackageJsonPlugin],
   });
 
   if (watch) {

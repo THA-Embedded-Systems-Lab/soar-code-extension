@@ -12,7 +12,7 @@
  * 5. Compare the resulting file structure to the expected reference
  */
 
-import { TestScenario, runTestScenario } from '../helpers/datamap-manipulation.test';
+import { TestScenario, runTestScenario } from '../helpers/datamap-manipulation.test.js';
 
 // Define the test scenario
 const scenario: TestScenario = {

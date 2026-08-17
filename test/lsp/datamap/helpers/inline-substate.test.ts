@@ -10,7 +10,12 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-import { DatamapTreeProvider, DatamapTreeItem } from '../../../../src/datamap/datamapTreeProvider';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import {
+  DatamapTreeProvider,
+  DatamapTreeItem,
+} from '../../../../src/datamap/datamapTreeProvider.js';
 
 const FIXTURE = path.resolve(
   __dirname,

@@ -8,8 +8,10 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProjectLoader } from '../../../../src/server/projectLoader';
-import { ProjectSync } from '../../../../src/layout/projectSync';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { ProjectLoader } from '../../../../src/server/projectLoader.js';
+import { ProjectSync } from '../../../../src/layout/projectSync.js';
 
 suite('Orphaned File Detection', () => {
   const fixturesDir = path.resolve(__dirname, '../fixtures/old');

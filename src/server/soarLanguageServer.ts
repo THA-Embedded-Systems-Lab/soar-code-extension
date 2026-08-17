@@ -27,11 +27,11 @@ import {
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { SoarParser } from './soarParser';
-import { SoarDocument, SoarProduction } from './soarTypes';
-import { ProjectLoader } from './projectLoader';
-import { ProjectContext } from './visualSoarProject';
-import { buildVariableBindings, findTargetVerticesForPath } from './completionProvider';
+import { SoarParser } from './soarParser.js';
+import { SoarDocument, SoarProduction } from './soarTypes.js';
+import { ProjectLoader } from './projectLoader.js';
+import { ProjectContext } from './visualSoarProject.js';
+import { buildVariableBindings, findTargetVerticesForPath } from './completionProvider.js';
 
 // Create a connection for the server
 const connection = createConnection(ProposedFeatures.all);

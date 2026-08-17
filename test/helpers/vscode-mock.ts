@@ -99,13 +99,9 @@
   },
 };
 
-// Register the mock with require cache
-const Module = require('module');
-const originalRequire = Module.prototype.require;
-
-Module.prototype.require = function (id: string) {
-  if (id === 'vscode') {
-    return (global as any).vscode;
-  }
-  return originalRequire.apply(this, arguments);
-};
+// The `vscode` specifier itself is intercepted by the ESM loader hook in
+// vscode-mock-loader.mjs (registered via test/helpers/register-vscode-mock.mjs,
+// preloaded with --import). That hook re-exports properties straight off
+// `globalThis.vscode`, so this file only needs to populate the global above —
+// no require()-patching (which only intercepts CJS `require`, not ES `import`)
+// is needed or possible here.

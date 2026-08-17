@@ -7,13 +7,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { VisualSoarProject, DMVertex } from '../server/visualSoarProject';
-import { ProjectLoader } from '../server/projectLoader';
+import { VisualSoarProject, DMVertex } from '../server/visualSoarProject.js';
+import { ProjectLoader } from '../server/projectLoader.js';
 import {
   DatamapMetadataCache,
   DatamapProjectContext,
   DatamapEdgeMetadata,
-} from './datamapMetadata';
+} from './datamapMetadata.js';
 
 export class DatamapTreeItem extends vscode.TreeItem {
   constructor(

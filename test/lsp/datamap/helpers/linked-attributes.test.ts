@@ -16,13 +16,13 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata';
-import { SoarMcpCore } from '../../../../src/mcp/soarMcpCore';
+import { DatamapMetadataCache } from '../../../../src/datamap/datamapMetadata.js';
+import { SoarMcpCore } from '../../../../src/mcp/soarMcpCore.js';
 import {
   DMVertex,
   SoarIdVertex,
   VisualSoarProject,
-} from '../../../../src/server/visualSoarProject';
+} from '../../../../src/server/visualSoarProject.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

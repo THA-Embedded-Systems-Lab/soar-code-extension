@@ -1,4 +1,4 @@
-import { DMVertex, ProjectContext, VisualSoarProject } from '../server/visualSoarProject';
+import { DMVertex, ProjectContext, VisualSoarProject } from '../server/visualSoarProject.js';
 
 export interface InboundEdgeInfo {
   parentId: string;

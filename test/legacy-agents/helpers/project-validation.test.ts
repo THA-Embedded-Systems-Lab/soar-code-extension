@@ -7,11 +7,13 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import * as fs from 'fs';
-import { ProjectLoader } from '../../../src/server/projectLoader';
-import { SoarParser } from '../../../src/server/soarParser';
-import { DatamapValidator } from '../../../src/datamap/datamapValidator';
-import { ProjectSync } from '../../../src/layout/projectSync';
+import { ProjectLoader } from '../../../src/server/projectLoader.js';
+import { SoarParser } from '../../../src/server/soarParser.js';
+import { DatamapValidator } from '../../../src/datamap/datamapValidator.js';
+import { ProjectSync } from '../../../src/layout/projectSync.js';
 
 /**
  * Follows `pushd <dir>` / `source <file>` / `popd` directives starting from

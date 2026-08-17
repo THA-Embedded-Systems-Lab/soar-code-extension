@@ -16,7 +16,7 @@ import {
   HighLevelOperatorNode,
   FileNode,
   FolderNode,
-} from '../server/visualSoarProject';
+} from '../server/visualSoarProject.js';
 
 /**
  * Represents a reversible operation on the project structure

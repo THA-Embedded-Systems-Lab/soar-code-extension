@@ -10,7 +10,7 @@
 
 /* eslint-disable @typescript-eslint/naming-convention -- Chevrotain's grammar DSL uses uppercase method/property names (RULE, OR, ALT, GATE, …). */
 import { CstParser } from 'chevrotain';
-import * as t from './soarLexer';
+import * as t from './soarLexer.js';
 
 export class SoarGrammar extends CstParser {
   constructor() {

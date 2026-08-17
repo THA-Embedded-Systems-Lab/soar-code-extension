@@ -4,6 +4,8 @@
  */
 
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { runTests } from '@vscode/test-electron';
 
 async function main() {
