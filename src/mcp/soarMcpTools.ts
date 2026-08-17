@@ -24,7 +24,8 @@ export const SOAR_MCP_TOOL_NAMES = {
   executeCli: 'agent_runtime_exec_cli',
   // Individual Soar CLI command tools (for smaller/local LLMs)
   cliProduction: 'agent_runtime_cli_production',
-  cliPrint: 'agent_runtime_cli_print',
+  cliPrintWorkingMemory: 'agent_runtime_cli_print_working_memory',
+  cliPrintProduction: 'agent_runtime_cli_print_production',
   cliPreferences: 'agent_runtime_cli_preferences',
   cliEpmem: 'agent_runtime_cli_epmem',
   cliExplainTrackOperator: 'agent_runtime_cli_explain_track_operator',
@@ -376,11 +377,11 @@ export const SOAR_MCP_TOOLS = [
     },
   },
   {
-    name: SOAR_MCP_TOOL_NAMES.cliPrint,
+    name: SOAR_MCP_TOOL_NAMES.cliPrintWorkingMemory,
     description:
-      'Print items from production memory or working memory. `target` must be a real Soar identifier (e.g. "S1", "O3"), a production name, a timetag number, or a WME pattern in parentheses (e.g. "(S1 ^operator)") — plain attribute names like "^operator" or bare numbers like "0" are NOT valid targets on their own. Leave `target` empty to print the current state. ' +
-      'Common recipes: print the whole current state 2 levels deep -> options="--depth 2"; print with a tree layout -> options="--tree"; print everything on an identifier including sub-structure -> target="S1", options="--depth 4"; print all WMEs matching a pattern (e.g. every operator WME on S1) -> target="(S1 ^operator)"; print only WMEs, not the augmented identifier -> options="--internal"; print the goal/operator stack -> options="--stack" (or --operators/--states for just one), target left empty; print a production\'s rule text -> target="my-rule-name". ' +
-      'Flags: --all/-a, --chunks/-c, --defaults/-D, --justifications/-j, --rl/-r, --template/-T, --user/-u (production-type filters, used with no target to list all productions of that type), --full/-f (full augmented form for identifiers), --filename/-F, --internal/-i (raw WMEs only), --name/-n, --depth/-d <n> (identifier expansion depth), --exact/-e (WME pattern must match exactly, no substructure), --tree/-t (tree layout instead of depth-indented), --varprint/-v (print WME identifiers as variables), --stack/-s (full goal stack), --operators/-o (operator stack only), --states/-S (state stack only), --gds (goal dependency set). ' +
+      'Print live working memory — identifiers, WME patterns, or the goal/operator stack. `target` must be a real Soar identifier (e.g. "S1", "O3"), a timetag number, or a WME pattern in parentheses (e.g. "(S1 ^operator)") — plain attribute names like "^operator" or bare numbers like "0" are NOT valid targets on their own. Leave `target` empty to print the current state. Use this to check whether something the datamap (agent_runtime_get_datamap) says CAN exist actually IS instantiated right now — not for production/rule text, use agent_runtime_cli_print_production for that. ' +
+      'Common recipes: print the whole current state 2 levels deep -> options="--depth 2"; print with a tree layout -> options="--tree"; print everything on an identifier including sub-structure -> target="S1", options="--depth 4"; print all WMEs matching a pattern (e.g. every operator WME on S1) -> target="(S1 ^operator)"; print only WMEs, not the augmented identifier -> options="--internal"; print the goal/operator stack -> options="--stack" (or --operators/--states for just one), target left empty. ' +
+      'Flags: --full/-f (full augmented form), --internal/-i (raw WMEs only), --depth/-d <n> (identifier expansion depth), --exact/-e (WME pattern must match exactly, no substructure), --tree/-t (tree layout instead of depth-indented), --varprint/-v (print WME identifiers as variables), --stack/-s (full goal stack), --operators/-o (operator stack only), --states/-S (state stack only), --gds (goal dependency set). ' +
       'Structured output is on by default: the result includes a `names` array of every identifier/timetag mentioned in the output (SML output="structured"), useful for chaining further print/preferences calls without parsing text. Set structuredOutput=false to get plain SML output="raw" text only.',
     inputSchema: {
       type: 'object',
@@ -392,7 +393,7 @@ export const SOAR_MCP_TOOLS = [
         target: {
           type: 'string',
           description:
-            'What to print: a production name, identifier (e.g. "S1"), timetag, WME pattern in parentheses (e.g. "(S1 ^operator)"), or omit for current state. Do not pass a bare attribute name or number.',
+            'What to print: an identifier (e.g. "S1"), timetag, WME pattern in parentheses (e.g. "(S1 ^operator)"), or omit for current state. Do not pass a bare attribute name or number.',
         },
         options: {
           type: 'string',
@@ -403,6 +404,37 @@ export const SOAR_MCP_TOOLS = [
           type: 'boolean',
           description:
             'Defaults to true: requests SML structured output (output="structured") and returns an additional `names` array alongside the text output, listing identifiers/timetags found in the result. Set to false for plain output="raw" text only.',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliPrintProduction,
+    description:
+      'Print production (rule) memory — a single rule\'s text, or a list of productions filtered by type. `target` is a production name (e.g. "my-rule-name"); leave it empty and use the type-filter flags in `options` to list productions instead. Not for working memory/identifiers — use agent_runtime_cli_print_working_memory for that. ' +
+      'Common recipes: print one rule\'s full text -> target="my-rule-name"; list every user-defined production -> options="--user" (or --chunks/--defaults/--justifications/--rl/--template for the other types, --all for everything), target left empty; list production names only, with source filename -> options="--filename". ' +
+      'Flags: --all/-a, --chunks/-c, --defaults/-D, --justifications/-j, --rl/-r, --template/-T, --user/-u (production-type filters, used with no target to list all productions of that type), --full/-f (full form), --filename/-F, --name/-n (names only, no rule bodies). ' +
+      'Structured output is on by default (SML output="structured") but production listings rarely contain identifiers, so the `names` array is typically empty — set structuredOutput=false for plain output="raw" text if you don\'t need it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        target: {
+          type: 'string',
+          description: 'A production name to print its rule text, or omit to list productions (use the type-filter flags in `options`).',
+        },
+        options: {
+          type: 'string',
+          description:
+            'Additional flags and options, e.g. "--user" or "--all --filename" or "--name"',
+        },
+        structuredOutput: {
+          type: 'boolean',
+          description:
+            'Defaults to true: requests SML structured output (output="structured"). Set to false for plain output="raw" text only.',
         },
       },
     },

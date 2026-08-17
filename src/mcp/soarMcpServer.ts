@@ -559,7 +559,8 @@ async function main() {
             return asJsonToolResult({ ok: true, result });
           }
 
-          case SOAR_MCP_TOOL_NAMES.cliPrint: {
+          case SOAR_MCP_TOOL_NAMES.cliPrintWorkingMemory:
+          case SOAR_MCP_TOOL_NAMES.cliPrintProduction: {
             const parts: string[] = ['print'];
             const target = asStringOrUndefined(args.target);
             const options = asStringOrUndefined(args.options);
