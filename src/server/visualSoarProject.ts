@@ -20,6 +20,8 @@ export interface VisualSoarProject {
 export interface Datamap {
   rootId: string;
   vertices: DMVertex[];
+  /** Free-text agent purpose/description, authored in VisualSoar. Not part of the strict project schema (project.schema.json), but present in real project files. */
+  purpose?: string;
 }
 
 export type DMVertex =

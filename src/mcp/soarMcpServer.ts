@@ -12,6 +12,7 @@ import {
   CreateAttributeInput,
   CreateLinkedAttributeInput,
   DebugConnectInput,
+  GetLiveDatamapInput,
   DebugEvalInput,
   DebugPauseInput,
   DebugRunInput,
@@ -394,6 +395,40 @@ async function main() {
               host: result.host,
               port: result.port,
               currentAgent: result.currentAgent,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentConnectContext: {
+            const input: DebugConnectInput = {
+              host: asStringOrUndefined(args.host),
+              port: asIntegerOrUndefined(args.port),
+              agent: asStringOrUndefined(args.agent),
+            };
+            const result = await core.debugConnectWithContext(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              host: result.host,
+              port: result.port,
+              currentAgent: result.currentAgent,
+              hasDescription: result.description !== undefined,
+              hasDatamap: result.datamap !== undefined,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
+          case SOAR_MCP_TOOL_NAMES.agentGetDatamap: {
+            const input: GetLiveDatamapInput = {
+              path: asStringOrUndefined(args.path),
+              maxDepth: asIntegerOrUndefined(args.maxDepth),
+            };
+            const result = await core.getLiveDatamap(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              path: result.path,
+              matchCount: result.results.length,
             });
             return asJsonToolResult({ ok: true, result });
           }

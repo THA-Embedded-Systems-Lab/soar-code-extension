@@ -13,6 +13,8 @@ export const SOAR_MCP_TOOL_NAMES = {
   layoutAddFile: 'layout_add_production_file_node',
   layoutAddFolder: 'layout_add_folder_node',
   agentConnect: 'agent_runtime_connect',
+  agentConnectContext: 'agent_runtime_connect_context',
+  agentGetDatamap: 'agent_runtime_get_datamap',
   agentDisconnect: 'agent_runtime_disconnect',
   agentGetStatus: 'agent_runtime_get_status',
   getAgents: 'agent_runtime_list_agents',
@@ -246,6 +248,41 @@ export const SOAR_MCP_TOOLS = [
         host: { type: 'string', default: '127.0.0.1' },
         port: { type: 'integer', minimum: 1, maximum: 65535, default: 12121 },
         agent: { type: 'string', default: '' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentConnectContext,
+    description:
+      'Connect to a running Soar kernel exactly like agent_runtime_connect, plus a short agent ' +
+      'description and a compact, depth-2 datamap tree (attribute names, types, enum choices, ' +
+      'and author comments — no internal ids) — both sourced live from the kernel, no filesystem ' +
+      'access. Use agent_runtime_get_datamap to drill past depth 2.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: { type: 'string', default: '127.0.0.1' },
+        port: { type: 'integer', minimum: 1, maximum: 65535, default: 12121 },
+        agent: { type: 'string', default: '' },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.agentGetDatamap,
+    description:
+      'Look up where information should live in the connected agent\'s datamap (its structural ' +
+      'schema), sourced live from the kernel — no project file needed. Without `path`, returns a ' +
+      'depth-2 tree from the root. With `path` (a dot-separated attribute path from the root, e.g. ' +
+      '"operator" or "operator.name"), returns the subtree(s) at that path — more than one if the ' +
+      'same attribute name appears under multiple parents. This only tells you where something ' +
+      'CAN exist in the schema, not whether it currently does — follow up with ' +
+      'agent_runtime_cli_print (e.g. a pattern like "(S1 ^operator)") to check the live value. ' +
+      'Requires agent_runtime_connect or agent_runtime_connect_context first.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        maxDepth: { type: 'integer', minimum: 1, maximum: 20, default: 2 },
       },
     },
   },

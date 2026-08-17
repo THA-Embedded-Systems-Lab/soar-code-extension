@@ -13,6 +13,8 @@
   "layout_add_production_file_node",
   "layout_add_folder_node",
   "agent_runtime_connect",
+  "agent_runtime_connect_context",
+  "agent_runtime_get_datamap",
   "agent_runtime_disconnect",
   "agent_runtime_get_status",
   "agent_runtime_list_agents",

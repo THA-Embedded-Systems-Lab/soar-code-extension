@@ -126,6 +126,14 @@ export interface DebugConnectInput {
   agent?: string;
 }
 
+/** Runtime-only, no filesystem access: sourced from the kernel's own cached
+ * copy of the project JSON (pushed via Agent::SetDatamap at agent load time),
+ * fetched over SML by SoarMcpCore.fetchLiveDatamapContext. */
+export interface GetLiveDatamapInput {
+  path?: string;
+  maxDepth?: number;
+}
+
 export interface DebugRunInput {
   agent?: string;
   count?: number;
@@ -171,6 +179,7 @@ export class SoarMcpCore {
   private readonly validator = new DatamapValidator();
   private debugClient: SmlSocketClient | undefined;
   private debugSession: DebugSessionState | undefined;
+  private liveDatamapCache: { agent: string; context: DatamapProjectContext } | undefined;
 
   async getDatamap(input: GetDatamapInput): Promise<any> {
     const context = await this.loadDatamapContext(input.projectFile);
@@ -495,10 +504,100 @@ export class SoarMcpCore {
     };
   }
 
+  /**
+   * Runtime-only: connects exactly like agent_runtime_connect (delegates to
+   * it unchanged), then enriches the result with a short agent description
+   * and a compact, depth-limited datamap tree — both sourced live from the
+   * kernel via fetchLiveDatamapContext, no filesystem access. Non-fatal on
+   * failure (e.g. the agent wasn't loaded from a project file): the base
+   * connect result is still returned, just without description/datamap.
+   */
+  async debugConnectWithContext(input: DebugConnectInput): Promise<{
+    connected: boolean;
+    host: string;
+    port: number;
+    currentAgent: string;
+    agents: string[];
+    version: string;
+    description?: string;
+    datamap?: any;
+  }> {
+    const base = await this.debugConnect(input);
+
+    try {
+      const context = await this.fetchLiveDatamapContext(base.currentAgent);
+      return {
+        ...base,
+        description: context.project.datamap.purpose,
+        datamap: this.buildCompactDatamapTree(
+          context,
+          context.project.datamap.rootId,
+          2,
+          new Set<string>()
+        ),
+      };
+    } catch {
+      // Non-fatal: connecting still succeeded, just without enrichment.
+      return base;
+    }
+  }
+
+  /**
+   * Runtime-only equivalent of datamap_get_tree: no project file, sourced
+   * live from the connected kernel (fetchLiveDatamapContext). `path` is a
+   * dot-separated attribute path from the datamap root (e.g. "operator" or
+   * "operator.name"); a path can resolve to more than one vertex (the same
+   * attribute name can appear under multiple parents), so every match is
+   * returned. Without `path`, returns a single depth-limited tree from the
+   * root.
+   */
+  async getLiveDatamap(input: GetLiveDatamapInput): Promise<{
+    path: string | null;
+    results: any[];
+  }> {
+    const agent = await this.resolveDebugAgent();
+    const context = await this.fetchLiveDatamapContext(agent);
+    const maxDepth = Math.max(1, input.maxDepth ?? 2);
+    const path = input.path?.trim() || null;
+
+    if (!path) {
+      return {
+        path: null,
+        results: [
+          this.buildCompactDatamapTree(
+            context,
+            context.project.datamap.rootId,
+            maxDepth,
+            new Set<string>()
+          ),
+        ],
+      };
+    }
+
+    const segments = path.split('.').filter(segment => segment.length > 0);
+    const matches = context.datamapMetadata.findTargetVerticesForPath(
+      [context.project.datamap.rootId],
+      segments,
+      context.project
+    );
+
+    if (matches.length === 0) {
+      throw new Error(`No attribute found at path '${path}'`);
+    }
+
+    return {
+      path,
+      results: matches.map(vertexId =>
+        this.buildCompactDatamapTree(context, vertexId, maxDepth, new Set<string>())
+      ),
+    };
+  }
+
   async debugDisconnect(): Promise<{ disconnected: boolean }> {
     this.debugClient?.disconnect();
     this.debugClient = undefined;
     this.debugSession = undefined;
+    this.liveDatamapCache = undefined;
     return { disconnected: true };
   }
 
@@ -1044,6 +1143,129 @@ export class SoarMcpCore {
     });
 
     return baseNode;
+  }
+
+  /**
+   * Compact tree for the runtime-only agent_runtime_* tools: omits `id`/
+   * `targetId` (schema-graph-only ids, meaningless to a live `print` query —
+   * attribute name paths are the actual bridge to live working memory), and
+   * omits layout entirely (buildDatamapTree/this function only ever walk
+   * `datamap`, never `project.layout`). Keeps `comment` — human-authored
+   * guidance on what an attribute is for, exactly what the LLM needs to
+   * know where to look. Marks `truncated: true` instead of recursing once
+   * maxDepth is exhausted, so the caller knows to drill down via
+   * agent_runtime_get_datamap's `path` parameter.
+   */
+  private buildCompactDatamapTree(
+    context: DatamapProjectContext,
+    vertexId: string,
+    maxDepth: number,
+    ancestry: Set<string>
+  ): any {
+    const vertex = context.datamapIndex.get(vertexId);
+    if (!vertex) {
+      return null;
+    }
+
+    const alreadyVisited = ancestry.has(vertexId);
+    const nextAncestry = new Set(ancestry);
+    nextAncestry.add(vertexId);
+
+    const baseNode: any = { type: vertex.type };
+
+    if (vertex.type === 'ENUMERATION') {
+      baseNode.choices = vertex.choices;
+    }
+
+    if (vertex.type !== 'SOAR_ID' || !vertex.outEdges || vertex.outEdges.length === 0) {
+      return baseNode;
+    }
+
+    if (alreadyVisited) {
+      baseNode.recursiveReference = true;
+      return baseNode;
+    }
+
+    if (maxDepth <= 0) {
+      baseNode.truncated = true;
+      return baseNode;
+    }
+
+    baseNode.attributes = {};
+    for (const edge of vertex.outEdges) {
+      const metadata = context.datamapMetadata.getEdgeMetadata(vertex.id, edge.name, edge.toId);
+      const child: any = this.buildCompactDatamapTree(
+        context,
+        edge.toId,
+        maxDepth - 1,
+        nextAncestry
+      );
+      if (edge.comment) {
+        child.comment = edge.comment;
+      }
+      if (metadata?.isLink) {
+        child.linked = true;
+      }
+      baseNode.attributes[edge.name] = child;
+    }
+
+    return baseNode;
+  }
+
+  /**
+   * Runtime-only datamap source: fetches the kernel's own cached copy of the
+   * project JSON over SML (Agent::GetDatamap, pushed at agent-load time by
+   * soar_ros::SoarRunner::addAgent via Agent::SetDatamap) — no filesystem
+   * access, and always matches whatever project the live agent actually
+   * loaded. Cached per agent on this instance; callers that already ran
+   * agent_runtime_connect_context reuse the cached parse instead of
+   * re-fetching/re-parsing a potentially large project JSON on every call.
+   */
+  private async fetchLiveDatamapContext(agent: string): Promise<DatamapProjectContext> {
+    if (this.liveDatamapCache?.agent === agent) {
+      return this.liveDatamapCache.context;
+    }
+
+    await this.ensureDebugClient();
+    const response = await this.debugClient!.call(
+      'get_datamap',
+      [{ param: 'agent', value: agent }],
+      { output: 'raw' }
+    );
+    if (response.errorText) {
+      throw new Error(`Kernel returned error for get_datamap: ${response.errorText}`);
+    }
+
+    const raw = response.result?.text?.trim();
+    if (!raw) {
+      throw new Error(
+        `No datamap available for agent '${agent}' — it may not have been loaded from a ` +
+          'project file, or this kernel build predates Agent::SetDatamap.'
+      );
+    }
+
+    let project: ProjectContext['project'];
+    try {
+      project = JSON.parse(raw);
+    } catch (error: any) {
+      throw new Error(`Failed to parse datamap JSON from kernel: ${error.message}`);
+    }
+
+    const datamapIndex = new Map<string, DMVertex>();
+    for (const vertex of project.datamap.vertices) {
+      datamapIndex.set(vertex.id, vertex);
+    }
+
+    const context: DatamapProjectContext = {
+      projectFile: `<live:${agent}>`,
+      project,
+      datamapIndex,
+      layoutIndex: new Map(),
+      datamapMetadata: DatamapMetadataCache.build(project, datamapIndex),
+    };
+
+    this.liveDatamapCache = { agent, context };
+    return context;
   }
 
   private collectSoarFilesFromLayout(layoutNode: any): string[] {
