@@ -584,6 +584,35 @@ async function main() {
             return asJsonToolResult({ ok: true, result });
           }
 
+          case SOAR_MCP_TOOL_NAMES.cliPrintPattern: {
+            const id = asStringOrUndefined(args.id) || '*';
+            const attribute = asStringOrUndefined(args.attribute) || '*';
+            const value = asStringOrUndefined(args.value) || '*';
+            const acceptable = asBooleanOrUndefined(args.acceptable) ?? false;
+            const options = asStringOrUndefined(args.options);
+            const pattern = `(${id} ^${attribute} ${value}${acceptable ? ' +' : ''})`;
+
+            const parts: string[] = ['print'];
+            if (options) {
+              parts.push(options);
+            }
+            parts.push(pattern);
+
+            const input: DebugEvalInput = {
+              agent: asStringOrUndefined(args.agent),
+              line: parts.join(' '),
+              structuredOutput: asBooleanOrUndefined(args.structuredOutput) ?? true,
+            };
+            const result = await core.debugEval(input);
+            log('info', 'Tool call succeeded', {
+              toolName,
+              durationMs: Date.now() - startedAt,
+              agent: result.agent,
+              pattern,
+            });
+            return asJsonToolResult({ ok: true, result });
+          }
+
           case SOAR_MCP_TOOL_NAMES.cliPreferences: {
             const parts: string[] = ['preferences'];
             const options = asStringOrUndefined(args.options);

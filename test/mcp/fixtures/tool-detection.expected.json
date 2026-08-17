@@ -25,6 +25,7 @@
   "agent_runtime_cli_production",
   "agent_runtime_cli_print_working_memory",
   "agent_runtime_cli_print_production",
+  "agent_runtime_cli_print_pattern",
   "agent_runtime_cli_preferences",
   "agent_runtime_cli_epmem",
   "agent_runtime_cli_explain_track_operator",

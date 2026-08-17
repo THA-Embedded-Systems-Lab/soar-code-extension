@@ -26,6 +26,7 @@ export const SOAR_MCP_TOOL_NAMES = {
   cliProduction: 'agent_runtime_cli_production',
   cliPrintWorkingMemory: 'agent_runtime_cli_print_working_memory',
   cliPrintProduction: 'agent_runtime_cli_print_production',
+  cliPrintPattern: 'agent_runtime_cli_print_pattern',
   cliPreferences: 'agent_runtime_cli_preferences',
   cliEpmem: 'agent_runtime_cli_epmem',
   cliExplainTrackOperator: 'agent_runtime_cli_explain_track_operator',
@@ -435,6 +436,62 @@ export const SOAR_MCP_TOOLS = [
           type: 'boolean',
           description:
             'Defaults to true: requests SML structured output (output="structured"). Set to false for plain output="raw" text only.',
+        },
+      },
+    },
+  },
+  {
+    name: SOAR_MCP_TOOL_NAMES.cliPrintPattern,
+    description:
+      'Search ALL of working memory for WMEs matching a (id ^attribute value) pattern — the most ' +
+      'powerful way to find something when you don\'t already know which identifier it lives on. ' +
+      'Unlike agent_runtime_cli_print_working_memory\'s `target` (which needs a real identifier to ' +
+      'start from, e.g. "S1"), every part of the pattern is independently optional: omit `id` to ' +
+      'search from every identifier in memory, not just one you already know about. ' +
+      'Use this to answer "does anything, anywhere, have an attribute/value like X?" without already ' +
+      'knowing where to look — e.g. finding which item has ^usercheck failure without checking every ' +
+      'item one by one. ' +
+      'Matching rules: each of `id`/`attribute`/`value` is either omitted/"*" (matches anything) or an ' +
+      'EXACT literal match — e.g. attribute="usercheck" only matches that exact attribute name, not a ' +
+      'prefix or substring. The underlying kernel command also supports regex for `attribute`/`value`, ' +
+      'but avoid it here: any character with special meaning to the Soar CLI\'s own lexer (".", "|", ' +
+      '"(", ")", "[", "]", "<", ">", whitespace) reliably breaks tokenization instead of being treated ' +
+      'as a regex metacharacter, and there is no reliable escape/quoting mechanism through this ' +
+      'interface — stick to exact literals and "*" wildcards, which are fully reliable. ' +
+      '`id` never supports regex even in principle — it must be a real identifier (e.g. "S1") or "*". ' +
+      'Set `acceptable` to true to match only acceptable-preference WMEs (candidates not yet selected) ' +
+      'instead of established working-memory WMEs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          description: 'Agent name (uses current session agent if omitted)',
+        },
+        id: {
+          type: 'string',
+          description: 'An exact identifier (e.g. "S1"), or omit to match any identifier.',
+        },
+        attribute: {
+          type: 'string',
+          description: 'An exact attribute name, or omit (or "*") to match any attribute. Avoid regex/special characters — see tool description.',
+        },
+        value: {
+          type: 'string',
+          description: 'An exact value, or omit (or "*") to match any value. Avoid regex/special characters — see tool description.',
+        },
+        acceptable: {
+          type: 'boolean',
+          description: 'Match only acceptable-preference WMEs (not-yet-selected candidates) instead of established working-memory WMEs. Defaults to false.',
+        },
+        options: {
+          type: 'string',
+          description: 'Additional print flags, e.g. "--depth 2" or "--tree" or "--internal"',
+        },
+        structuredOutput: {
+          type: 'boolean',
+          description:
+            'Defaults to true: requests SML structured output (output="structured") and returns an additional `names` array alongside the text output, listing identifiers/timetags found in the result. Set to false for plain output="raw" text only.',
         },
       },
     },
