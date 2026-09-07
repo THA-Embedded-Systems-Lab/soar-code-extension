@@ -163,6 +163,11 @@ export class DatamapUsageAnalyzer {
   /**
    * Classify every datamap attribute edge by test/create usage across the
    * project's Soar files. Architectural attributes are always exempt.
+   *
+   * The `^io.input-link` subtree is exempt from the `neverCreated` bucket and
+   * the `^io.output-link` subtree from the `neverTested` bucket, since the
+   * environment (not rules) creates the input-link and consumes the
+   * output-link. The other buckets are unaffected.
    */
   static analyzeDatamapUsage(
     project: VisualSoarProject,
@@ -178,6 +183,17 @@ export class DatamapUsageAnalyzer {
     }
 
     const pathToVertex = this.buildRootPaths(project, datamapIndex);
+
+    // The environment (not rules) creates the input-link and consumes the
+    // output-link, so:
+    //  - attributes under `^io.input-link` are never "created" by a rule → do
+    //    not report them as never-created,
+    //  - attributes under `^io.output-link` are never "tested" by a rule → do
+    //    not report them as never-tested.
+    // Mirrors VisualSoar's search sweeps, which skip descending into the
+    // respective subtree.
+    const inputLinkSubtree = this.collectSubtree(project, datamapIndex, 'input-link');
+    const outputLinkSubtree = this.collectSubtree(project, datamapIndex, 'output-link');
 
     const report: DatamapUsageReport = {
       neverTestedOrCreated: [],
@@ -236,10 +252,10 @@ export class DatamapUsageAnalyzer {
         if (isCreated && !isTested) {
           report.createdNotTested.push(make('created-not-tested'));
         }
-        if (!isTested) {
+        if (!isTested && !outputLinkSubtree.has(vertex.id)) {
           report.neverTested.push(make('never-tested'));
         }
-        if (!isCreated) {
+        if (!isCreated && !inputLinkSubtree.has(vertex.id)) {
           report.neverCreated.push(make('never-created'));
         }
       }
@@ -274,6 +290,47 @@ export class DatamapUsageAnalyzer {
     options: { extraExemptAttributes?: Iterable<string> } = {}
   ): StaleDatamapItem[] {
     return this.analyzeDatamapUsage(project, datamapIndex, documents, options).testedNotCreated;
+  }
+
+  /**
+   * All vertex ids reachable from the target of any edge named `edgeName`
+   * (e.g. every vertex under an `^input-link`). Cycle-safe.
+   */
+  private static collectSubtree(
+    project: VisualSoarProject,
+    datamapIndex: Map<string, DMVertex>,
+    edgeName: string
+  ): Set<string> {
+    const queue: string[] = [];
+    for (const vertex of project.datamap.vertices) {
+      if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
+        continue;
+      }
+      for (const edge of vertex.outEdges) {
+        if (edge.name === edgeName) {
+          queue.push(edge.toId);
+        }
+      }
+    }
+
+    const seen = new Set<string>();
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      const vertex = datamapIndex.get(id);
+      if (vertex?.type === 'SOAR_ID' && vertex.outEdges) {
+        for (const edge of vertex.outEdges) {
+          if (!seen.has(edge.toId)) {
+            queue.push(edge.toId);
+          }
+        }
+      }
+    }
+
+    return seen;
   }
 
   /** BFS from the datamap root, recording the first dotted path found to each vertex. */

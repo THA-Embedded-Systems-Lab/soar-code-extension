@@ -297,4 +297,33 @@ suite('DatamapUsageAnalyzer – analyzeDatamapUsage (VisualSoar-style sweeps)', 
       []
     );
   });
+
+  test('input-link subtree exempt from never-created; output-link subtree exempt from never-tested', () => {
+    // io.input-link.cmd  – no rule tests or creates it
+    // io.output-link.act – no rule tests or creates it
+    const v: any[] = [
+      { id: '0', type: 'SOAR_ID', outEdges: [{ name: 'io', toId: 'io' }] },
+      {
+        id: 'io',
+        type: 'SOAR_ID',
+        outEdges: [
+          { name: 'input-link', toId: 'il' },
+          { name: 'output-link', toId: 'ol' },
+        ],
+      },
+      { id: 'il', type: 'SOAR_ID', outEdges: [{ name: 'cmd', toId: 'c' }] },
+      { id: 'ol', type: 'SOAR_ID', outEdges: [{ name: 'act', toId: 'a' }] },
+      { id: 'c', type: 'STRING' },
+      { id: 'a', type: 'STRING' },
+    ];
+    const r = DatamapUsageAnalyzer.analyzeDatamapUsage(makeProject(v), buildIndex(v), parse());
+
+    // Both are still "never tested or created" (the stale bucket is unchanged).
+    assert.deepStrictEqual(names(r.neverTestedOrCreated), ['act', 'cmd']);
+
+    // input-link 'cmd' must NOT appear as never-created; output-link 'act' may.
+    assert.deepStrictEqual(names(r.neverCreated), ['act']);
+    // output-link 'act' must NOT appear as never-tested; input-link 'cmd' may.
+    assert.deepStrictEqual(names(r.neverTested), ['cmd']);
+  });
 });
