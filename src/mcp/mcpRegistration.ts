@@ -36,13 +36,6 @@ export async function ensureWorkspaceMcpRegistration(extensionPath: string): Pro
     return;
   }
 
-  const configured = vscode.workspace
-    .getConfiguration('soar')
-    .get<boolean>('mcp.autoRegister', true);
-  if (!configured) {
-    return;
-  }
-
   const commandSpec = buildServerCommand(extensionPath);
 
   for (const folder of workspaceFolders) {

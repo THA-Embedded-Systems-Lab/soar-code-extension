@@ -96,7 +96,7 @@ Three separate esbuild bundles are produced into `dist/`:
 
 ## Architecture
 
-**`src/extension.ts`** is the single wiring point: registers all commands, wires tree view providers, sets up the LSP client, installs validation-on-save triggers (respecting `.soarignore`), registers the debug adapter for `soar-sml`, and runs the MCP auto-registration hook. It also invalidates the `.soarignore` cache via a `FileSystemWatcher` + `soarIgnoreCache` module variable.
+**`src/extension.ts`** is the single wiring point: registers all commands, wires tree view providers, sets up the LSP client, installs validation-on-save triggers (respecting `.soarignore`), registers the debug adapter for `soar-sml`, and registers the `soar.setupMcpServer` command (MCP registration is user-triggered, not automatic on activation). It also invalidates the `.soarignore` cache via a `FileSystemWatcher` + `soarIgnoreCache` module variable.
 
 **Project state** is modeled as a `ProjectContext` (defined in `src/server/visualSoarProject.ts`), containing the parsed `.vsa.json`, a `datamapIndex: Map<string, DMVertex>`, and a `layoutIndex: Map<string, LayoutNode>`. This object is the shared currency passed across all subsystems.
 
@@ -127,7 +127,7 @@ Three separate esbuild bundles are produced into `dist/`:
 | Debug adapter      | `src/debug/soarSmlDebugAdapter.ts`, `smlSocketClient.ts`        | DAP↔SML XML socket bridge for live Soar kernel debugging                                  |
 | Stop phase view    | `src/debug/stopPhaseTreeProvider.ts`                            | Sidebar for selecting Soar stop phase                                                      |
 | MCP server         | `src/mcp/soarMcpServer.ts`, `soarMcpTools.ts`, `soarMcpCore.ts` | Exposes project/datamap/runtime tools over MCP stdio                                       |
-| MCP registration   | `src/mcp/mcpRegistration.ts`                                    | Writes MCP entry to `.vscode/mcp.json` and `.mcp.json`                                     |
+| MCP registration   | `src/mcp/mcpRegistration.ts`                                    | Writes MCP entry to `.vscode/mcp.json` and `.mcp.json`, run via `soar.setupMcpServer`      |
 | ID generation      | `src/server/idGeneration.ts`                                    | `generateVertexId()` — shared canonical hex-string ID generator                            |
 
 ### Key design invariants
@@ -288,6 +288,7 @@ The Soar parser is **Chevrotain-based** (not regex). Three files:
   - keyed async execution queue used by MCP server for safe parallelism
 - `src/mcp/mcpRegistration.ts`
   - workspace MCP registration: writes BOTH `.vscode/mcp.json` (VS Code native client, `servers` key) and project-root `.mcp.json` (Claude Code, `mcpServers` key)
+  - user-triggered only, via the `soar.setupMcpServer` command ("Setup MCP Server") — not run automatically on extension activation
   - writes MCP server command as `node <extension>/dist/mcpServer.js`
   - `SOAR_MCP_WORKSPACE` is set to a portable placeholder, not an absolute path: `${workspaceFolder}` in `.vscode/mcp.json`, `${CLAUDE_PROJECT_DIR:-.}` in `.mcp.json`. The server (`resolveWorkspaceRoot` in `soarMcpCore.ts`) falls back `SOAR_MCP_WORKSPACE` → `CLAUDE_PROJECT_DIR` → `process.cwd()`.
 

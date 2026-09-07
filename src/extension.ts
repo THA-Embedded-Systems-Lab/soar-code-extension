@@ -58,15 +58,6 @@ export function getProjectManager(): ProjectManager {
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Soar extension is now active');
 
-  const mcpEnabled = vscode.workspace.getConfiguration('soar').get<boolean>('mcp.enabled', true);
-  if (mcpEnabled) {
-    try {
-      await ensureWorkspaceMcpRegistration(context.extensionPath);
-    } catch (error: any) {
-      console.warn(`Failed to auto-register Soar MCP server: ${error.message}`);
-    }
-  }
-
   // Initialize project manager
   projectManager = ProjectManager.getInstance(context);
   context.subscriptions.push(projectManager);
