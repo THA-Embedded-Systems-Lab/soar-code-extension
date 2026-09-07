@@ -8,7 +8,7 @@
  */
 
 import * as assert from 'assert';
-import { DatamapUsageAnalyzer } from '../../../../src/datamap/datamapUsage';
+import { DatamapUsageAnalyzer, DatamapUsageKind } from '../../../../src/datamap/datamapUsage';
 import { SoarParser } from '../../../../src/server/soarParser';
 import { DMVertex, VisualSoarProject } from '../../../../src/server/visualSoarProject';
 import { SoarDocument } from '../../../../src/server/soarTypes';
@@ -156,5 +156,145 @@ suite('DatamapUsageAnalyzer – findStaleDatamapItems', () => {
    (<s> ^done +)
 }`);
     assert.strictEqual(DatamapUsageAnalyzer.hasDynamicAttributeTests(plain), false);
+  });
+});
+
+suite('DatamapUsageAnalyzer – analyzeDatamapUsage (VisualSoar-style sweeps)', () => {
+  // Datamap: root has four non-architectural attributes plus exempt ^name.
+  //   both-attr     – tested AND created
+  //   tested-attr   – only tested (LHS)
+  //   created-attr  – only created (RHS)
+  //   orphan-attr   – neither
+  const vertices = (): any[] => [
+    {
+      id: '0',
+      type: 'SOAR_ID',
+      outEdges: [
+        { name: 'name', toId: 'n' },
+        { name: 'both-attr', toId: '1' },
+        { name: 'tested-attr', toId: '2' },
+        { name: 'created-attr', toId: '3' },
+        { name: 'orphan-attr', toId: '4' },
+      ],
+    },
+    { id: 'n', type: 'ENUMERATION', choices: ['top'] },
+    { id: '1', type: 'STRING' },
+    { id: '2', type: 'STRING' },
+    { id: '3', type: 'STRING' },
+    { id: '4', type: 'STRING' },
+  ];
+
+  const docs = (): ReturnType<typeof parse> =>
+    parse(`sp {p
+   (state <s> ^name top ^both-attr <b> ^tested-attr <t>)
+-->
+   (<s> ^both-attr done ^created-attr made)
+}`);
+
+  function analyze() {
+    const v = vertices();
+    return DatamapUsageAnalyzer.analyzeDatamapUsage(makeProject(v), buildIndex(v), docs());
+  }
+
+  const names = (items: { attributeName: string }[]) => items.map(i => i.attributeName).sort();
+
+  test('never-tested-or-created bucket = orphan only', () => {
+    assert.deepStrictEqual(names(analyze().neverTestedOrCreated), ['orphan-attr']);
+  });
+
+  test('tested-not-created bucket = tested-attr only', () => {
+    assert.deepStrictEqual(names(analyze().testedNotCreated), ['tested-attr']);
+  });
+
+  test('created-not-tested bucket = created-attr only', () => {
+    assert.deepStrictEqual(names(analyze().createdNotTested), ['created-attr']);
+  });
+
+  test('never-tested bucket = created-attr + orphan-attr', () => {
+    assert.deepStrictEqual(names(analyze().neverTested), ['created-attr', 'orphan-attr']);
+  });
+
+  test('never-created bucket = orphan-attr + tested-attr', () => {
+    assert.deepStrictEqual(names(analyze().neverCreated), ['orphan-attr', 'tested-attr']);
+  });
+
+  test('both-attr (tested and created) appears in no bucket', () => {
+    const r = analyze();
+    const all = [
+      ...r.neverTestedOrCreated,
+      ...r.testedNotCreated,
+      ...r.createdNotTested,
+      ...r.neverTested,
+      ...r.neverCreated,
+    ];
+    assert.ok(!all.some(i => i.attributeName === 'both-attr'));
+  });
+
+  test('every item carries a matching kind and a message mentioning the attribute', () => {
+    const r = analyze();
+    const check = (
+      items: { kind: DatamapUsageKind; attributeName: string; message: string }[],
+      kind: DatamapUsageKind
+    ) => {
+      for (const item of items) {
+        assert.strictEqual(item.kind, kind);
+        assert.ok(item.message.includes(`^${item.attributeName}`));
+      }
+    };
+    check(r.neverTestedOrCreated, 'never-tested-or-created');
+    check(r.testedNotCreated, 'tested-not-created');
+    check(r.createdNotTested, 'created-not-tested');
+    check(r.neverTested, 'never-tested');
+    check(r.neverCreated, 'never-created');
+  });
+
+  test('findStaleDatamapItems / findTestedNotCreatedDatamapItems wrappers match the buckets', () => {
+    const v = vertices();
+    const p = makeProject(v);
+    const idx = buildIndex(v);
+    const d = docs();
+    assert.deepStrictEqual(names(DatamapUsageAnalyzer.findStaleDatamapItems(p, idx, d)), [
+      'orphan-attr',
+    ]);
+    assert.deepStrictEqual(
+      names(DatamapUsageAnalyzer.findTestedNotCreatedDatamapItems(p, idx, d)),
+      ['tested-attr']
+    );
+  });
+
+  test('collectAttributeUsage splits by production side; unknown side counts as both', () => {
+    const usage = DatamapUsageAnalyzer.collectAttributeUsage(docs());
+    assert.ok(usage.tested.has('tested-attr') && usage.tested.has('both-attr'));
+    assert.ok(!usage.tested.has('created-attr'));
+    assert.ok(usage.created.has('created-attr') && usage.created.has('both-attr'));
+    assert.ok(!usage.created.has('tested-attr'));
+  });
+
+  test('architectural attributes are exempt from every bucket', () => {
+    const v: any[] = [
+      {
+        id: '0',
+        type: 'SOAR_ID',
+        outEdges: [
+          { name: 'io', toId: 'io' },
+          { name: 'operator', toId: 'op' },
+          { name: 'superstate', toId: 'ss' },
+        ],
+      },
+      { id: 'io', type: 'SOAR_ID', outEdges: [] },
+      { id: 'op', type: 'SOAR_ID', outEdges: [] },
+      { id: 'ss', type: 'ENUMERATION', choices: ['nil'] },
+    ];
+    const r = DatamapUsageAnalyzer.analyzeDatamapUsage(makeProject(v), buildIndex(v), parse());
+    assert.deepStrictEqual(
+      [
+        ...r.neverTestedOrCreated,
+        ...r.testedNotCreated,
+        ...r.createdNotTested,
+        ...r.neverTested,
+        ...r.neverCreated,
+      ],
+      []
+    );
   });
 });

@@ -1,39 +1,67 @@
 /**
  * Datamap usage analysis
  *
- * Finds "stale" datamap items: attribute edges in the project datamap whose
- * name is never tested (LHS) or created (RHS) by any production in any project
- * Soar file. These are candidates for removal — they add datamap noise and can
- * signal a renamed/deleted attribute that was never cleaned up.
+ * Cross-references the project datamap against every production in the project's
+ * Soar files and classifies each datamap attribute edge by whether its name is
+ * ever *tested* (appears on a condition / LHS) and/or *created* (appears on an
+ * action / RHS). This mirrors VisualSoar's five datamap "search" sweeps
+ * (never-tested-or-created, tested-not-created, created-not-tested,
+ * never-tested, never-created).
  *
- * The check is name-based (an edge is considered used if its attribute name
- * appears anywhere as an attribute segment in the project), matching the
- * deliberately conservative philosophy of {@link DatamapValidator}: it only
- * flags an item when the name is referenced *nowhere*, so a rename typo is
- * caught without false-flagging attributes that are used through a different
- * datamap path.
+ * The check is name-based (an edge counts as tested/created if its attribute
+ * name appears anywhere as an attribute path segment on the matching side),
+ * matching the deliberately conservative philosophy of {@link DatamapValidator}:
+ * an item is only flagged when the name is absent from the relevant side
+ * *everywhere*, so a rename/typo is caught without false-flagging attributes
+ * that are reached through a different datamap path.
  */
 
 import { DMVertex, VisualSoarProject } from '../server/visualSoarProject';
 import { SoarDocument } from '../server/soarTypes';
 
+export type DatamapUsageKind =
+  | 'never-tested-or-created'
+  | 'tested-not-created'
+  | 'created-not-tested'
+  | 'never-tested'
+  | 'never-created';
+
 export interface StaleDatamapItem {
-  /** The SOAR_ID vertex that owns the unused edge. */
+  /** The SOAR_ID vertex that owns the edge. */
   parentVertexId: string;
-  /** The attribute name of the unused edge. */
+  /** The attribute name of the edge. */
   attributeName: string;
-  /** The vertex the unused edge points at. */
+  /** The vertex the edge points at. */
   targetVertexId: string;
   /** Best-effort dotted path from the datamap root to this edge. */
   path: string;
+  /** Which usage category this item falls into. */
+  kind: DatamapUsageKind;
   /** Human-readable explanation (warning text). */
   message: string;
+}
+
+/** Attribute-name segments referenced by productions, split by production side. */
+export interface DatamapAttributeUsage {
+  /** Names that appear on a condition (LHS) of some production. */
+  tested: Set<string>;
+  /** Names that appear on an action (RHS) of some production. */
+  created: Set<string>;
+}
+
+/** One report bucket per {@link DatamapUsageKind}. */
+export interface DatamapUsageReport {
+  neverTestedOrCreated: StaleDatamapItem[];
+  testedNotCreated: StaleDatamapItem[];
+  createdNotTested: StaleDatamapItem[];
+  neverTested: StaleDatamapItem[];
+  neverCreated: StaleDatamapItem[];
 }
 
 /**
  * Attributes supplied by the Soar architecture (or only meaningful
  * structurally) that routinely appear in a datamap without an explicit
- * user-written test or action. Never reported as stale.
+ * user-written test or action. Never reported in any usage category.
  */
 export const ARCHITECTURAL_ATTRIBUTES: ReadonlySet<string> = new Set([
   'superstate',
@@ -56,35 +84,66 @@ export const ARCHITECTURAL_ATTRIBUTES: ReadonlySet<string> = new Set([
   'name',
 ]);
 
+/* eslint-disable @typescript-eslint/naming-convention -- keys are DatamapUsageKind literals */
+const KIND_MESSAGE: Record<DatamapUsageKind, string> = {
+  'never-tested-or-created':
+    'is never tested or created in any project Soar file. It may be stale/unused and can likely be removed.',
+  'tested-not-created':
+    'is tested by a rule condition but never created by any rule action in the project. Those conditions can never match.',
+  'created-not-tested':
+    'is created by a rule action but never tested by any rule condition in the project. It may be a dead working-memory element.',
+  'never-tested': 'is never tested by any rule condition in the project.',
+  'never-created': 'is never created by any rule action in the project.',
+};
+/* eslint-enable @typescript-eslint/naming-convention */
+
 export class DatamapUsageAnalyzer {
   /**
-   * Collect every attribute-name segment referenced by any production in the
-   * given documents. Dotted paths are split into segments so `^io.input-link.x`
+   * Collect every attribute-name segment referenced by any production, split by
+   * production side. Dotted paths are split into segments so `^io.input-link.x`
    * contributes `io`, `input-link`, and `x`. Fully-dynamic attribute tests
-   * (`^<var>`, whose parsed name is `''`) contribute nothing.
+   * (`^<var>`, whose parsed name is `''`) contribute nothing. An attribute with
+   * no recorded `side` is counted on both sides (conservative).
    */
-  static collectReferencedAttributeNames(documents: SoarDocument[]): Set<string> {
-    const names = new Set<string>();
+  static collectAttributeUsage(documents: SoarDocument[]): DatamapAttributeUsage {
+    const tested = new Set<string>();
+    const created = new Set<string>();
+
     for (const document of documents) {
       for (const production of document.productions) {
         for (const attr of production.attributes) {
           if (!attr.name) {
             continue;
           }
+          const targets: Set<string>[] =
+            attr.side === 'lhs' ? [tested] : attr.side === 'rhs' ? [created] : [tested, created];
           for (const segment of attr.name.split('.')) {
-            if (segment.length > 0) {
-              names.add(segment);
+            if (segment.length === 0) {
+              continue;
+            }
+            for (const target of targets) {
+              target.add(segment);
             }
           }
         }
       }
     }
-    return names;
+
+    return { tested, created };
+  }
+
+  /**
+   * Collect every attribute-name segment referenced by any production on either
+   * side (union of {@link collectAttributeUsage}).
+   */
+  static collectReferencedAttributeNames(documents: SoarDocument[]): Set<string> {
+    const { tested, created } = this.collectAttributeUsage(documents);
+    return new Set<string>([...tested, ...created]);
   }
 
   /**
    * True if any production anywhere uses a fully-dynamic attribute test
-   * (`(<id> ^<var> <value>)`). When present, a name-based stale check can
+   * (`(<id> ^<var> <value>)`). When present, a name-based usage check can
    * report false positives (the dynamic test could resolve to any attribute),
    * so callers may wish to soften or suppress the result.
    */
@@ -102,16 +161,16 @@ export class DatamapUsageAnalyzer {
   }
 
   /**
-   * Find datamap edges whose attribute name is referenced nowhere in the
-   * project's Soar files.
+   * Classify every datamap attribute edge by test/create usage across the
+   * project's Soar files. Architectural attributes are always exempt.
    */
-  static findStaleDatamapItems(
+  static analyzeDatamapUsage(
     project: VisualSoarProject,
     datamapIndex: Map<string, DMVertex>,
     documents: SoarDocument[],
     options: { extraExemptAttributes?: Iterable<string> } = {}
-  ): StaleDatamapItem[] {
-    const referenced = this.collectReferencedAttributeNames(documents);
+  ): DatamapUsageReport {
+    const { tested, created } = this.collectAttributeUsage(documents);
 
     const exempt = new Set<string>(ARCHITECTURAL_ATTRIBUTES);
     for (const name of options.extraExemptAttributes ?? []) {
@@ -120,15 +179,22 @@ export class DatamapUsageAnalyzer {
 
     const pathToVertex = this.buildRootPaths(project, datamapIndex);
 
+    const report: DatamapUsageReport = {
+      neverTestedOrCreated: [],
+      testedNotCreated: [],
+      createdNotTested: [],
+      neverTested: [],
+      neverCreated: [],
+    };
+
     const seen = new Set<string>();
-    const stale: StaleDatamapItem[] = [];
 
     for (const vertex of project.datamap.vertices) {
       if (vertex.type !== 'SOAR_ID' || !vertex.outEdges) {
         continue;
       }
       for (const edge of vertex.outEdges) {
-        if (referenced.has(edge.name) || exempt.has(edge.name)) {
+        if (exempt.has(edge.name)) {
           continue;
         }
 
@@ -138,6 +204,12 @@ export class DatamapUsageAnalyzer {
         }
         seen.add(key);
 
+        const isTested = tested.has(edge.name);
+        const isCreated = created.has(edge.name);
+        if (isTested && isCreated) {
+          continue;
+        }
+
         const parentPath = pathToVertex.get(vertex.id);
         const fullPath =
           parentPath === undefined
@@ -146,19 +218,62 @@ export class DatamapUsageAnalyzer {
               ? `${parentPath}.${edge.name}`
               : edge.name;
 
-        stale.push({
+        const make = (kind: DatamapUsageKind): StaleDatamapItem => ({
           parentVertexId: vertex.id,
           attributeName: edge.name,
           targetVertexId: edge.toId,
           path: fullPath,
-          message:
-            `Datamap attribute '^${edge.name}' (${fullPath}) is never tested or created in ` +
-            `any project Soar file. It may be stale/unused and can likely be removed.`,
+          kind,
+          message: `Datamap attribute '^${edge.name}' (${fullPath}) ${KIND_MESSAGE[kind]}`,
         });
+
+        if (!isTested && !isCreated) {
+          report.neverTestedOrCreated.push(make('never-tested-or-created'));
+        }
+        if (isTested && !isCreated) {
+          report.testedNotCreated.push(make('tested-not-created'));
+        }
+        if (isCreated && !isTested) {
+          report.createdNotTested.push(make('created-not-tested'));
+        }
+        if (!isTested) {
+          report.neverTested.push(make('never-tested'));
+        }
+        if (!isCreated) {
+          report.neverCreated.push(make('never-created'));
+        }
       }
     }
 
-    return stale;
+    return report;
+  }
+
+  /**
+   * Datamap edges whose name is never tested *and* never created anywhere in
+   * the project — the strictest usage category and the one surfaced by
+   * `soar.checkProject`. Thin wrapper over {@link analyzeDatamapUsage}.
+   */
+  static findStaleDatamapItems(
+    project: VisualSoarProject,
+    datamapIndex: Map<string, DMVertex>,
+    documents: SoarDocument[],
+    options: { extraExemptAttributes?: Iterable<string> } = {}
+  ): StaleDatamapItem[] {
+    return this.analyzeDatamapUsage(project, datamapIndex, documents, options).neverTestedOrCreated;
+  }
+
+  /**
+   * Datamap edges tested by some rule condition but created by no rule action
+   * anywhere in the project — those conditions can never match. Thin wrapper
+   * over {@link analyzeDatamapUsage}.
+   */
+  static findTestedNotCreatedDatamapItems(
+    project: VisualSoarProject,
+    datamapIndex: Map<string, DMVertex>,
+    documents: SoarDocument[],
+    options: { extraExemptAttributes?: Iterable<string> } = {}
+  ): StaleDatamapItem[] {
+    return this.analyzeDatamapUsage(project, datamapIndex, documents, options).testedNotCreated;
   }
 
   /** BFS from the datamap root, recording the first dotted path found to each vertex. */

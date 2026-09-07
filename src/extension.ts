@@ -1227,19 +1227,25 @@ async function ensureOperatorAugmentationIndex(
 }
 
 /**
- * Find stale/unused datamap items across the project: datamap attribute edges
- * whose name is never tested or created by any production in any project Soar
- * file. Gated by the `soar.datamap.checkStaleItems` setting (default on).
- * Returns [] when disabled or on any parse/IO failure.
+ * Cross-reference the project datamap against every production and report:
+ *  - `stale`: datamap attributes never tested and never created
+ *  - `testedNotCreated`: datamap attributes tested by a condition but created
+ *    by no action anywhere (those conditions can never match)
+ * Gated by the `soar.datamap.checkStaleItems` setting (default on).
+ * Returns empty arrays when disabled or on any parse/IO failure.
  */
 async function runStaleDatamapCheck(
   projectContext: import('./server/visualSoarProject').ProjectContext
-): Promise<import('./datamap/datamapUsage').StaleDatamapItem[]> {
+): Promise<{
+  stale: import('./datamap/datamapUsage').StaleDatamapItem[];
+  testedNotCreated: import('./datamap/datamapUsage').StaleDatamapItem[];
+}> {
+  const empty = { stale: [], testedNotCreated: [] };
   const enabled = vscode.workspace
     .getConfiguration('soar')
     .get<boolean>('datamap.checkStaleItems', true);
   if (!enabled) {
-    return [];
+    return empty;
   }
 
   try {
@@ -1249,13 +1255,14 @@ async function runStaleDatamapCheck(
         parser.parse(filePath, await fs.promises.readFile(filePath, 'utf8'), 0)
       )
     );
-    return DatamapUsageAnalyzer.findStaleDatamapItems(
+    const usage = DatamapUsageAnalyzer.analyzeDatamapUsage(
       projectContext.project,
       projectContext.datamapIndex,
       docs
     );
+    return { stale: usage.neverTestedOrCreated, testedNotCreated: usage.testedNotCreated };
   } catch {
-    return [];
+    return empty;
   }
 }
 
@@ -1527,7 +1534,8 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
     projectContext.datamapIndex
   );
   const syncIssues = LayoutOperations.checkOperatorDatamapSync(projectContext);
-  const staleItems = await runStaleDatamapCheck(projectContext);
+  const { stale: staleItems, testedNotCreated: testedNotCreatedItems } =
+    await runStaleDatamapCheck(projectContext);
 
   if (!datamapResult && !lspResult) {
     vscode.window.showInformationMessage('No Soar files found in project');
@@ -1538,7 +1546,12 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
   const lspIssues = lspResult?.totalIssues ?? 0;
   const fileCount = datamapResult?.fileCount ?? lspResult?.fileCount ?? 0;
   const totalProblems =
-    datamapErrors + lspIssues + integrityIssues.length + syncIssues.length + staleItems.length;
+    datamapErrors +
+    lspIssues +
+    integrityIssues.length +
+    syncIssues.length +
+    staleItems.length +
+    testedNotCreatedItems.length;
 
   if (totalProblems === 0) {
     vscode.window.showInformationMessage(
@@ -1562,6 +1575,9 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
   }
   if (staleItems.length > 0) {
     parts.push(`${staleItems.length} stale datamap item(s)`);
+  }
+  if (testedNotCreatedItems.length > 0) {
+    parts.push(`${testedNotCreatedItems.length} tested-but-never-created datamap item(s)`);
   }
 
   const action = await vscode.window.showWarningMessage(
@@ -1588,8 +1604,11 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
       `Operator/datamap sync issues: ${syncIssues.length}`,
       ...syncIssues.map(i => `  • [${i.nodeType}] ${i.message}`),
       '',
-      `Stale / unused datamap items: ${staleItems.length}`,
+      `Stale / unused datamap items (never tested or created): ${staleItems.length}`,
       ...staleItems.map(i => `  • ^${i.attributeName} (${i.path}) — ${i.message}`),
+      '',
+      `Tested-but-never-created datamap items (conditions can never match): ${testedNotCreatedItems.length}`,
+      ...testedNotCreatedItems.map(i => `  • ^${i.attributeName} (${i.path}) — ${i.message}`),
     ];
     const doc = await vscode.workspace.openTextDocument({
       language: 'plaintext',

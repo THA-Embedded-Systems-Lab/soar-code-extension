@@ -159,7 +159,10 @@ export interface ValidationSummary {
   totalIssues: number;
   issuesByFile: Record<string, ValidationError[]>;
   datamapIssues: DatamapIntegrityIssue[];
+  /** Datamap attributes never tested and never created by any production. */
   staleDatamapItems: StaleDatamapItem[];
+  /** Datamap attributes tested by a condition but created by no action (conditions can never match). */
+  testedNotCreatedDatamapItems: StaleDatamapItem[];
 }
 
 export class SoarMcpCore {
@@ -362,7 +365,7 @@ export class SoarMcpCore {
       context.datamapIndex
     );
 
-    const staleDatamapItems = DatamapUsageAnalyzer.findStaleDatamapItems(
+    const usage = DatamapUsageAnalyzer.analyzeDatamapUsage(
       context.project,
       context.datamapIndex,
       allDocs
@@ -374,7 +377,8 @@ export class SoarMcpCore {
       totalIssues,
       issuesByFile,
       datamapIssues,
-      staleDatamapItems,
+      staleDatamapItems: usage.neverTestedOrCreated,
+      testedNotCreatedDatamapItems: usage.testedNotCreated,
     };
   }
 
