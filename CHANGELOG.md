@@ -1,3 +1,13 @@
+## [0.8.3] - 2026-09-07
+
+### Features
+
+- _(mcp)_ Default agent_runtime_cli_print to structured output ([1e29c4f](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/1e29c4f1771ed08c83c1794f3a26a62a94a8b1cb))
+
+### Bug Fixes
+
+- Soar MCP server config in mcp.json file not automatically generated on extension activation ([8f2d73a](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/8f2d73a04398adc099197b345db5699df32e8da2))
+
 ## [0.8.2] - 2026-07-03
 
 ### Features
