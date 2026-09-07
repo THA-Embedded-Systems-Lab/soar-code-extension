@@ -555,6 +555,11 @@
           "type": "boolean",
           "default": false,
           "description": "Expand high-level operator substate datamaps inline within the parent datamap tree, so the full datamap is visible without switching the datamap root. When off (default), substates are viewed separately as in VisualSoar."
+        },
+        "soar.datamap.checkStaleItems": {
+          "type": "boolean",
+          "default": true,
+          "description": "During Check Project, report stale/unused datamap items: attribute edges whose name is never tested or created by any production in any project Soar file. Name-based heuristic; architectural attributes (superstate, io, operator, name, ...) are exempt."
         }
       }
     }

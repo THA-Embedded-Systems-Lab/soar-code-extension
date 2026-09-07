@@ -6,6 +6,7 @@ import { DatamapTreeProvider, DatamapTreeItem } from './datamap/datamapTreeProvi
 import { SoarSearchViewProvider } from './soarSearchViewProvider';
 import { DatamapValidator } from './datamap/datamapValidator';
 import { DatamapMetadataCache } from './datamap/datamapMetadata';
+import { DatamapUsageAnalyzer } from './datamap/datamapUsage';
 import { DatamapOperations } from './datamap/datamapOperations';
 import {
   LayoutTreeProvider,
@@ -1226,6 +1227,39 @@ async function ensureOperatorAugmentationIndex(
 }
 
 /**
+ * Find stale/unused datamap items across the project: datamap attribute edges
+ * whose name is never tested or created by any production in any project Soar
+ * file. Gated by the `soar.datamap.checkStaleItems` setting (default on).
+ * Returns [] when disabled or on any parse/IO failure.
+ */
+async function runStaleDatamapCheck(
+  projectContext: import('./server/visualSoarProject').ProjectContext
+): Promise<import('./datamap/datamapUsage').StaleDatamapItem[]> {
+  const enabled = vscode.workspace
+    .getConfiguration('soar')
+    .get<boolean>('datamap.checkStaleItems', true);
+  if (!enabled) {
+    return [];
+  }
+
+  try {
+    const soarFiles = await ProjectSync.collectExistingSoarFiles(projectContext);
+    const docs = await Promise.all(
+      soarFiles.map(async filePath =>
+        parser.parse(filePath, await fs.promises.readFile(filePath, 'utf8'), 0)
+      )
+    );
+    return DatamapUsageAnalyzer.findStaleDatamapItems(
+      projectContext.project,
+      projectContext.datamapIndex,
+      docs
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Validate a single document against the datamap
  */
 async function validateDocument(document: vscode.TextDocument): Promise<void> {
@@ -1493,6 +1527,7 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
     projectContext.datamapIndex
   );
   const syncIssues = LayoutOperations.checkOperatorDatamapSync(projectContext);
+  const staleItems = await runStaleDatamapCheck(projectContext);
 
   if (!datamapResult && !lspResult) {
     vscode.window.showInformationMessage('No Soar files found in project');
@@ -1502,11 +1537,12 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
   const datamapErrors = datamapResult?.totalErrors ?? 0;
   const lspIssues = lspResult?.totalIssues ?? 0;
   const fileCount = datamapResult?.fileCount ?? lspResult?.fileCount ?? 0;
-  const totalProblems = datamapErrors + lspIssues + integrityIssues.length + syncIssues.length;
+  const totalProblems =
+    datamapErrors + lspIssues + integrityIssues.length + syncIssues.length + staleItems.length;
 
   if (totalProblems === 0) {
     vscode.window.showInformationMessage(
-      `✓ Project "${projectName}" passed all checks (${fileCount} file(s), datamap + LSP + integrity + operator sync).`
+      `✓ Project "${projectName}" passed all checks (${fileCount} file(s), datamap + LSP + integrity + operator sync + stale items).`
     );
     return;
   }
@@ -1523,6 +1559,9 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
   }
   if (syncIssues.length > 0) {
     parts.push(`${syncIssues.length} operator-sync issue(s)`);
+  }
+  if (staleItems.length > 0) {
+    parts.push(`${staleItems.length} stale datamap item(s)`);
   }
 
   const action = await vscode.window.showWarningMessage(
@@ -1548,6 +1587,9 @@ async function checkProject(layoutProvider: LayoutTreeProvider): Promise<void> {
       '',
       `Operator/datamap sync issues: ${syncIssues.length}`,
       ...syncIssues.map(i => `  • [${i.nodeType}] ${i.message}`),
+      '',
+      `Stale / unused datamap items: ${staleItems.length}`,
+      ...staleItems.map(i => `  • ^${i.attributeName} (${i.path}) — ${i.message}`),
     ];
     const doc = await vscode.workspace.openTextDocument({
       language: 'plaintext',

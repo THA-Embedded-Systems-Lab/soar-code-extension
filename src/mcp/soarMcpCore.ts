@@ -6,6 +6,7 @@ import {
   DatamapProjectContext,
 } from '../datamap/datamapMetadata';
 import { DatamapOperations } from '../datamap/datamapOperations';
+import { DatamapUsageAnalyzer, StaleDatamapItem } from '../datamap/datamapUsage';
 import { SoarTemplates } from '../layout/soarTemplates';
 import { SourceScriptManager } from '../layout/sourceScriptManager';
 import { DatamapValidator, ValidationError } from '../datamap/datamapValidator';
@@ -158,6 +159,7 @@ export interface ValidationSummary {
   totalIssues: number;
   issuesByFile: Record<string, ValidationError[]>;
   datamapIssues: DatamapIntegrityIssue[];
+  staleDatamapItems: StaleDatamapItem[];
 }
 
 export class SoarMcpCore {
@@ -360,12 +362,19 @@ export class SoarMcpCore {
       context.datamapIndex
     );
 
+    const staleDatamapItems = DatamapUsageAnalyzer.findStaleDatamapItems(
+      context.project,
+      context.datamapIndex,
+      allDocs
+    );
+
     return {
       totalFiles: soarFiles.length,
       filesWithIssues,
       totalIssues,
       issuesByFile,
       datamapIssues,
+      staleDatamapItems,
     };
   }
 

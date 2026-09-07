@@ -119,7 +119,8 @@ export const SOAR_MCP_TOOLS = [
   },
   {
     name: SOAR_MCP_TOOL_NAMES.projectValidateAgainstDatamap,
-    description: 'Validate all project Soar files against the project datamap',
+    description:
+      'Validate all project Soar files against the project datamap. Also reports datamap structural integrity issues and stale/unused datamap items (attributes never tested or created by any production).',
     inputSchema: {
       type: 'object',
       required: ['projectFile'],
