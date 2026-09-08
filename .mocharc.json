@@ -1,0 +1,4 @@
+{
+  "ui": "tdd",
+  "node-option": ["import=tsx", "import=./test/helpers/register-vscode-mock.mjs"]
+}

@@ -581,7 +581,7 @@
     "check:links": "markdown-link-check README.md && find doc -name '*.md' -exec markdown-link-check {} \\;",
     "format": "prettier --write 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
     "format:check": "prettier --check 'src/**/*.ts' '*.md' 'doc/*.md' '*.json'",
-    "test": "NODE_OPTIONS=\"--import tsx --import ./test/helpers/register-vscode-mock.mjs\" mocha --ui tdd test/helpers/index.ts",
+    "test": "mocha test/helpers/index.ts",
     "test:ci": "npm run compile && node ./out/test/runTest.js",
     "vsce:package": "vsce package",
     "changelog": "git-cliff -o CHANGELOG.md",

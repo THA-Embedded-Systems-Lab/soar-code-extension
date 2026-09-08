@@ -79,8 +79,12 @@ Pushing the tag runs the `release` job in `.github/workflows/ci.yml`, which pack
 Run a single unit test file:
 
 ```bash
-NODE_OPTIONS="--import tsx --import ./test/helpers/register-vscode-mock.mjs" npx mocha --ui tdd test/helpers/index.ts test/lsp/datamap/helpers/datamap.test.ts
+npx mocha test/helpers/index.ts test/lsp/datamap/helpers/datamap.test.ts
 ```
+
+The `--ui tdd` flag and the `--import tsx` / `--import ./test/helpers/register-vscode-mock.mjs`
+preloads live in `.mocharc.json` (`node-option`), so they apply to any bare `mocha`
+invocation — no `NODE_OPTIONS` env var (which breaks on Windows CI).
 
 The pre-commit hook (`npm run precommit`) runs format, lint, and markdown lint — these are enforced before every commit.
 
@@ -376,7 +380,7 @@ Datamap and layout persist into the project file directly.
 
 ## Test structure
 
-Unit tests use mocha with `tsx` directly (`--import tsx`) — no VS Code needed. Test bootstrap is `test/helpers/index.ts` (populates the VS Code mock object at `test/helpers/vscode-mock.ts`). Since the extension imports `vscode` via ES `import` (not CJS `require`), the mock is wired in via a Node module customization hook — `test/helpers/vscode-mock-loader.mjs` intercepts the `vscode` specifier and re-exports properties off `globalThis.vscode`, registered by `test/helpers/register-vscode-mock.mjs` (preloaded with `--import`, see the `test` script in `package.json`).
+Unit tests use mocha with `tsx` directly (`--import tsx`) — no VS Code needed. Test bootstrap is `test/helpers/index.ts` (populates the VS Code mock object at `test/helpers/vscode-mock.ts`). Since the extension imports `vscode` via ES `import` (not CJS `require`), the mock is wired in via a Node module customization hook — `test/helpers/vscode-mock-loader.mjs` intercepts the `vscode` specifier and re-exports properties off `globalThis.vscode`, registered by `test/helpers/register-vscode-mock.mjs` (preloaded via `--import` in `.mocharc.json`'s `node-option`).
 
 | Test area                    | Location                                                                                                                                                                                                                                  |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
