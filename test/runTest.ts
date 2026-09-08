@@ -14,12 +14,14 @@ async function main() {
     const extensionDevelopmentPath = path.resolve(__dirname, '../../');
 
     // The path to the extension test runner script
-    const extensionTestsPath = path.resolve(__dirname, './integration/index');
+    const extensionTestsPath = path.resolve(__dirname, './integration/index.js');
 
-    // The path to the test workspace
+    // The path to the test workspace (must exist — newer VS Code CLI treats a
+    // missing first positional arg as a script path and crashes).
+    // __dirname is out/test, so repo root is ../..
     const testWorkspacePath = path.resolve(
       __dirname,
-      '../test/legacy-agents/fixtures/BW-Hierarchical'
+      '../../test/legacy-agents/Agents/BW-Hierarchical'
     );
 
     // Download VS Code, unzip it and run the integration tests
