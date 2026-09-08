@@ -273,8 +273,8 @@ export class DatamapValidator {
         if (createdIndex.get('')?.has(firstSegment)) {
           continue;
         }
-        const allCreated = Array.from(operatorNames).every(
-          name => createdIndex.get(name)?.has(firstSegment)
+        const allCreated = Array.from(operatorNames).every(name =>
+          createdIndex.get(name)?.has(firstSegment)
         );
         if (allCreated) {
           continue;

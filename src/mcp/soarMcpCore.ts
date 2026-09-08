@@ -309,7 +309,7 @@ export class SoarMcpCore {
       targetVertexId: edge.toId,
       comment: edge.comment ?? null,
       enumChoices:
-        resultVertex && resultVertex.type === 'ENUMERATION' ? resultVertex.choices ?? [] : null,
+        resultVertex && resultVertex.type === 'ENUMERATION' ? (resultVertex.choices ?? []) : null,
     };
   }
 
@@ -700,7 +700,7 @@ export class SoarMcpCore {
       parentNodeId,
       filePath,
       folderPath: absoluteFolderPath,
-      dmId: 'dmId' in node ? ((node as any).dmId as string) ?? null : null,
+      dmId: 'dmId' in node ? (((node as any).dmId as string) ?? null) : null,
     };
 
     if (includeChildren && hasChildren(node) && node.children) {

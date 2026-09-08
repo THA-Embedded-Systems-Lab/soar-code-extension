@@ -399,9 +399,7 @@ export class LayoutTreeProvider implements vscode.TreeDataProvider<LayoutTreeIte
  * operator converts it to a high-level operator first (see
  * {@link LayoutOperations.moveNode}).
  */
-export class LayoutDragAndDropController
-  implements vscode.TreeDragAndDropController<LayoutTreeItem>
-{
+export class LayoutDragAndDropController implements vscode.TreeDragAndDropController<LayoutTreeItem> {
   readonly dropMimeTypes = [LAYOUT_DND_MIME];
   readonly dragMimeTypes = [LAYOUT_DND_MIME];
 

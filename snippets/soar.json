@@ -48,37 +48,27 @@
   },
   "Write Statement": {
     "prefix": "write",
-    "body": [
-      "(write |${1:message}|)"
-    ],
+    "body": ["(write |${1:message}|)"],
     "description": "Write output"
   },
   "Math Function": {
     "prefix": "math",
-    "body": [
-      "(${1|+,-,*,/,mod,abs,sqrt,sin,cos,tan,min,max|} ${2:arg1} ${3:arg2})"
-    ],
+    "body": ["(${1|+,-,*,/,mod,abs,sqrt,sin,cos,tan,min,max|} ${2:arg1} ${3:arg2})"],
     "description": "Math function"
   },
   "Negation Test": {
     "prefix": "neg",
-    "body": [
-      "-^${1:attribute}"
-    ],
+    "body": ["-^${1:attribute}"],
     "description": "Negation test"
   },
   "Disjunction Test": {
     "prefix": "disj",
-    "body": [
-      "<< ${1:value1} ${2:value2} ${3:value3} >>"
-    ],
+    "body": ["<< ${1:value1} ${2:value2} ${3:value3} >>"],
     "description": "Disjunction (multiple values)"
   },
   "Conjunctive Test": {
     "prefix": "conj",
-    "body": [
-      "{ ${1:variable} ${2|<,>,<=,>=,<>,=|} ${3:value} }"
-    ],
+    "body": ["{ ${1:variable} ${2|<,>,<=,>=,<>,=|} ${3:value} }"],
     "description": "Conjunctive test"
   },
   "Goal Production": {
@@ -94,16 +84,12 @@
   },
   "I/O Link Access": {
     "prefix": "iolink",
-    "body": [
-      "^io.${1|input-link,output-link|}.${2:attribute}"
-    ],
+    "body": ["^io.${1|input-link,output-link|}.${2:attribute}"],
     "description": "Access input or output link"
   },
   "Operator with Preference": {
     "prefix": "oppref",
-    "body": [
-      "(<s> ^operator <o> + ${1|=,<,>,!,~|} ${2:value})"
-    ],
+    "body": ["(<s> ^operator <o> + ${1|=,<,>,!,~|} ${2:value})"],
     "description": "Operator with preference"
   },
   "Impasse Elaboration": {
@@ -130,18 +116,12 @@
   },
   "Deep Path": {
     "prefix": "path",
-    "body": [
-      "^${1:attr1}.${2:attr2}.${3:attr3}"
-    ],
+    "body": ["^${1:attr1}.${2:attr2}.${3:attr3}"],
     "description": "Deep attribute path"
   },
   "Comment Block": {
     "prefix": "comment",
-    "body": [
-      "# ${1:description}",
-      "# ${2:more details}",
-      "$0"
-    ],
+    "body": ["# ${1:description}", "# ${2:more details}", "$0"],
     "description": "Comment block"
   }
 }
