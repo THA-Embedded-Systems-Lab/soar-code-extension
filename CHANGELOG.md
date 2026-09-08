@@ -1,3 +1,29 @@
+## [0.9.0] - 2026-09-08
+
+### Features
+
+- _(datamap)_ Detect stale/unused datamap items in Check Project ([26f6791](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/26f6791ef06a5501749f69b0952b910ccfbf7c9a))
+- _(datamap)_ Add VisualSoar-style datamap usage sweeps ([07d04ed](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/07d04ed255500d2c350d923f31b406f89a6831c0))
+- _(datamap)_ Exempt io subtrees from directional usage buckets ([507a68c](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/507a68c4b6f410bb58dd580077c3f4039f4714aa))
+
+### Bug Fixes
+
+- _(ci)_ Bump @vscode/test-electron to ^3.1.0 for macOS launch ([a1fc1ca](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/a1fc1ca65bfd029c83e6df975c5eda6a65b952d1))
+- _(ci)_ Make integration test harness work under ESM ([07348a5](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/07348a59a75f3f8865a0bf83963106e94e7c608f))
+- _(ci)_ Move mocha flags to .mocharc.json for Windows ([38a3421](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/38a342170f40a7949b3192886b7c2ef4e8b31292))
+
+### Refactor
+
+- Migrate to ES modules ([0d96e92](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/0d96e92e6fe4f476edcd88fa2d702e678fdb3bd1))
+
+### Styling
+
+- Run pre-commit across all files ([2061597](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/20615977498b31957c705b4dccd4a8a1b519051c))
+
+### Miscellaneous Tasks
+
+- Update pre-commit hook versions ([3375f2b](https://github.com/THA-Embedded-Systems-Lab/soar-code-extension/commit/3375f2bfa2056468ed3fc7b7661076a46ea01317))
+
 ## [0.8.3] - 2026-09-07
 
 ### Features

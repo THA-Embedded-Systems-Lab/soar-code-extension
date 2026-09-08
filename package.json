@@ -2,7 +2,7 @@
   "name": "soar-dev-tools",
   "displayName": "Soar Development Tools",
   "description": "Soar development tools including LSP, MCP, datamap tools, syntax highlighting, and debugging interface",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "type": "module",
   "publisher": "tha-embedded-systems-lab",
   "license": "MIT",
